@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -41,8 +41,12 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
     async def get_audit_logs(self, guild, limit=100, user=None, action=None):
         return await self.bot.get_guild(guild.id).audit_logs(limit=limit, user=user, action=action).flatten()
 
+
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
+
+        if before.guild is None:
+            return
 
         db_check = await self.bot.db.fetchval("SELECT guild_id FROM msgedit WHERE guild_id = $1", before.guild.id)
         lchannels = await self.bot.db.fetchval("SELECT channel_id FROM msgedit WHERE guild_id = $1", before.guild.id)
@@ -113,21 +117,32 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         db_check3 = await self.bot.db.fetchval("SELECT guild_id FROM joinmsg WHERE guild_id = $1", member.guild.id)
         joinmsg = await self.bot.db.fetchval("SELECT channel_id FROM joinmsg WHERE guild_id = $1", member.guild.id)
         message = await self.bot.db.fetchval("SELECT msg FROM joinmsg WHERE guild_id = $1", member.guild.id)
+        bots = await self.bot.db.fetchval("SELECT bot_join FROM joinmsg WHERE guild_id = $1", member.guild.id)
+        # ! Temp mute
+        temp_mute = await self.bot.db.fetchval("SELECT user_id FROM moddata WHERE user_id = $1 AND guild_id = $2", member.id, member.guild.id)
 
                    
 
         if db_check1 is not None:
-            # Role on join
-            if member.bot:
-                role = member.guild.get_role(botrole)
-                await member.add_roles(role)
-            elif not member.bot:
-                role = member.guild.get_role(peoplerole)
-                await member.add_roles(role)
-                # if member.guild.id == 671078170874740756:
-                #     roles = member.guild.get_role(679642623107137549)
-                #     await member.add_roles(roles)
+            if member.guild.me.guild_permissions.manage_roles:
+                # Role on join
+                if member.bot:
+                    role = member.guild.get_role(botrole)
+                    await member.add_roles(role, reason='Autorole')
+                elif not member.bot:
+                    role = member.guild.get_role(peoplerole)
+                    await member.add_roles(role, reason='Autorole')
+                    # if member.guild.id == 671078170874740756:
+                    #     roles = member.guild.get_role(679642623107137549)
+                    #     await member.add_roles(roles)
+                if temp_mute:
+                    muterole = discord.utils.find(lambda r: r.name.lower() == "muted", member.guild.roles)
+                    await member.add_roles(muterole, reason='User was muted before')
         if db_check3 is not None:
+            if member.bot and bots == False or bots is None:
+                return
+            elif member.bot and bots == True:
+                pass
             if message:
                 joinmessage = str(message)
                 joinmessage = joinmessage.replace("::member.mention::", member.mention)
@@ -163,6 +178,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM leavemsg WHERE guild_id = $1", member.guild.id)
         leavelog = await self.bot.db.fetchval("SELECT channel_id FROM leavemsg WHERE guild_id = $1", member.guild.id)
         message = await self.bot.db.fetchval("SELECT msg FROM leavemsg WHERE guild_id = $1", member.guild.id)
+        bots = await self.bot.db.fetchval("SELECT bot_join FROM leavemsg WHERE guild_id = $1", member.guild.id)
 
         db_check2 = await self.bot.db.fetchval("SELECT guild_id FROM joinlog WHERE guild_id = $1", member.guild.id)
         joinlog = await self.bot.db.fetchval("SELECT channel_id FROM joinlog WHERE guild_id = $1", member.guild.id)
@@ -175,6 +191,10 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             checks = await self.get_audit_logs(member.guild, limit=1, action=discord.AuditLogAction.kick)  
 
         if db_check1 is not None:
+            if member.bot and bots == False or bots is None:
+                return
+            elif member.bot and bots == True:
+                pass
             if message:
                 leavemessage = str(message)
                 leavemessage = leavemessage.replace("::member.mention::", member.mention)

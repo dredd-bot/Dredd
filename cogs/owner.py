@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -53,20 +53,6 @@ class owner(commands.Cog, name="Owner"):
             await ctx.send(f"{emotes.bot_owner} | This command is owner-locked", delete_after=20)
             return False
         return True
-    
-    def cleanup_code(self, content):
-        """Automatically removes code blocks from the code."""
-        # remove ```py\n```
-        if content.startswith('```') and content.endswith('```'):
-            return '\n'.join(content.split('\n')[1:-1])
-
-        # remove `foo`
-        return content.strip('` \n')
-
-    def get_syntax_error(self, e):
-        if e.text is None:
-            return '```py\n{0.__class__.__name__}: {0}\n```'.format(e)
-        return '```py\n{0.text}{1:>{0.offset}}\n{2}: {0}```'.format(e, '^', type(e).__name__)
 
     @commands.group(brief="Main commands")
     @commands.guild_only()
@@ -81,6 +67,7 @@ class owner(commands.Cog, name="Owner"):
     
     @dev.command()
     async def userlist(self, ctx):
+        """ Whole list of users that bot can see """
 
         try:
             await ctx.message.delete()
@@ -96,10 +83,6 @@ class owner(commands.Cog, name="Owner"):
         for num, user in enumerate(user_list, start=0):
             user_lists.append(f'`[{num + 1}]` **{user.name}** ({user.id})\n**Created at:** {btime.human_timedelta(user.created_at)}\n**────────────────────────**\n')
 
-        #embed = discord.Embed(color=self.bot.embed_color,
-                              #title=f"Users: `[{len(self.bot.users)}]`", description=user_lists)
-        #embed.set_footer(text=f"Viewing page {page}/{pages}")
-
         paginator = Pages(ctx,
                           title=f"__Users:__ `[{len(user_lists)}]`",
                           entries=user_lists,
@@ -112,6 +95,7 @@ class owner(commands.Cog, name="Owner"):
 
     @dev.command()
     async def nicks(self, ctx, user: discord.User, limit: int = None):
+        """ View someone nicknames """
         nicks = []
         for num, nick in enumerate(await self.bot.db.fetch("SELECT * FROM nicknames WHERE user_id = $1 LIMIT $2", user.id, limit), start=0):
             nicks.append(f"`[{num + 1}]` {nick['nickname']}")
@@ -131,6 +115,7 @@ class owner(commands.Cog, name="Owner"):
 
     @dev.command(brief='Clear user nicknames')
     async def clearnicks(self, ctx, user: discord.User, guild: int = None):
+        """ Clear user nicknames """
 
         db_check = await self.bot.db.fetch("SELECT * FROM nicknames WHERE user_id = $1", user.id)
 
@@ -220,7 +205,7 @@ class owner(commands.Cog, name="Owner"):
 
 # ! Blacklist
 
-    @dev.command(brief="Blacklist a guild")
+    @dev.command(brief="Blacklist a guild", aliases=['guildban'])
     async def guildblock(self, ctx, guild: int, *, reason: str = None):
         """ Blacklist bot from specific guild """
 
@@ -234,7 +219,7 @@ class owner(commands.Cog, name="Owner"):
 
         db_check = await self.bot.db.fetchval("SELECT guild_id FROM blockedguilds WHERE guild_id = $1", guild)
 
-        if guild == 667065302260908032 or guild == 684891633203806260 or guild == 650060149100249091 or guild == 368762307473571840:
+        if await self.bot.db.fetchval("SELECT _id FROM noblack WHERE _id = $1", guild):
             return await ctx.send("You cannot blacklist that guild")
 
         if db_check is not None:
@@ -267,7 +252,7 @@ class owner(commands.Cog, name="Owner"):
         except:
             return
 
-    @dev.command(brief="Unblacklist a guild")
+    @dev.command(brief="Unblacklist a guild", aliases=['guildunban'])
     async def guildunblock(self, ctx, guild: int):
         """ Unblacklist bot from blacklisted guild """
 
@@ -293,7 +278,7 @@ class owner(commands.Cog, name="Owner"):
         except:
             return
 
-    @dev.command(brief="Bot block user")
+    @dev.command(brief="Bot block user", aliases=['botban'])
     async def botblock(self, ctx, user: discord.User, *, reason: str = None):
         """ Blacklist someone from bot commands """
         try:
@@ -321,7 +306,7 @@ class owner(commands.Cog, name="Owner"):
 
         await ctx.send(f"I've successfully added **{user}** to my blacklist", delete_after=10)
 
-    @dev.command(brief="Bot unblock user")
+    @dev.command(brief="Bot unblock user", aliases=['botunban'])
     async def botunblock(self, ctx, user: discord.User):
         """ Unblacklist someone from bot commands """
 
@@ -461,6 +446,16 @@ class owner(commands.Cog, name="Owner"):
         e.set_footer(text=f"© {self.bot.user}")
 
         await ctx.send(embed=e)
+
+    @dev.command(brief='Add guild to whitelist')
+    async def addwhite(self, ctx, guild: int):
+        check = await self.bot.db.fetchval("SELECT * FROM noblack WHERE _id = $1", guild)
+
+        if check:
+            return await ctx.send(f"{emotes.red_mark} Already whitelisted")
+        elif not check:
+            await self.bot.db.execute("INSERT INTO noblack(_id) VALUES($1)", guild)
+            await ctx.send(f"{emotes.white_mark} Done!")
 
 # ! Status managment
     

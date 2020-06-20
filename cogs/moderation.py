@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -19,6 +19,7 @@ import datetime
 import json
 import asyncio
 import random # Warnings
+import time
 from discord.ext import commands, tasks
 from datetime import datetime
 from utils import default, btime
@@ -60,24 +61,22 @@ class moderation(commands.Cog, name="Moderation"):
         except discord.HTTPException as e:
             return await ctx.send(f"Looks like you got an error: {e}")
 
-        spammers = Counter(m.author.display_name for m in deleted)
         deleted = len(deleted)
         if deleted == 1:
-            messages = "<:msgdelete:686980262923337728> Deleted **1** message"
-        else:
-            messages = f"<:msgdelete:686980262923337728> Deleted **{deleted}** messages"
-        if deleted:
-            spammers = sorted(spammers.items(), key=lambda t: t[1], reverse=True)
+            messages = f"{emotes.log_msgdelete} Deleted **1** message"
+        elif deleted > 1:
+            messages = f"{emotes.log_msgdelete} Deleted **{deleted}** messages"
 
         to_send = '\n'.join(messages)
         
         if len(to_send) > 2000:
-            text = f"<:msgdelete:686980262923337728> Removed `{deleted}` messages"
+            text = f"{emotes.log_msgdelete} Removed `{deleted}` messages"
             await ctx.send(text, delete_after=10)
         else:
             e = discord.Embed(color=self.bot.embed_color)
             e.description = f"{messages}"
             await ctx.send(embed=e, delete_after=10)
+
 
     async def log_delete(self, ctx, data):
         check = await self.bot.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", ctx.guild.id)
@@ -92,6 +91,56 @@ class moderation(commands.Cog, name="Moderation"):
             text = f"Messages were deleted by **{ctx.author}**."
             file=data
             await chan.send(text, file=file)
+
+    async def log_mute(self, ctx, member=None, reason=None, timed=None):
+        check = await self.bot.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", ctx.guild.id)
+
+        if check is None:
+            return
+        elif check is not None:
+            channel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", ctx.guild.id)
+            case = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
+            chan = self.bot.get_channel(channel)
+
+            if case is None:
+                await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", ctx.guild.id, 1)
+
+            casenum = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
+
+            e = discord.Embed(color=self.bot.logging_color, description=f"{emotes.log_memberedit} **{member}** muted `[#{casenum}]`")
+            e.add_field(name="Moderator:", value=f"{ctx.author} ({ctx.author.id})", inline=False)
+            e.add_field(name="Reason:", value=f"{reason}")
+            if timed:
+                e.add_field(name="Duration:", value=f"{timed}")
+            e.set_thumbnail(url=member.avatar_url_as(format='png'))
+            e.set_footer(text=f"Member ID: {member.id}")
+
+            await chan.send(embed=e)
+            await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", ctx.guild.id)
+    
+    async def log_unmute(self, ctx, member=None, reason=None):
+        check = await self.bot.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", ctx.guild.id)
+
+        if check is None:
+            return
+        elif check is not None:
+            channel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", ctx.guild.id)
+            case = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
+            chan = self.bot.get_channel(channel)
+
+            if case is None:
+                await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", ctx.guild.id, 1)
+
+            casenum = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
+
+            e = discord.Embed(color=self.bot.logging_color, description=f"{emotes.log_memberedit} **{member}** unmuted `[#{casenum}]`")
+            e.add_field(name="Moderator:", value=f"{ctx.author} ({ctx.author.id})", inline=False)
+            e.add_field(name="Reason:", value=f"{reason}", inline=False)
+            e.set_thumbnail(url=member.avatar_url_as(format='png'))
+            e.set_footer(text=f"Member ID: {member.id}")
+
+            await chan.send(embed=e)
+            await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", ctx.guild.id)
 
 
 #########################################################################################################
@@ -217,7 +266,7 @@ class moderation(commands.Cog, name="Moderation"):
 
         await ctx.message.delete()
 
-        await ctx.guild.unban(discord.Object(id=user.id), reason=responsible(ctx.author, reason))
+        await ctx.guild.unban(user, reason=responsible(ctx.author, reason))
         await ctx.send(f"{emotes.white_mark} **{user}** was unbanned successfully, with a reason: ``{reason}``", delete_after=15)
     
     @commands.command(brief="Unban all members", description="Unban everyone from the server.")
@@ -344,8 +393,8 @@ class moderation(commands.Cog, name="Moderation"):
             if total == 0:
                 return await ctx.send("Please provide members to mute.")
 
-            if total > 5:
-                return await ctx.send("You can mute only 5 members at once!")                    
+            if total > 10:
+                return await ctx.send("You can mute only 10 members at once!")                    
             
 
             failed = 0
@@ -365,20 +414,89 @@ class moderation(commands.Cog, name="Moderation"):
                     continue
                 try:
                     await member.add_roles(muterole, reason=responsible(ctx.author, reason))
+                    await self.log_mute(ctx, member=member, reason=reason)
+                    await self.bot.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id) VALUES($1, $2, $3, $4, $5, $6)", ctx.guild.id, member.id, ctx.author.id, responsible(ctx.author, reason), None, muterole.id)
                 except discord.HTTPException as e:
+                    print(e)
                     failed += 1
                     failed_list += f"{member.mention} - {e}"
                 except discord.Forbidden as e:
+                    print(e)
                     failed += 1
                     failed_list += f"{member.mention} - {e}"
 
             if failed == 0:
                 await ctx.send(f"{emotes.white_mark} Succesfully muted **{total}** members for: `{reason}`.")
-            else:
+            elif failed != 0:
                 await ctx.send(f"Successfully muted **{total - failed}/{total}** members for: `{reason}`.")
         except Exception as e:
             print(e)
             await ctx.send(f"Something failed while trying to mute members.")
+
+    @commands.command()
+    @commands.guild_only()
+    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    async def tempmute(self, ctx, member: discord.Member, duration: str, *, reason: str = None):
+        """ Temporarily mutes a member 
+        Use these duration examples for it to properly work:
+        `1d` - 1 day
+        `1h` - 1 hour
+        `1m` - 1 minute
+        `1s` - 1 second
+        Make sure you have muted role in your server and properly configured"""
+
+        muterole = discord.utils.find(lambda r: r.name.lower() == "muted", ctx.guild.roles)
+
+        if muterole is None:
+            embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
+            return await ctx.send(embed=embed, delete_after=10)
+
+        if member == ctx.author:
+            return await ctx.send("Are you seriously trying to mute yourself? That's stupid")
+        elif member.top_role.position >= ctx.author.top_role.position:
+            return await ctx.send("You can't mute users who are above or equal to you!")
+        if muterole.position > ctx.guild.me.top_role.position:
+            return await ctx.send(f"{emotes.warning} Mute role is higher than me and I cannot access it.")
+
+        if muterole in member.roles:
+            return await ctx.send(f"{member} is already muted!")
+        if not duration[:-1].isdigit():
+            return await ctx.send(f"{emotes.warning} Invalid time format provided!")
+
+        if 'd' in duration.lower():
+            dur = int(duration[:-1]) * 60 * 60 * 24
+            if int(duration[:-1]) == 1:
+                tm = 'day'
+            elif int(duration[:-1]) > 1:
+                tm = 'days'
+        elif 'h' in duration.lower():
+            dur = int(duration[:-1]) * 60 * 60
+            if int(duration[:-1]) == 1:
+                tm = 'hour'
+            elif int(duration[:-1]) > 1:
+                tm = 'hours'
+        elif 'm' in duration.lower():
+            dur = int(duration[:-1]) * 60
+            if int(duration[:-1]) == 1:
+                tm = 'minute'
+            elif int(duration[:-1]) > 1:
+                tm = 'minutes'
+        elif 's' in duration.lower():
+            dur = int(duration[:-1])
+            if int(duration[:-1]) == 1:
+                tm = 'second'
+            elif int(duration[:-1]) > 1:
+                tm = 'seconds'
+        else:
+            dur = 10 * 60
+            tm = 'minutes'
+        durations = time.time() + dur
+        await member.add_roles(muterole, reason=responsible(ctx.author, reason))
+        await self.bot.temp_punishment(ctx.guild.id, member.id, ctx.author.id, reason, durations, muterole.id)
+        await ctx.send(f"{emotes.white_mark} Muted {member} for {duration[:-1]}{tm}")
+        tmd = f"{duration[:-1]} {tm}"
+        await self.log_mute(ctx, member=member, reason=reason, timed=tmd)
         
 
     @commands.command(brief="Unmute someone", description="Unmute someone from this server")
@@ -418,6 +536,10 @@ class moderation(commands.Cog, name="Moderation"):
                     continue
                 try:
                     await member.remove_roles(muterole, reason=responsible(ctx.author, reason))
+                    await self.log_mute(ctx, member=member, reason=reason)
+                    await self.bot.db.execute("DELETE FROM moddata WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, member.id)
+                    for g, u, m, r, t, ro in self.bot.temp_timer:
+                        self.bot.temp_timer.remove((g, u, m, r, t, ro))
                 except discord.HTTPException as e:
                     failed += 1
                     failed_list += f"{member.mention} - {e}"
@@ -500,7 +622,7 @@ class moderation(commands.Cog, name="Moderation"):
 
         data = BytesIO(msgs.encode('utf-8'))
         await self.do_removal(ctx, search, lambda e: True)
-        await self.log_delete(ctx, data=discord.File(data, filename=f"{default.timetext('Messages')}"))
+        await self.log_delete(ctx, data=discord.File(data, filename=f"{default.timetext(f'{ctx.channel}-Messages')}"))
     
     @purge.command(brief="User messages", description="Clear messages sent from an user")
     @commands.has_permissions(manage_messages=True)
@@ -742,8 +864,6 @@ class moderation(commands.Cog, name="Moderation"):
             return await ctx.send("Ok you're warned, dummy...")
         if member.top_role.position >= ctx.author.top_role.position and ctx.author != ctx.guild.owner:
             return await ctx.send("You can't warn someone who's higher or equal to you!")
-        if member.top_role.position > ctx.guild.me.top_role.position:
-            return await ctx.send(f"I'm lower than {member.name}. I can't warn him.")
 
         random_id = random.randint(1111, 99999)
         
@@ -763,8 +883,6 @@ class moderation(commands.Cog, name="Moderation"):
             return await ctx.send("Ok your warn was removed, dummy...")
         if member.top_role.position >= ctx.author.top_role.position and ctx.author != ctx.guild.owner:
             return await ctx.send("You can't remove warns from someone who's higher or equal to you!")
-        if member.top_role.position > ctx.guild.me.top_role.position:
-            return await ctx.send(f"I'm lower than {member.name}. I can't remove warns from him.")
 
         check_id = await self.bot.db.fetchval('SELECT * FROM warnings WHERE guild_id = $1 AND id = $2', ctx.guild.id, int(warnid))
 
@@ -791,8 +909,6 @@ class moderation(commands.Cog, name="Moderation"):
                 return await ctx.send("Ok your warns were removed, dummy...")
             if member.top_role.position >= ctx.author.top_role.position and ctx.author != ctx.guild.owner:
                 return await ctx.send("You can't remove warns from someone who's higher or equal to you!")
-            if member.top_role.position > ctx.guild.me.top_role.position:
-                return await ctx.send(f"I'm lower than {member.name}. I can't remove warns from him.")
 
             def check(r, u):
                 return u.id == ctx.author.id and r.message.id == checkmsg.id
@@ -858,22 +974,22 @@ class moderation(commands.Cog, name="Moderation"):
             await channel.send(f"{emotes.unlocked} This channel was unlocked for: `{reason}`")
             await ctx.send(f"{emotes.white_mark} {channel.mention} was unlocked!", delete_after=20)
 
-    @commands.command(brief='Turn on/off server raid mode')
-    @commands.guild_only()
-    @commands.has_permissions(manage_guild=True)
-    @commands.bot_has_permissions(kick_members=True)
-    async def raidmode(self, ctx):
-        """ Raid is happening in your server? Turn on anti-raider! It'll kick every new member that joins. 
-        It'll also inform them in DMs that server is currently in anti-raid mode and doesn't allow new members! """
+    # @commands.command(brief='Turn on/off server raid mode')
+    # @commands.guild_only()
+    # @commands.has_permissions(manage_guild=True)
+    # @commands.bot_has_permissions(kick_members=True)
+    # async def raidmode(self, ctx):
+    #     """ Raid is happening in your server? Turn on anti-raider! It'll kick every new member that joins. 
+    #     It'll also inform them in DMs that server is currently in anti-raid mode and doesn't allow new members! """
 
-        raid_check = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", ctx.guild.id)
+    #     raid_check = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", ctx.guild.id)
 
-        if raid_check == False:
-            await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", True, ctx.guild.id)
-            await ctx.send(f"{emotes.white_mark} Raid mode was activated! New members will get kicked with a message in their DMs")
-        elif raid_check == True:
-            await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", False, ctx.guild.id)
-            await ctx.send(f"{emotes.white_mark} Raid mode was deactivated! New members won't be kicked anymore.")
+    #     if raid_check == False:
+    #         await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", True, ctx.guild.id)
+    #         await ctx.send(f"{emotes.white_mark} Raid mode was activated! New members will get kicked with a message in their DMs")
+    #     elif raid_check == True:
+    #         await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", False, ctx.guild.id)
+    #         await ctx.send(f"{emotes.white_mark} Raid mode was deactivated! New members won't be kicked anymore.")
         
             
     

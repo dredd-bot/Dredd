@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -71,13 +71,13 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
 
         if isinstance(exc, commands.NSFWChannelRequired):
             file = discord.File("img/nsfwerror.png", filename="nsfwerror.png")
-            embed = discord.Embed(color=self.bot.logging_color, description="<:nsfw:686251889624481816> This command is marked NSFW. Please make this channel NSFW in channel settings")
+            embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.other_nsfw} This command is marked NSFW. Please make this channel NSFW in channel settings")
             embed.set_image(url='attachment://nsfwerror.png')
             return await ctx.send(file=file, embed=embed, delete_after=20)
         if isinstance(exc, commands.CommandNotFound):
             return
         if isinstance(exc, commands.NotOwner):
-            embed = discord.Embed(color=self.bot.logging_color, description="<:owners:691667205082841229> This command is owner-locked")
+            embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.bot_owner} This command is owner-locked")
             return await ctx.send(f"{emotes.bot_owner} | This command is owner-locked", delete_after=20)
         if isinstance(exc, commands.CommandInvokeError):
             ctx.command.reset_cooldown(ctx)
@@ -113,11 +113,9 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
             if await self.bot.is_owner(ctx.author):
                 ctx.command.reset_cooldown(ctx)
                 return await ctx.reinvoke()                
-            emb = discord.Embed(color=self.bot.logging_color, description=f"<:timer:686251889838522415> Damn fool! Can you not spam? Try again in **{exc.retry_after:.0f}** seconds")
             log = self.bot.get_channel(691654772360740924)
             embed = discord.Embed(colour=self.bot.logembed_color)
-            embed.title = "**Cooldown Bucket Expired**"
-            embed.set_thumbnail(url='https://cdn.discordapp.com/emojis/522948753368416277.gif')
+            embed.title = "**User on cooldown**"
             embed.description = f"""**User:** {ctx.author}
 **⤷ ID:** {ctx.author.id}
 **Channel:** #{ctx.channel}

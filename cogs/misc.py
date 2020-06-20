@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -151,6 +151,7 @@ class misc(commands.Cog, name="Misc"):
 
     @follow.command()
     async def bug(self, ctx, bugid: int):
+        """ Follow bugs """
         check = await self.bot.db.fetchval("SELECT approved FROM bugs WHERE bug_id = $1", bugid)
         tracks = await self.bot.db.fetchval("SELECT * FROM track_bug WHERE user_id = $1 AND bug_id = $2", ctx.author.id, bugid)
 
@@ -166,6 +167,7 @@ class misc(commands.Cog, name="Misc"):
 
     @follow.command()
     async def suggestion(self, ctx, suggestionid: int):
+        """ Follow suggestions """
         check = await self.bot.db.fetchval("SELECT approved FROM suggestions WHERE suggestion_id = $1", suggestionid)
         tracks = await self.bot.db.fetchval("SELECT * FROM track_suggest WHERE user_id = $1 AND suggestion_id = $2", ctx.author.id, suggestionid)
 
@@ -321,6 +323,7 @@ class misc(commands.Cog, name="Misc"):
     @todo.command()
     @commands.cooldown(1, 15, commands.BucketType.user)
     async def edit(self, ctx, todoid: str, *, content: str):
+        """ Edit todo in your todo list """
 
         todos = await self.bot.db.fetch('SELECT * FROM todolist WHERE user_id = $1 ORDER BY time', ctx.author.id)
         if not todos:

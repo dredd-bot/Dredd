@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -36,13 +36,13 @@ class HelpCommand(commands.HelpCommand):
 
         self.owner_cogs = ['Devishaku', 'Music', 'Owner', "Economy"]
         self.admin_cogs = ['Staff']
-        self.ignore_cogs = ["Help", "Events", "Cmds", "Logs", "dredd", 'DBL', 'Background', 'StatcordPost', "AutomodEvents"]
+        self.ignore_cogs = ["Help", "Events", "Cmds", "Logs", "dredd", 'DBL', 'BG', 'StatcordPost', "AutomodEvents"]
     
     def get_command_signature(self, command):
         if command.cog is None:
-            return f"(None) > {command.qualified_name}"
+            return f"(None) / {command.qualified_name}"
         else:
-            return f"({command.cog.qualified_name}) > {command.qualified_name}"
+            return f"({command.cog.qualified_name}) / {command.qualified_name}"
     
     def common_command_formatting(self, emb, command):
         emb.title = self.get_command_signature(command)
@@ -174,7 +174,7 @@ class HelpCommand(commands.HelpCommand):
         #emb.add_field(name="**Commands**", value=f"{cogs}")
         #emb.add_field(name="\u200b", value="\u200b")
         emb.add_field(name='📰 **Latest news**', value=f"{updates}", inline=False)
-        emb.add_field(name='**Useful links**', value=f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | [Vote](https://top.gg/bot/667117267405766696/vote)")
+        emb.add_field(name='**Useful links**', value=f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.dbl} [Vote](https://top.gg/bot/667117267405766696/vote)")
         emb.set_footer(text=f"- You can type {self.context.prefix}help <command> to see that command help and {self.context.prefix}help <category> to see that category commands")
 
         await self.context.send(embed=emb)

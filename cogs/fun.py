@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -31,6 +31,7 @@ from datetime import datetime
 from utils.Nullify import clean
 from io import BytesIO
 from utils.checks import has_voted
+from db import emotes
 
 
 class fun(commands.Cog, name="Fun"):
@@ -80,24 +81,6 @@ class fun(commands.Cog, name="Fun"):
                     except Exception:
                         return str(user.strip("<>"))
 
-    async def cog_check(self, ctx):
-        if ctx.author.id == 345457928972533773:
-            return True
-        else:
-            support = await self.bot.db.fetchval("SELECT * FROM support")
-            embed = discord.Embed(color=self.bot.error_color, title="<:no:687227151291908138> Error!",
-                                  description=f"You attempted to use my testing command. It's not ready for release yet.\n\n[Join support server]({support}) to see when this command will be released.")
-            #await ctx.send(embed=embed)
-            return True
-
-    @commands.command(brief="Random dad joke", description="Read random dad joke")
-    @commands.cooldown(1, 15, commands.BucketType.user)
-    @commands.guild_only()
-    async def dadjoke(self, ctx):
-        """ Some dad jokes """
-        async with aiohttp.ClientSession() as session:
-            resp = await session.get("https://icanhazdadjoke.com", headers={"Accept": "text/plain"})
-            await ctx.send((await resp.content.read()).decode("utf-8 "))
 
     @commands.command(brief="Tweet as someone", description='You can tweet as someone else to troll others')
     @commands.cooldown(1, 30, commands.BucketType.user)
@@ -125,8 +108,11 @@ class fun(commands.Cog, name="Fun"):
         bot = self.bot.get_user(667117267405766696)
         if user == bot:
             return await ctx.send("Don't you dare trapping me")
-        if user == owner:
+        elif user == owner:
             return await ctx.send("Why are you trying to trap my owner? Don't do that :(")
+        elif user is None:
+            return await ctx.send(f"Please add a user!")
+        
 
         try:
             await ctx.trigger_typing()
@@ -290,7 +276,7 @@ class fun(commands.Cog, name="Fun"):
 
         await ctx.send(f'{random.choice(responses)}')
 
-    @commandd.command(aliases=['howhot'], brief="See how hot someone is", description="I wonder how hot are you UwU")
+    @commands.command(aliases=['howhot'], brief="See how hot someone is", description="I wonder how hot are you UwU")
     @commands.cooldown(1, 15, commands.BucketType.user)
     @commands.guild_only()
     async def hot(self, ctx, *, user: discord.Member = None):
@@ -440,8 +426,8 @@ class fun(commands.Cog, name="Fun"):
         """ Make a fake Supreme logo
 
         Arguments:
-            --dark / -d | Make the background to dark colour
-            --light / -l | Make background to light and text to dark colour
+            --dark / -d | Make the background dark
+            --light / -l | Make the background light and the text dark
         """
         parser = argparser.Arguments()
         parser.add_argument('input', nargs="+", default=None)

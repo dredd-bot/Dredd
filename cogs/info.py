@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -99,7 +99,7 @@ class info(commands.Cog, name="Info"):
 
         embed = discord.Embed(color=self.bot.embed_color)
         embed.add_field(name="__**General Information:**__", value=f"**Developer:** {Moksej}\n**Library:**\n{emotes.other_python} [Discord.py](https://github.com/Rapptz/discord.py)\n**Version:** {discord.__version__}\n**Last boot:** {default.timeago(datetime.utcnow() - self.bot.uptime)}\n**Bot version:** {version}", inline=True)
-        embed.add_field(name="__**Other Information:**__", value=f"**Created:** {default.date(self.bot.user.created_at)}\n({default.timeago(datetime.utcnow() - self.bot.user.created_at)})\n**Total:**\nCommands: **{totcmd:,}**\nMembers: **{mems:,}**\nServers: **{len(self.bot.guilds):,}**\nChannels: <:channels:686251889427611785> **{text:,}** | <:voiceunlocked:686251889712431124> **{voice:,}**\n", inline=True)
+        embed.add_field(name="__**Other Information:**__", value=f"**Created:** {default.date(self.bot.user.created_at)}\n({default.timeago(datetime.utcnow() - self.bot.user.created_at)})\n**Total:**\nCommands: **{totcmd:,}**\nMembers: **{mems:,}**\nServers: **{len(self.bot.guilds):,}**\nChannels: {emotes.other_unlocked} **{text:,}** | {emotes.other_vcunlock} **{voice:,}**\n", inline=True)
 
         embed.set_image(
             url='attachment://dreddthumb.png')     
@@ -164,15 +164,23 @@ class info(commands.Cog, name="Info"):
     @commands.guild_only()
     async def roles(self, ctx):
         """ List of roles in the server """
-        allroles = ''
+        allroles = []
 
         for num, role in enumerate(sorted(ctx.guild.roles, reverse=True), start=1):
-            allroles += f"[{str(num).zfill(2)}] {role.id} | {role.name} | [ Users : {len(role.members)} ]\n"
+            if role.is_default():
+                continue
+            allroles.append(f"`[{str(num).zfill(2)}]` {role.mention} | {role.id} | **[ Users : {len(role.members)} ]**\n")
 
         #data = BytesIO(allroles.encode('utf-8'))
-        pages = TextPages(ctx,
-                          text=allroles)
-        return await pages.paginate()
+        paginator = Pages(ctx,
+                          title=f"{ctx.guild.name} roles list",
+                          entries=allroles,
+                          thumbnail=None,
+                          per_page = 15,
+                          embed_color=ctx.bot.embed_color,
+                          show_entry_count=True,
+                          author=ctx.author)
+        await paginator.paginate()
 
 
     @commands.command(brief="See server information", aliases=['server', 'si'])

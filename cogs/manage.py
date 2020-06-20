@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -77,7 +77,6 @@ class Managment(commands.Cog, name="Management"):
         db_check8 = await self.bot.db.fetchval("SELECT guild_id FROM joinrole WHERE guild_id = $1", ctx.guild.id)
         db_check9 = await self.bot.db.fetchval("SELECT guild_id FROM leavemsg WHERE guild_id = $1", ctx.guild.id)
         db_check10 = await self.bot.db.fetchval("SELECT guild_id FROM automodaction WHERE guild_id = $1", ctx.guild.id)
-        db_check11 = await self.bot.db.fetchval("SELECT punishment FROM automods WHERE guild_id = $1", ctx.guild.id)
 
         logs  = f"{f'{emotes.setting_no}' if db_check3 is None else f'{emotes.setting_yes}'} Edited messages\n"
         logs += f"{f'{emotes.setting_no}' if db_check1 is None else f'{emotes.setting_yes}'} Deleted messages\n"
@@ -89,25 +88,11 @@ class Managment(commands.Cog, name="Management"):
         settings = f"{f'{emotes.setting_no}' if db_check8 is None else f'{emotes.setting_yes}'} Role On Join\n"
         settings += f"{f'{emotes.setting_no}' if db_check7 is None else f'{emotes.setting_yes}'} Welcoming Messages\n"
         settings += f"{f'{emotes.setting_no}' if db_check9 is None else f'{emotes.setting_yes}'} Leaving Messages\n"
-        #settings += f"{'<:off_switch:687015661901316405>' if db_check11 == 0 else '<:on_switch:687015662039859201>'} Automod\n"
-        if db_check11 == 0 or db_check11 is None:
-            mode = "Disabled"
-        else:
-            mode = "Enabled"
 
 
         embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.log_settings} **{ctx.guild}** server settings")
         embed.add_field(name="Logs:", value=logs, inline=False)
         embed.add_field(name="Settings:", value=settings, inline=False)
-        check = await self.bot.db.fetchval("SELECT mentions FROM mentions WHERE guild_id = $1", ctx.guild.id)
-        if check is not None:
-            other = ''
-            if check != 0:
-                other += f"Mass mentions limit: **{check}**\n"
-            other += f"Automod: **{mode}**"
-            embed.add_field(name="Other:", value=other, inline=False)
-        else:
-            pass
 
         await ctx.send(embed=embed)
     
@@ -214,6 +199,7 @@ class Managment(commands.Cog, name="Management"):
 
     @togglemsg.command()
     async def welcoming(self, ctx, *, message: str = None):
+        """ Set welcoming message """
 
         db_check = await self.bot.db.fetchval("SELECT * FROM joinmsg WHERE guild_id = $1", ctx.guild.id)
 
@@ -229,6 +215,7 @@ class Managment(commands.Cog, name="Management"):
 
     @togglemsg.command()
     async def leaving(self, ctx, *, message: str = None):
+        """ Set leaving message """
 
         db_check = await self.bot.db.fetchval("SELECT * FROM leavemsg WHERE guild_id = $1", ctx.guild.id)
 
@@ -241,6 +228,28 @@ class Managment(commands.Cog, name="Management"):
                 await ctx.send(f"{emotes.white_mark} Changed leaving message to `{message}`")
         elif db_check is None:
             return await ctx.send(f"{emotes.red_mark} Please enable leaving messages first by typing `{ctx.prefix}togglelog leavemsg [channel mention]`")
+
+    @togglemsg.command(name="bots")
+    async def _bots(self, ctx):
+        """ Disable join and leave messages for bots """
+
+        check = await self.bot.db.fetchval("SELECT bot_join FROM joinmsg WHERE guild_id = $1", ctx.guild.id)
+        check2 = await self.bot.db.fetchval("SELECT bot_join FROM leavemsg WHERE guild_id = $1", ctx.guild.id)
+
+        if check == False and check2 == False:
+            await self.bot.db.execute("UPDATE joinmsg SET bot_join = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            await self.bot.db.execute("UPDATE leavemsg SET bot_join = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            await ctx.send(f"{emotes.white_mark} Bot joins will now be logged!")
+        elif check == True and check2 == True:
+            await self.bot.db.execute("UPDATE joinmsg SET bot_join = $1 WHERE guild_id = $2", False, ctx.guild.id)
+            await self.bot.db.execute("UPDATE leavemsg SET bot_join = $1 WHERE guild_id = $2", False, ctx.guild.id)
+            await ctx.send(f"{emotes.white_mark} Bot joins won't be logged anymore!")
+        elif check is None and check2 is None:
+            await self.bot.db.execute("UPDATE joinmsg SET bot_join = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            await self.bot.db.execute("UPDATE leavemsg SET bot_join = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            await ctx.send(f"{emotes.white_mark} Bot joins will now be logged!")
+        else:
+            await ctx.send(f"{emotes.red_mark} You aren't logging member joins, please enable that by typing `{ctx.prefix}togglelog joinmsg [channel mention]`")
 
     @commands.group(brief="Role on join", description="Setup and toggle role on join")
     @commands.has_permissions(manage_roles=True)

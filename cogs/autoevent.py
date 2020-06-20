@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -107,7 +107,7 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         link = await self.bot.db.fetchval("SELECT punishment FROM inv WHERE guild_id = $1", message.guild.id)
         exes = await self.bot.db.fetchval("SELECT inv FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
         channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction")
-        logchannel = message.guild.get_channel(channel)   
+        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", message.guild.id)   
 
         if link == 0 or link is None:
             return
@@ -139,7 +139,7 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
     async def allow_links(self, message):
         link = await self.bot.db.fetchval("SELECT punishment FROM link WHERE guild_id = $1", message.guild.id)
         exes = await self.bot.db.fetchval("SELECT links FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
-        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction")
+        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", message.guild.id)
         logchannel = message.guild.get_channel(channel)   
 
         if link == 0 or link is None:
@@ -173,7 +173,7 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
     async def mass_caps(self, message):
         caps = await self.bot.db.fetchval("SELECT punishment FROM caps WHERE guild_id = $1", message.guild.id)
         exes = await self.bot.db.fetchval("SELECT caps FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
-        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction")
+        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", message.guild.id)
         logchannel = message.guild.get_channel(channel)   
 
         if caps == 0 or caps is None:
@@ -208,7 +208,7 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         punishment = await self.bot.db.fetchval("SELECT punishment FROM massmention WHERE guild_id = $1", message.guild.id)
         chech = await self.bot.db.fetchval("SELECT mentions FROM mentions WHERE guild_id = $1", message.guild.id)
         exes = await self.bot.db.fetchval("SELECT mm FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
-        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction")
+        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", message.guild.id)
         logchannel = message.guild.get_channel(channel)   
 
 
@@ -281,19 +281,19 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         mass_mentions, allow_links, mass_caps, discord_links
     ]
 #
-    @commands.Cog.listener('on_member_join')
-    async def raidmode(self, member):
-        raidcheck = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", member.guild.id)
+    # @commands.Cog.listener('on_member_join')
+    # async def raidmode(self, member):
+    #     raidcheck = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", member.guild.id)
 
-        if raidcheck == False:
-            return
+    #     if raidcheck == False:
+    #         return
             
-        elif raidcheck == True and member.guild.me.guild_permissions.kick_members:
-            try:
-                await member.send(f"{emotes.red_mark} **{member.guild.name}** has anti-raidmode activated, please join later...")
-            except:
-                pass
-            return await member.guild.kick(member, reason="anti-raidmode action")
+    #     elif raidcheck == True and member.guild.me.guild_permissions.kick_members:
+    #         try:
+    #             await member.send(f"{emotes.red_mark} **{member.guild.name}** has anti-raidmode activated, please join later...")
+    #         except:
+    #             pass
+    #         return await member.guild.kick(member, reason="anti-raidmode action")
 
 def setup(bot):
     bot.add_cog(AutomodEvents(bot))

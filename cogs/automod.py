@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -384,9 +384,32 @@ class automod(commands.Cog, name="Automod"):
         if ch is None:
             return await ctx.send(f"{emotes.red_mark} {member} has no automod warnings.")
         elif ch:
-            await self.bot.db.execute("DELETE FROM autowarns WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, member.id)
-            return await ctx.send(f"{emotes.white_mark} Cleared {member}'s automod warnings.")
-    
+            try:
+                def check(r, u):
+                    return u.id == ctx.author.id and r.message.id == checkmsg.id
+                    
+                checkmsg = await ctx.send(f"Are you sure you want to clear all {member}'s autowarns from this guild? This cannot be undone.")
+                await checkmsg.add_reaction(f'{emotes.white_mark}')
+                await checkmsg.add_reaction(f'{emotes.red_mark}')
+                react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
+
+                if str(react) == f"{emotes.white_mark}":
+                    await self.bot.db.execute("DELETE FROM autowarns WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, member.id)
+                    await checkmsg.edit(content=f"{emotes.white_mark} Cleared {member}'s automod warnings.")
+                    await checkmsg.clear_reactions()
+
+                elif str(react) == f"{emotes.red_mark}":
+                    await checkmsg.edit(content=f"Not clearing {member}'s autowarns.")
+                    await checkmsg.clear_reactions()
+
+                else:
+                    await checkmsg.edit(content="Uh oh! Something failed")
+                    await checkmsg.clear_reactions()
+
+
+            except Exception as e:
+                return
+            
     @commands.command(brief="Automod settings in guild", aliases=['autosettings', 'autoinfo'])
     @commands.cooldown(1, 15, commands.BucketType.user)
     async def automodsettings(self, ctx):
@@ -396,7 +419,6 @@ class automod(commands.Cog, name="Automod"):
         db_check3 = await self.bot.db.fetchval('SELECT punishment FROM inv WHERE guild_id = $1', ctx.guild.id)
         db_check4 = await self.bot.db.fetchval('SELECT punishment FROM link WHERE guild_id = $1', ctx.guild.id)
         db_check5 = await self.bot.db.fetchval('SELECT punishment FROM massmention WHERE guild_id = $1', ctx.guild.id)
-        db_check7 = await self.bot.db.fetchval("SELECT * FROM whitelist WHERE guild_id = $1", ctx.guild.id)
         db_check8 = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", ctx.guild.id)
 
 
@@ -406,7 +428,7 @@ class automod(commands.Cog, name="Automod"):
         logs += f"{f'{emotes.setting_no}' if db_check3 is None else f'{emotes.setting_yes}'} Invites monitoring\n"
         logs += f"{f'{emotes.setting_no}' if db_check4 is None else f'{emotes.setting_yes}'} Links monitoring\n"
         logs += f"{f'{emotes.setting_no}' if db_check5 is None else f'{emotes.setting_yes}'} Mass mentions monitoring\n"
-        logs += f"{f'{emotes.setting_no}' if db_check7 is None else f'{emotes.setting_yes}'} Whitelisted channels/Roles\n"
+        # logs += f"{f'{emotes.setting_no}' if db_check7 is None else f'{emotes.setting_yes}'} Whitelisted channels/Roles\n"
         logs += f"{f'{emotes.setting_no}' if db_check8 is None else f'{emotes.setting_yes}'} Monitoring automod actions\n"
 
         e = discord.Embed(color=self.bot.embed_color, title=f"{emotes.log_settings} Automod settings", description=logs)

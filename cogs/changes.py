@@ -11,7 +11,7 @@ CHANGE_LOG = {
     'V0.7.5': 'Initiated rewrite v2',
     'V0.8.0 Rewrite': "Removed `lolice`, `whowouldwin` commands.\n`permissions` now show what permissions you don't have as well.\nCompletely got rid of economy cog\nAutomod is now better and more simple to setup\nAdded todo list commands\nImproved commands structure\nAdded more management commands for bot's staff.",
     'V0.9.0 Rewrite': "Logs now have case numebrs (bans, unbans, mutes, kicks)\nRoles/channels create/edit/delete does not exist anymore\n`userinfo` command was changed a little bit. (design and emotes) also it was glitching out sometimes by showing incorrect status, especially when streaming.\nMessage deletes are now getting logged if you have `moderation` logging enabled.\nJoin role for bots is here!\nAdded char limit for afk and nick commands",
-    'V1.0.0 Final Rewrite': "You can now follow suggestions and bugs\nPrefix command now has a char limit"
+    'V1.0.0 Final Rewrite': "You can now follow suggestions and bugs\nPrefix command now has a char limit\nAdded temp mute\nIf user was muted before and rejoined the server, he'll be muted."
 }
 
 version = '0.9.0 Rewrite'

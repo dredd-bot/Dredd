@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -43,21 +43,17 @@ class admin(commands.Cog, name="Staff"):
         self.big_icon = "https://cdn.discordapp.com/emojis/691667204550295592.png?v=1"
         self._last_result = None
 
-    def is_it_me(ctx):
-        return ctx.author.id == 345457928972533773
-
-
     async def cog_check(self, ctx: commands.Context):
         """
         Local check, makes all commands in this cog owner-only
         """
         if not await ctx.bot.is_admin(ctx.author):
-            embed = discord.Embed(color=self.bot.logging_color, description="<:owners:691667205082841229> This command is admin-locked")
+            embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.bot_admin} This command is admin-locked")
             await ctx.send(embed=embed)
             return False
         return True
 
-    @commands.group(brief="Main commands")
+    @commands.group(brief="Main commands", invoke_without_subcommand=True)
     @commands.guild_only()
     async def admin(self, ctx):
         """ Bot admin commands.
@@ -68,7 +64,7 @@ class admin(commands.Cog, name="Staff"):
 
 # ! Blacklist
 
-    @admin.command(brief="Blacklist a guild")
+    @admin.command(brief="Blacklist a guild", aliases=['guildban'])
     async def guildblock(self, ctx, guild: int, *, reason: str = None):
         """ Blacklist bot from specific guild """
 
@@ -77,7 +73,7 @@ class admin(commands.Cog, name="Staff"):
 
         db_check = await self.bot.db.fetchval("SELECT guild_id FROM blockedguilds WHERE guild_id = $1", guild)
 
-        if guild == 667065302260908032 or guild == 684891633203806260 or guild == 650060149100249091 or guild == 368762307473571840:
+        if await self.bot.db.fetchval("SELECT _id FROM noblack WHERE _id = $1", guild):
             return await ctx.send("You cannot blacklist that guild")
 
         if db_check is not None:
@@ -92,7 +88,8 @@ class admin(commands.Cog, name="Staff"):
         except Exception:
             pass
 
-    @admin.command(brief="Unblacklist a guild")
+    @admin.command(brief="Unblacklist a guild", aliases=['guildunban'])
+    @commands.cooldown(1, 60, commands.BucketType.user)
     async def guildunblock(self, ctx, guild: int):
         """ Unblacklist bot from blacklisted guild """
 
@@ -105,7 +102,8 @@ class admin(commands.Cog, name="Staff"):
 
         await ctx.send(f"I've successfully removed **{guild}** guild from my blacklist", delete_after=10)
 
-    @admin.command(brief="Bot block user")
+    @admin.command(brief="Bot block user", aliases=['botban'])
+    @commands.cooldown(1, 60, commands.BucketType.user)
     async def botblock(self, ctx, user: discord.User, *, reason: str = None):
         """ Blacklist someone from bot commands """
 
@@ -114,17 +112,18 @@ class admin(commands.Cog, name="Staff"):
 
         db_check = await self.bot.db.fetchval("SELECT user_id FROM blacklist WHERE user_id = $1", user.id)
 
-        if user.id == 345457928972533773 or user.id == 373863656607318018:
+        if await self.bot.is_admin(user):
             return await ctx.send("You cannot blacklist that user")
 
         if db_check is not None:
             return await ctx.send("This user is already in my blacklist.")
 
-        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason) VALUES ($1, $2)", user.id, reason)
+        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
 
         await ctx.send(f"I've successfully added **{user}** to my blacklist", delete_after=10)
 
-    @admin.command(brief="Bot unblock user")
+    @admin.command(brief="Bot unblock user", aliases=['botunban'])
+    @commands.cooldown(1, 60, commands.BucketType.user)
     async def botunblock(self, ctx, user: discord.User):
         """ Unblacklist someone from bot commands """
 
@@ -141,6 +140,7 @@ class admin(commands.Cog, name="Staff"):
 # ! Social 
 
     @admin.command(brief="DM a user", description="Direct message a user. DO NOT ABUSE IT!")
+    @commands.cooldown(1, 120, commands.BucketType.user)
     async def dm(self, ctx, user: discord.User, *, msg: str):
         """ DM an user """
         try:
@@ -202,7 +202,6 @@ class admin(commands.Cog, name="Staff"):
                 pass
 
     @commands.command(aliases=['approve'], brief="Approve suggestion", description="Approve suggestion you think is worth adding")
-    @commands.is_owner()
     async def suggestapprove(self, ctx, suggestion_id: int, *, note: str):
         """Approve someones suggestion."""
 
@@ -249,7 +248,6 @@ class admin(commands.Cog, name="Staff"):
                 pass
 
     @commands.command(brief="Approve a bug", description="Approve a bug that is not fake")
-    @commands.is_owner()
     async def bugapprove(self, ctx, bug_id: int, *, note: str):
         """ Approve bug report """
         await ctx.message.delete()
@@ -294,7 +292,6 @@ class admin(commands.Cog, name="Staff"):
                 pass
 
     @commands.command(brief="Deny a bug")
-    @commands.is_owner()
     async def bugdeny(self, ctx, bug_id: int, *, note: str):
         """ Deny bug report """
         await ctx.message.delete()
@@ -358,7 +355,7 @@ class admin(commands.Cog, name="Staff"):
             embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.white_mark} Okay. **{cmd.name}** was disabled.")
             return await ctx.send(embed=embed)
 
-        if data is not None:
+        elif data is not None:
             embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} **{cmd.name}** is already disabled")
             return await ctx.send(embed=embed)
 
@@ -406,6 +403,7 @@ class admin(commands.Cog, name="Staff"):
             await ctx.send("Looks like there's no system information")
     
     @admin.command(brief='Clear user nicknames')
+    @commands.cooldown(1, 120, commands.BucketType.user)
     async def clearnicks(self, ctx, user: discord.User, guild: int = None):
 
         db_check = await self.bot.db.fetch("SELECT * FROM nicknames WHERE user_id = $1", user.id)
