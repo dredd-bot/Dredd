@@ -1,5 +1,5 @@
 """
-Dredd.
+Dredd, discord bot
 Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -24,7 +24,7 @@ import config
 import asyncpg
 import asyncio
 import aiohttp
-from discord.ext import commands
+from discord.ext import commands, tasks
 from itertools import cycle
 from db import emotes
 
@@ -52,6 +52,10 @@ async def run():
         for user in afk_user:
             bot.afk_users[user['user_id'], user['guild_id']] = [user['message']]
         print(f'[AFK] AFK users were loaded [{len(afk_user)}]')
+        temp_mutees = await bot.db.fetch("SELECT * FROM moddata")
+        for res in temp_mutees:
+            bot.temp_timer.append((res['guild_id'], res['user_id'], res['mod_id'], res['reason'], res['time'], res['role_id']))
+        print(f'[TEMP MUTE] Mutees were loaded [{len(temp_mutees)}]')
         await bot.start(config.DISCORD_TOKEN)
     except KeyboardInterrupt:
         await db.close()
@@ -104,8 +108,9 @@ class Bot(commands.AutoShardedBot):
         self.automod_color = 0xb54907 #b54907
         self.logging_color = 0xE08C0B #E08C0B
         self.memberlog_color = 0x55d655 #55d655
+        self.join_color = 0xEE621B #EE621B
         
-        self.emote = emotes
+        self.e = emotes
         self.config = config
 
         self.loop = asyncio.get_event_loop()
@@ -113,6 +118,7 @@ class Bot(commands.AutoShardedBot):
         self.blacklisted_guilds = {}
         self.blacklisted_users = {}
         self.afk_users = {}
+        self.temp_timer = []
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)
@@ -127,6 +133,10 @@ class Bot(commands.AutoShardedBot):
         if await self.is_owner(user):
             return True
         return await self.db.fetchval("SELECT user_id FROM admins WHERE user_id = $1", user.id)
+
+    async def close(self):
+        await self.session.close()
+        await super().close()
     
     def create_task_and_count(self, coro):
         self.counter += 1
@@ -147,6 +157,36 @@ class Bot(commands.AutoShardedBot):
             return
 
         await self.process_commands(after)
+
+    async def temp_punishment(self, guild: int, user: int, mod: int, reason: str, time: int, role: int):
+        await self.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id) VALUES($1, $2, $3, $4, $5, $6)", guild, user, mod, reason, time, role)
+
+        self.temp_timer.append((guild, user, mod, reason, time, role))
+
+    
+    async def log_temp_unmute(self, ctx, member=None, reason=None):
+        check = await self.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", ctx.guild.id)
+
+        if check is None:
+            return
+        elif check is not None:
+            channel = await self.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", ctx.guild.id)
+            case = await self.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
+            chan = self.get_channel(channel)
+
+            if case is None:
+                await self.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", ctx.guild.id, 1)
+
+            casenum = await self.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
+
+            e = discord.Embed(color=self.logging_color, description=f"{emotes.log_memberedit} **{member}** unmuted `[#{casenum}]`")
+            e.add_field(name="Moderator:", value=f"{ctx.author} ({ctx.author.id})", inline=False)
+            e.add_field(name="Reason:", value=f"{reason}", inline=False)
+            e.set_thumbnail(url=member.avatar_url_as(format='png'))
+            e.set_footer(text=f"Member ID: {member.id}")
+
+            await chan.send(embed=e)
+            await self.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", ctx.guild.id)
 
 
 loop = asyncio.get_event_loop()
