@@ -85,7 +85,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 await guild.leave()
             
             # Send it to the log channel
-            chan = self.bot.get_channel(703653345948336198)
+            chan = self.bot.get_channel(676419533971652633)
             modid = await self.bot.db.fetchval("SELECT dev FROM blockedguilds WHERE guild_id = $1", guild.id)
             mod = self.bot.get_user(modid)
             e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.blacklisted} Attempted Invite", timestamp=datetime.utcnow(),
@@ -117,7 +117,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 await to_send.send(msg)
 
         # Log the join
-        logchannel = self.bot.get_channel(703653345948336198) 
+        logchannel = self.bot.get_channel(675333016066719744) 
 
         members = len(guild.members)
         bots = len([x for x in guild.members if x.bot])
@@ -144,7 +144,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
 
         # Log the leave
         members = len(guild.members)
-        logchannel = self.bot.get_channel(703653345948336198)
+        logchannel = self.bot.get_channel(675333016066719744)
 
         e = discord.Embed(color=self.bot.logging_color, title='I\'ve left the guild...', description=f"**Guild name:** {guild.name}\n**Member count:** {members}")
         await logchannel.send(embed=e)
@@ -168,8 +168,11 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             if blacklist:
                 return
 
+            if message.content.lower().startswith("-"):
+                return await message.author.send("You can use my commands in DM with prefix `!`.")
+
             # They DM'ed the bot
-            logchannel = self.bot.get_channel(703653345948336198)
+            logchannel = self.bot.get_channel(674929832596865045)
             msgembed = discord.Embed(
                 title="Received new Direct Message:", description=message.content, color=self.bot.log_color, timestamp=datetime.utcnow())
             msgembed.set_author(name=message.author,
@@ -204,6 +207,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 for data in await self.bot.db.fetch("SELECT * FROM afkalert WHERE user_id = $1", message.author.id):
                     mentions.append(f"**{self.bot.get_user(data['author_id'])}** mentioned you - `{data['msgs']}`\n[Jump to message]({data['msglink']})")
                 if mentions:
+                    # This is trash
                     e = discord.Embed(color=self.bot.embed_color, title="Mentions log", description="Here's a list of all the messages you were mentioned in while you were afk.")
                     e.add_field(name=f"Total messages ({len(mentions)})", value="\n".join(mentions))
                     try:
