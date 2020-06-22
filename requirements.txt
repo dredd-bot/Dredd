@@ -10,13 +10,10 @@ googletrans
 praw
 wand
 humanize
-dropbox
-wavelink
-youtube_dl
-lyricsgenius
 pathlib
 asyncio
-python-dateutil
-PrettyTable
-dblpy
 statcord.py
+python-dateutil
+prettytable
+dblpy
+discordlists.py
