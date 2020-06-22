@@ -14,11 +14,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import time
-import datetime
-import json
-from discord.ext import commands, tasks
-from datetime import datetime
+from discord.ext import commands
 from utils import default
 from db import emotes
 
@@ -37,8 +33,11 @@ class Managment(commands.Cog, name="Management"):
         if ctx.author is ctx.guild.owner:
             return True
 
+        if ctx.guild is None:
+            return False
+
         if data is not None:
-            await ctx.send(f"{emotes.blacklisted} | `{cmd}` is disabled in this server", delete_after=20)
+            await ctx.send(f"{emotes.blacklisted} | `{cmd}` command is disabled in this server", delete_after=20)
             return False
         
         if data is None:
@@ -187,7 +186,7 @@ class Managment(commands.Cog, name="Management"):
 
     @commands.group(brief="Change the welcoming and leaving messages")
     @commands.guild_only()
-    @commands.has_permissions(manage_guild=True)
+    @commands.has_permissions(manage_messages=True)
     async def togglemsg(self, ctx):
         """ Setup welcoming and leaving messages in your server. 
         `::member.mention::` - Mentions a member that joined/left
@@ -207,9 +206,11 @@ class Managment(commands.Cog, name="Management"):
             if message is None:
                 await self.bot.db.execute("UPDATE joinmsg SET msg = $1 WHERE guild_id = $2", None, ctx.guild.id)
                 await ctx.send(f"{emotes.white_mark} Changed welcoming message to default one.")
-            elif message:
+            elif message and not len(message) > 250:
                 await self.bot.db.execute("UPDATE joinmsg SET msg = $1 WHERE guild_id = $2", message, ctx.guild.id)
                 await ctx.send(f"{emotes.white_mark} Changed welcoming message to `{message}`")
+            else:
+                await ctx.send(f"{emotes.red_mark} Was unable to change welcoming message because it is {len(message)}/250 characters long.")
         elif db_check is None:
             return await ctx.send(f"{emotes.red_mark} Please enable welcoming messages first by typing `{ctx.prefix}togglelog joinmsg [channel mention]`")
 
@@ -223,9 +224,11 @@ class Managment(commands.Cog, name="Management"):
             if message is None:
                 await self.bot.db.execute("UPDATE leavemsg SET msg = $1 WHERE guild_id = $2", None, ctx.guild.id)
                 await ctx.send(f"{emotes.white_mark} Changed leaving message to default one.")
-            elif message:
+            elif message and not len(message) > 250:
                 await self.bot.db.execute("UPDATE leavemsg SET msg = $1 WHERE guild_id = $2", message, ctx.guild.id)
                 await ctx.send(f"{emotes.white_mark} Changed leaving message to `{message}`")
+            else:
+                await ctx.send(f"{emotes.red_mark} Was unable to change leaving message because it is {len(message)}/250 characters long.")
         elif db_check is None:
             return await ctx.send(f"{emotes.red_mark} Please enable leaving messages first by typing `{ctx.prefix}togglelog leavemsg [channel mention]`")
 
@@ -335,10 +338,10 @@ class Managment(commands.Cog, name="Management"):
     @commands.command(brief='Disable command in your server', aliases=['disablecmd'])
     @commands.cooldown(1, 15, commands.BucketType.user)
     @commands.guild_only()
-    @commands.has_permissions(manage_guild=True)
+    @commands.has_permissions(administrator=True)
     async def disablecommand(self, ctx, command):
         """ Disable command in your server so others couldn't use it
-        After you've disabled it, the command will be locked to guild owner only"""
+        Once you've disabled it, the command will be locked to guild owner only"""
         cant_disable = ["help", "jishaku", "disablecommand", "enablecommand"]
         cmd = self.bot.get_command(command)
 
@@ -360,7 +363,7 @@ class Managment(commands.Cog, name="Management"):
     @commands.command(brief='Enable command in your server', aliases=['enablecmd'])
     @commands.cooldown(1, 15, commands.BucketType.user)
     @commands.guild_only()
-    @commands.has_permissions(manage_guild=True)
+    @commands.has_permissions(administrator=True)
     async def enablecommand(self, ctx, command):
         """ Enable disabled command in your servers so others could use it """
         cmd = self.bot.get_command(command)

@@ -15,12 +15,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import discord
 import traceback
-import json
-import aiohttp
-import os
 
 from discord.ext import commands
-from discord.ext.commands import errors
 from datetime import datetime
 from db import emotes
 
@@ -34,9 +30,9 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
     async def on_command(self, ctx):
         if ctx.guild is not None:
             try:
-                print(f"{ctx.guild.name} | {ctx.author} > {ctx.message.content}")
+                print(f"{ctx.guild.name} | {ctx.author} > {ctx.message.clean_content}")
             except:
-                print(f"{ctx.guild.id} | {ctx.author} > {ctx.message.content}")
+                print(f"{ctx.guild.id} | {ctx.author.id} > {ctx.message.clean_content}")
         else:
             print(f"DM channel | {ctx.author} > {ctx.message.content}")
     
@@ -69,6 +65,9 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
     @commands.Cog.listener()
     async def on_command_error(self, ctx, exc):
 
+        if not ctx.channel.permissions_for(ctx.guild.me).send_messages:
+            return
+
         if isinstance(exc, commands.NSFWChannelRequired):
             file = discord.File("img/nsfwerror.png", filename="nsfwerror.png")
             embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.other_nsfw} This command is marked NSFW. Please make this channel NSFW in channel settings")
@@ -77,7 +76,6 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
         if isinstance(exc, commands.CommandNotFound):
             return
         if isinstance(exc, commands.NotOwner):
-            embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.bot_owner} This command is owner-locked")
             return await ctx.send(f"{emotes.bot_owner} | This command is owner-locked", delete_after=20)
         if isinstance(exc, commands.CommandInvokeError):
             ctx.command.reset_cooldown(ctx)
@@ -86,40 +84,27 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
             cleaned = discord.utils.escape_mentions(str(exc))
             clear = await commands.clean_content().convert(ctx, str(exc))
             return await ctx.send(f"{emotes.red_mark} | {cleaned}", delete_after=20)
-        #if isinstance(exc, commands.TooManyArguments):
-            #return
         if isinstance(exc, commands.MissingPermissions):
             perms = "`" + '`, `'.join(exc.missing_perms) + "`" 
             embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.red_mark} You're missing {perms} permissions")
-            try:
-                return await ctx.send(f"{emotes.red_mark} | You're missing {perms} permissions", delete_after=20)
-            except Exception as e:
-                return await ctx.message.add_reaction('\U0000203c')
+            return await ctx.send(f"{emotes.red_mark} | You're missing {perms} permissions", delete_after=20)
         if isinstance(exc, commands.BotMissingPermissions):
             perms = "`" + '`, `'.join(exc.missing_perms) + "`" 
             embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.red_mark} I'm missing {perms} permissions")
-            try:
-                return await ctx.send(f"{emotes.red_mark} | I'm missing {perms} permissions", delete_after=20)
-            except Exception as e:
-                return await ctx.message.add_reaction('\U0000203c')
+            return await ctx.send(f"{emotes.red_mark} | I'm missing {perms} permissions", delete_after=20)
         if isinstance(exc, commands.CheckFailure):
             return
         if isinstance(exc, commands.TooManyArguments):
             if isinstance(ctx.command, commands.Group):
                 return
         if isinstance(exc, commands.CommandOnCooldown):
-            if exc.retry_after >= 60:
-                return
             if await self.bot.is_owner(ctx.author):
                 ctx.command.reset_cooldown(ctx)
                 return await ctx.reinvoke()                
             log = self.bot.get_channel(691654772360740924)
             embed = discord.Embed(colour=self.bot.logembed_color)
-            embed.title = "**User on cooldown**"
-            embed.description = f"""**User:** {ctx.author}
-**⤷ ID:** {ctx.author.id}
-**Channel:** #{ctx.channel}
-**⤷ ID:** {ctx.channel.id}
+            embed.title = "**User is on cooldown**"
+            embed.description = f"""**User:** {ctx.author} ({ctx.author.id})
 Cooldown resets in **{exc.retry_after:.0f}** seconds."""
             await log.send(embed=embed)
             return await ctx.send(f"{emotes.timer} | You're on cooldown, try again in **{exc.retry_after:.0f}** seconds", delete_after=20)
@@ -136,15 +121,11 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
             guild_id = 'DM channel'
             channel = 'DM channel'
             channel_id = 'DM channel'
-            aperms = ""
-            bperms = ""
         else:
             guild = ctx.guild
             guild_id = ctx.guild.id
             channel = ctx.channel
             channel_id = ctx.channel.id
-            aperms = ctx.author.guild_permissions.value
-            bperms = ctx.guild.me.guild_permissions.value
 
         tb = traceback.format_exception(type(exc), exc, exc.__traceback__) 
         tbe = "".join(tb) + ""
@@ -157,33 +138,18 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
         embed.add_field(name='Error information:', value=f'''`{ctx.message.clean_content}`
 **Server:** {guild} **ID:** {guild_id}
 **Channel:** {channel} **ID:** {channel_id};
-**Author:** {ctx.author} **ID:** {ctx.author.id};
-**Author Permissions:** {aperms};
-**Bot Permissions:** {bperms};''')
+**Author:** {ctx.author} **ID:** {ctx.author.id}''')
         try:
             await log.send(embed=embed)
         except Exception:
             print(tb)
-            message = "**Error occured**\n"
-            message += f"{exc}"
-            message += (f"""
-`{ctx.message.clean_content}`
-**Server:** {guild}
-**ID:** {guild_id}
-**Channel:** {channel}
-**ID:** {channel_id};
-**Author:** {ctx.author}
-**ID:** {ctx.author.id};
-**Author Permissions:** {aperms};
-**Bot Permissions:** {bperms};""")
-            await log.send(message)
-        msg = f'''{emotes.error} Error occured while executing command!
+            await log.send(f"{emotes.error} Printed an error")
 
-Visit support server for more information by typing `{ctx.prefix}support`
-**Error Information:**
-```py
-{exc}```'''
-        await ctx.send(msg, delete_after=30)
+        e = discord.Embed(color=self.bot.error_color, timestamp=datetime.utcnow(), description=f'{emotes.error} An error occured while executing command `{ctx.command}`\n[Join support server]({support})')
+        e.add_field(name="Error info:", value=f"""```py
+{exc}```""")
+        e.set_footer(text=f"Developer(s) were notified about this issue")
+        await ctx.send(embed=e, delete_after=30)
         return
 
 

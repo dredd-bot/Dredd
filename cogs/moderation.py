@@ -16,19 +16,32 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import time
 import datetime
-import json
 import asyncio
-import random # Warnings
-import time
-from discord.ext import commands, tasks
+import random
+import typing
+from discord.ext import commands
 from datetime import datetime
-from utils import default, btime
-from collections import Counter
+from utils import btime
 from utils.paginator import Pages
 from db import emotes
-from utils.default import responsible
+from utils.default import responsible, timetext, date
 from io import BytesIO
 
+class BannedMember(commands.Converter):
+    async def convert(self, ctx, argument):
+        if argument.isdigit():
+            member_id = int(argument, base=10)
+            try:
+                return await ctx.guild.fetch_ban(discord.Object(id=member_id))
+            except discord.NotFound:
+                raise commands.BadArgument('This member has not been banned before.') from None
+
+        elif not argument.isdigit():
+            ban_list = await ctx.guild.bans()
+            entity = discord.utils.find(lambda u: str(u.user.name) == argument, ban_list)
+            if entity is None:
+                raise commands.BadArgument('This member has not been banned before.')
+            return entity
 
 class moderation(commands.Cog, name="Moderation"):
 
@@ -142,6 +155,10 @@ class moderation(commands.Cog, name="Moderation"):
             await chan.send(embed=e)
             await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", ctx.guild.id)
 
+    async def cog_check(self, ctx):
+        if ctx.guild is None:
+            return False
+
 
 #########################################################################################################
 
@@ -156,7 +173,7 @@ class moderation(commands.Cog, name="Moderation"):
         try:
             if member.top_role.position > ctx.author.top_role.position:
                 return await ctx.send("You can't change nickname of the member that is above you")
-            if member.top_role.position >= ctx.guild.me.top_role.position:
+            elif member.top_role.position >= ctx.guild.me.top_role.position:
                 return await ctx.send(f"I was unable to change {member.name}'s nickname")
             if name and len(name) > 32:
                 return await ctx.send(f"{emotes.red_mark} Nickname is too long! You can't have nicknames longer than 32 characters")
@@ -164,7 +181,7 @@ class moderation(commands.Cog, name="Moderation"):
             if name is not None:
                 emb = discord.Embed(color=self.bot.embed_color, description=f"{emotes.white_mark} Changed **{member.name}'s** nickname to **{name}**.")
                 return await ctx.send(embed=emb)
-            if name is None:
+            elif name is None:
                 emb = discord.Embed(color=self.bot.embed_color, description=f"{emotes.white_mark} Removed **{member.name}'s** nickname")
                 return await ctx.send(embed=emb)
         except Exception as e:
@@ -193,10 +210,10 @@ class moderation(commands.Cog, name="Moderation"):
                 if member.top_role.position >= ctx.author.top_role.position:
                     failed += 1
                     continue
-                if member.top_role.position >= ctx.guild.me.top_role.position:
+                elif member.top_role.position >= ctx.guild.me.top_role.position:
                     failed += 1
                     continue
-                if member == ctx.author:
+                elif member == ctx.author:
                     failed += 1
                     continue
                 try:
@@ -235,10 +252,10 @@ class moderation(commands.Cog, name="Moderation"):
                 if member.top_role.position >= ctx.author.top_role.position:
                     failed += 1
                     continue
-                if member.top_role.position >= ctx.guild.me.top_role.position:
+                elif member.top_role.position >= ctx.guild.me.top_role.position:
                     failed += 1
                     continue
-                if member == ctx.author:
+                elif member == ctx.author:
                     failed += 1
                     continue
                 try:
@@ -259,15 +276,17 @@ class moderation(commands.Cog, name="Moderation"):
     @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True, manage_messages=True)
-    async def unban(self, ctx, user: discord.User, *, reason: str=None):
+    async def unban(self, ctx, user: BannedMember, *, reason: str=None):
         """
         Unbans user from server
         """
-
-        await ctx.message.delete()
-
-        await ctx.guild.unban(user, reason=responsible(ctx.author, reason))
-        await ctx.send(f"{emotes.white_mark} **{user}** was unbanned successfully, with a reason: ``{reason}``", delete_after=15)
+        try:
+            await ctx.message.delete()
+            await ctx.guild.unban(user.user, reason=responsible(ctx.author, reason))
+            await ctx.send(f"{emotes.white_mark} **{user.user}** was unbanned successfully, with a reason: ``{reason}``", delete_after=15)
+        except Exception as e:
+            print(e)
+            await ctx.send(f"{emotes.red_mark} Something failed while trying to unban.")
     
     @commands.command(brief="Unban all members", description="Unban everyone from the server.")
     @commands.guild_only()
@@ -386,6 +405,9 @@ class moderation(commands.Cog, name="Moderation"):
             embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
             return await ctx.send(embed=embed, delete_after=10)
 
+        if muterole.position > ctx.guild.me.top_role.position:
+            return await ctx.send(f"{emotes.warning} Mute role is higher than me and I cannot access it.")
+
 
         try:
             total = len(members)
@@ -437,7 +459,7 @@ class moderation(commands.Cog, name="Moderation"):
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
-    async def tempmute(self, ctx, member: discord.Member, duration: str, *, reason: str = None):
+    async def tempmute(self, ctx, duration: str, members: commands.Greedy[discord.Member], *, reason: str = None):
         """ Temporarily mutes a member 
         Use these duration examples for it to properly work:
         `1d` - 1 day
@@ -452,15 +474,9 @@ class moderation(commands.Cog, name="Moderation"):
             embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
             return await ctx.send(embed=embed, delete_after=10)
 
-        if member == ctx.author:
-            return await ctx.send("Are you seriously trying to mute yourself? That's stupid")
-        elif member.top_role.position >= ctx.author.top_role.position:
-            return await ctx.send("You can't mute users who are above or equal to you!")
         if muterole.position > ctx.guild.me.top_role.position:
             return await ctx.send(f"{emotes.warning} Mute role is higher than me and I cannot access it.")
 
-        if muterole in member.roles:
-            return await ctx.send(f"{member} is already muted!")
         if not duration[:-1].isdigit():
             return await ctx.send(f"{emotes.warning} Invalid time format provided!")
 
@@ -492,11 +508,55 @@ class moderation(commands.Cog, name="Moderation"):
             dur = 10 * 60
             tm = 'minutes'
         durations = time.time() + dur
-        await member.add_roles(muterole, reason=responsible(ctx.author, reason))
-        await self.bot.temp_punishment(ctx.guild.id, member.id, ctx.author.id, reason, durations, muterole.id)
-        await ctx.send(f"{emotes.white_mark} Muted {member} for {duration[:-1]}{tm}")
-        tmd = f"{duration[:-1]} {tm}"
-        await self.log_mute(ctx, member=member, reason=reason, timed=tmd)
+
+        try:
+            total = len(members)
+
+            if total == 0:
+                return await ctx.send("Please provide members to mute.")
+
+            if total > 10:
+                return await ctx.send("You can mute only 10 members at once!")                    
+            
+
+            failed = 0
+            # failed_list = ""
+            for member in members:
+                if muterole in member.roles:
+                    failed += 1
+                    continue
+                if member.top_role.position >= ctx.author.top_role.position:
+                    failed += 1
+                    continue
+                if member.top_role.position >= ctx.guild.me.top_role.position:
+                    failed += 1
+                    continue
+                if member == ctx.author:
+                    failed += 1
+                    continue
+                try:
+                    await member.add_roles(muterole, reason=responsible(ctx.author, reason))
+                    tmd = f"{duration[:-1]} {tm}"
+                    await self.log_mute(ctx, member=member, reason=reason, timed=tmd)
+                    await self.bot.temp_punishment(ctx.guild.id, member.id, ctx.author.id, reason, durations, muterole.id)
+                except discord.HTTPException as e:
+                    print(e)
+                    failed += 1
+                    # failed_list += f"{member.mention} - {e}"
+                except discord.Forbidden as e:
+                    print(e)
+                    failed += 1
+                    # failed_list += f"{member.mention} - {e}"
+
+            if failed == 0:
+                await ctx.send(f"{emotes.white_mark} Succesfully muted **{total}** members for: `{reason}` (`{duration[:-1]}` {tm}).")
+            elif failed != 0 and total - failed != 0:
+                await ctx.send(f"{emotes.warning} Successfully muted **{total - failed}/{total}** members for: `{reason}` (`{duration[:-1]}` {tm}).")
+            elif failed != 0 and total - failed == 0:
+                await ctx.send(f"{emotes.red_mark} Failed to mute all the members")
+        except Exception as e:
+            print(e)
+            await ctx.send(f"{emotes.error} Something failed while trying to mute members.")
         
 
     @commands.command(brief="Unmute someone", description="Unmute someone from this server")
@@ -512,6 +572,9 @@ class moderation(commands.Cog, name="Moderation"):
         if muterole is None:
             embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
             return await ctx.send(embed=embed, delete_after=10)
+
+        if muterole.position > ctx.guild.me.top_role.position:
+            return await ctx.send(f"{emotes.warning} Mute role is higher than me and I cannot access it.")
 
         try:
             total = len(members)
@@ -612,6 +675,7 @@ class moderation(commands.Cog, name="Moderation"):
     @purge.command(brief="Every message", description="Clear all messages in chat")
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
+    @commands.
     async def all(self, ctx, search=100):
         """ Removes all messages
         Might take longer if you're purging messages that are older than 2 weeks """
@@ -622,7 +686,7 @@ class moderation(commands.Cog, name="Moderation"):
 
         data = BytesIO(msgs.encode('utf-8'))
         await self.do_removal(ctx, search, lambda e: True)
-        await self.log_delete(ctx, data=discord.File(data, filename=f"{default.timetext(f'{ctx.channel}-Messages')}"))
+        await self.log_delete(ctx, data=discord.File(data, filename=f"{timetext(f'{ctx.channel}-Messages')}"))
     
     @purge.command(brief="User messages", description="Clear messages sent from an user")
     @commands.has_permissions(manage_messages=True)
@@ -636,7 +700,7 @@ class moderation(commands.Cog, name="Moderation"):
                 msgs += f"[{message.created_at}] {message.author} - {message.content}\n"
         data = BytesIO(msgs.encode('utf-8'))
         await self.do_removal(ctx, search, lambda e: e.author == member)
-        await self.log_delete(ctx, data=discord.File(data, filename=f"{default.timetext(f'{member}_messages')}"))
+        await self.log_delete(ctx, data=discord.File(data, filename=f"{timetext(f'{member}_messages')}"))
     
     @purge.command(brief="Bot's messages", description="Clear messages sent from an user")
     @commands.has_permissions(manage_messages=True)
@@ -807,7 +871,7 @@ class moderation(commands.Cog, name="Moderation"):
             if warns_check is not None:
                 user = []
                 for user_id, reason, id, time in await self.bot.db.fetch("SELECT user_id, reason, id, time FROM warnings WHERE guild_id = $1", ctx.guild.id):
-                    user.append(f'**User:** {ctx.guild.get_member(user_id)}\n' + '**ID:** ' + str(id) + "\n" + '**Reason:** ' + reason + "\n**Warned:** " + str(default.date(time)) + "\n**────────────────────────**")
+                    user.append(f'**User:** {ctx.guild.get_member(user_id)}\n' + '**ID:** ' + str(id) + "\n" + '**Reason:** ' + reason + "\n**Warned:** " + str(date(time)) + "\n**────────────────────────**")
                 
                 members = []
                 for reason in user:
@@ -833,7 +897,7 @@ class moderation(commands.Cog, name="Moderation"):
             if warns_check is not None:
                 user = []
                 for reason, id, time in await self.bot.db.fetch("SELECT reason, id, time FROM warnings WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, member.id):
-                    user.append('**ID:** ' + str(id) + "\n" + '**Reason:** ' + reason + "\n**Warned:** " + str(default.date(time)) + "\n**────────────────────────**")
+                    user.append('**ID:** ' + str(id) + "\n" + '**Reason:** ' + reason + "\n**Warned:** " + str(date(time)) + "\n**────────────────────────**")
                 
                 members = []
                 for reason in user:

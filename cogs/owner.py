@@ -14,26 +14,20 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import json
 import math
-import time
-import random
 import humanize
-import datetime
 import aiohttp
 import typing
 import os
-import platform
-import psutil
 import importlib
 import asyncio
+import discordlists
+import config
 
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands
-from typing import Union
 from utils import default, btime
 from utils.paginator import Pages
-from contextlib import redirect_stdout
 from prettytable import PrettyTable
 from db import emotes
 
@@ -44,6 +38,16 @@ class owner(commands.Cog, name="Owner"):
         self.help_icon = "<:owners:691667205082841229>"
         self.big_icon = "https://cdn.discordapp.com/emojis/691667205082841229.png?v=1"
         self._last_result = None
+        self.api = discordlists.Client(self.bot)  # Create a Client instance
+        self.api.set_auth("discordextremelist.xyz", config.DEL_TOKEN)
+        self.api.set_auth("discord.bots.gg",  config.DBGG_TOKEN)
+        self.api.set_auth("discord.boats",  config.DBoats_TOKEN)
+        self.api.set_auth("wonderbotlist.com",  config.WONDER_TOKEN)
+        self.api.set_auth("glennbotlist.xyz",  config.GLENN_TOKEN)
+        self.api.set_auth("mythicalbots.xyz",  config.MYTH_TOKEN)
+        self.api.set_auth("botsfordiscord.com", config.BFD_TOKEN)
+        self.api.set_auth("botlist.space", config.BOTSPACE_TOKEN)
+        self.api.start_loop()
 
     async def cog_check(self, ctx: commands.Context):
         """
@@ -476,7 +480,6 @@ class owner(commands.Cog, name="Owner"):
                 activity=discord.Game(type=0, name=playing),
                 status=discord.Status.online
             )
-            # jsonedit.change_value("files/config.json", "playing", playing)
             await ctx.send(f"Changed playing status to **{playing}**")
             await ctx.message.delete()
         except discord.InvalidArgument as err:
@@ -494,7 +497,6 @@ class owner(commands.Cog, name="Owner"):
                 activity=discord.Activity(type=discord.ActivityType.listening,
                                           name=listening)
             )
-            # jsonedit.change_value("files/config.json", "playing", playing)
             await ctx.send(f"Changed listening status to **{listening}**")
             await ctx.message.delete()
         except discord.InvalidArgument as err:
@@ -512,7 +514,6 @@ class owner(commands.Cog, name="Owner"):
                 activity=discord.Activity(type=discord.ActivityType.watching,
                                           name=watching)
             )
-            # jsonedit.change_value("files/config.json", "playing", playing)
             await ctx.send(f"Changed watching status to **{watching}**")
             await ctx.message.delete()
         except discord.InvalidArgument as err:
@@ -937,6 +938,23 @@ class owner(commands.Cog, name="Owner"):
         await ctx.send("Logging out now..")
         await self.bot.session.close()
         await self.bot.logout()
+
+    @commands.command(hidden=True)
+    async def post(self, ctx: commands.Context):
+        """
+        Manually posts guild count using discordlists.py (BotBlock)
+        """
+        try:
+            result = await self.api.post_count()
+        except Exception as e:
+            await ctx.send("Request failed: `{}`".format(e))
+            return
+
+        
+        await ctx.send("Successfully manually posted server count ({:,}) to {:,} lists."
+                       "\nFailed to post server count to {} lists.".format(self.api.server_count,
+                                                                             len(result["success"].keys()),
+                                                                             len(result["failure"].keys())))
 
 
 

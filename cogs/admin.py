@@ -14,25 +14,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import json
-import math
-import time
-import random
-import humanize
-import datetime
-import aiohttp
-import typing
 import os
 import platform
 import psutil
 import asyncio
 
-
 from discord.ext import commands
-from typing import Union
-from utils import default
-from discord import Webhook, AsyncWebhookAdapter
-from contextlib import redirect_stdout
 from db import emotes
 
 class admin(commands.Cog, name="Staff"):
@@ -53,8 +40,7 @@ class admin(commands.Cog, name="Staff"):
             return False
         return True
 
-    @commands.group(brief="Main commands", invoke_without_subcommand=True)
-    @commands.guild_only()
+    @commands.group(brief="Main commands", invoke_without_command=True)
     async def admin(self, ctx):
         """ Bot admin commands.
         Used to help managing bot stuff."""
@@ -156,6 +142,7 @@ class admin(commands.Cog, name="Staff"):
             await ctx.message.delete()
 
     @commands.command(aliases=['deny'], brief="Deny suggestion", description="Deny suggestion you think is not worth adding or already exists.")
+    @commands.guild_only()
     async def suggestdeny(self, ctx, suggestion_id: int, *, note: str):
         """Deny someones suggestion"""
         await ctx.message.delete()
@@ -202,6 +189,7 @@ class admin(commands.Cog, name="Staff"):
                 pass
 
     @commands.command(aliases=['approve'], brief="Approve suggestion", description="Approve suggestion you think is worth adding")
+    @commands.guild_only()
     async def suggestapprove(self, ctx, suggestion_id: int, *, note: str):
         """Approve someones suggestion."""
 
@@ -248,6 +236,7 @@ class admin(commands.Cog, name="Staff"):
                 pass
 
     @commands.command(brief="Approve a bug", description="Approve a bug that is not fake")
+    @commands.guild_only()
     async def bugapprove(self, ctx, bug_id: int, *, note: str):
         """ Approve bug report """
         await ctx.message.delete()
@@ -292,6 +281,7 @@ class admin(commands.Cog, name="Staff"):
                 pass
 
     @commands.command(brief="Deny a bug")
+    @commands.guild_only()
     async def bugdeny(self, ctx, bug_id: int, *, note: str):
         """ Deny bug report """
         await ctx.message.delete()

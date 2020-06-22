@@ -15,21 +15,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import discord
 import time
-import asyncio
 import os
 import codecs
 import pathlib
-import aiohttp
-import inspect
 
 from io import BytesIO
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord.utils import escape_markdown
 from datetime import datetime
 
-from utils import default, checks
+from utils import default
 from utils.checks import has_voted
-from utils.paginator import Pages, TextPages
+from utils.paginator import Pages
 from utils.Nullify import clean
 from utils.publicflags import UserFlags
 
@@ -63,7 +60,6 @@ class info(commands.Cog, name="Info"):
             return True
 
     @commands.command(brief="Pongerino")
-    @commands.guild_only()
     async def ping(self, ctx):
         """ See bot's latency to discord """
         discord_start = time.monotonic()
@@ -76,7 +72,6 @@ class info(commands.Cog, name="Info"):
         await ctx.send(f"\U0001f3d3 Pong   |   {discord_ms}")
 
     @commands.command(brief="Information about the bot", aliases=["botinfo"])
-    @commands.guild_only()
     async def about(self, ctx):
         """ Displays basic information about the bot """
 
@@ -170,6 +165,9 @@ class info(commands.Cog, name="Info"):
             if role.is_default():
                 continue
             allroles.append(f"`[{str(num).zfill(2)}]` {role.mention} | {role.id} | **[ Users : {len(role.members)} ]**\n")
+
+        if len(allroles) == 0:
+            return await ctx.send(f"{emotes.red_mark} Server has no roles")
 
         #data = BytesIO(allroles.encode('utf-8'))
         paginator = Pages(ctx,
@@ -416,7 +414,6 @@ class info(commands.Cog, name="Info"):
         await ctx.send(f"{emotes.other_python} You can find my source code at: https://github.com/TheMoksej/Dredd")
 
     @commands.command(aliases=['pfp'], brief="Users avatar")
-    @commands.guild_only()
     async def avatar(self, ctx, user: discord.User = None):
         """ Displays what avatar user is using """
 
@@ -469,7 +466,7 @@ class info(commands.Cog, name="Info"):
     async def support(self, ctx):
         """ A link to this bot's support server """
 
-        if ctx.guild.id == 671078170874740756:
+        if ctx.guild and ctx.guild.id == 671078170874740756:
             return await ctx.send("You are in the support server, dummy.")
 
         else:
@@ -495,7 +492,6 @@ class info(commands.Cog, name="Info"):
     
     @commands.command(brief="Credits to people helped", description="All the people who helped with creating this bot are credited")
     @commands.cooldown(1, 60, commands.BucketType.user)
-    @commands.guild_only()
     async def credits(self, ctx):
         """ Credits for all the people that worked with this bot """
         # return await ctx.send("test")
@@ -524,6 +520,9 @@ class info(commands.Cog, name="Info"):
         _all = []
         for num, e in enumerate(ctx.guild.emojis, start=0):
             _all.append(f"`[{num + 1}]` {e} **{e.name}** | {e.id}\n")
+
+        if len(_all) == 0:
+            return await ctx.send(f"{emotes.red_mark} Server has no emotes!")
         
         paginator = Pages(ctx,
                           title=f"{ctx.guild.name} emotes list",

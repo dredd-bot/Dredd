@@ -38,6 +38,15 @@ GLENN_TOKEN = ''
 # Mythical
 MYTH_TOKEN = ''
 
+# botlist.space
+BOTSPACE_TOKEN = ''
+
+# botsfordiscord.com
+BFD_TOKEN = ''
+
+# Statcord
+STAT_TOKEN = ''
+
 # PSQL
 DB_CONN_INFO = {
     "user": "",
@@ -53,7 +62,7 @@ EXTENSIONS = [
     'cogs.events',
     'cogs.info',
     'cogs.misc',
-    #'cogs.fun',
+    'cogs.fun',
     'cogs.manage',
     'cogs.moderation',
     'cogs.automod',
@@ -62,8 +71,7 @@ EXTENSIONS = [
     'cogs.admin',
     'cogs.logs',
     'cogs.changes',
-    #'cogs.dbl',
-    #'cogs.music',
-    #'cogs.bg',
+    'cogs.dbl',
+    'cogs.bg',
     'cogs.statcord'
 ]

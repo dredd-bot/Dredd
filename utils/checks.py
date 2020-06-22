@@ -12,7 +12,7 @@ def has_voted():
         if check == True:
             return True
         elif check == False:
-            e = discord.Embed(color=ctx.bot.logging_color, description="This command is vote locked. to use this command, please [vote here](https://top.gg/bot/667117267405766696/vote).")
+            e = discord.Embed(color=ctx.bot.logging_color, description="Please [vote here](https://top.gg/bot/667117267405766696/vote) to be able to use this command.")
             await ctx.send(embed=e)
             return False
         return True
@@ -25,7 +25,7 @@ def is_guild(ID):
         else:
             if await ctx.bot.is_admin(ctx.author):
                 return True
-            else:
+            elif not await ctx.bot.is_admin(ctx.author):
                 return False
             return False
     return commands.check(predicate)

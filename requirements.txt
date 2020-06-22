@@ -10,6 +10,10 @@ googletrans
 praw
 wand
 humanize
+dropbox
+wavelink
+youtube_dl
+lyricsgenius
 pathlib
 asyncio
 statcord.py

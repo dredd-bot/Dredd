@@ -14,10 +14,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import time
-import asyncio
-import datetime
-import json
 from discord.ext import commands, tasks
 from utils.paginator import Pages
 from db import emotes
@@ -39,6 +35,9 @@ class automod(commands.Cog, name="Automod"):
             embed = discord.Embed(color=self.bot.error_color, title=f"{emotes.red_mark} Error!", description=f"You attempted to use my testing command. It's not ready for release yet.\n\n[Join support server]({support}) to see when this command will be ready for release.")
             #await ctx.send(embed=embed)
             return True
+        
+        if ctx.guild is None:
+            return False
 
     @commands.command(brief="Automod log channel")
     @commands.guild_only()
@@ -88,7 +87,11 @@ class automod(commands.Cog, name="Automod"):
     @commands.has_permissions(manage_guild=True)
     @commands.bot_has_permissions(manage_guild=True)
     async def punishment(self, ctx):
-        """ Setup automod action for each category. """
+        """ Setup automod action for each category.
+        When everything is setup, automod will:
+        1st punish: delete the message
+        2nd punish: warn the member
+        3rd punish: ban the member """
         # ! caps, inv, link, massmention
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
@@ -99,11 +102,15 @@ class automod(commands.Cog, name="Automod"):
     async def invites(self, ctx):
         """ Invites automod """
         check = await self.bot.db.fetchval("SELECT * FROM inv WHERE guild_id = $1", ctx.guild.id)
+        db_check = await self.bot.db.fetchval("SELECT * FROM automods WHERE guild_id = $1", ctx.guild.id)
 
-        if check is None:
+        if db_check is None:
+            return await ctx.send(f"{emotes.red_mark} Please toggle automod before continuing using `{ctx.prefix}toggleautomod`", delete_after=15)
+
+        elif db_check is not None and check is None:
             await self.bot.db.execute("INSERT INTO inv(guild_id, punishment) VALUES ($1, $2)", ctx.guild.id, 1)
             await ctx.send(f"{emotes.white_mark} People who will be sending invites will be punished now.")
-        elif check is not None:
+        elif db_check is not None and check is not None:
             await self.bot.db.execute("DELETE FROM inv WHERE guild_id = $1", ctx.guild.id)
             await ctx.send(f"{emotes.white_mark} People who will be sending invites won't be punished anymore")
 
@@ -113,11 +120,15 @@ class automod(commands.Cog, name="Automod"):
     async def links(self, ctx):
         """ Links automod """
         check = await self.bot.db.fetchval("SELECT * FROM link WHERE guild_id = $1", ctx.guild.id)
+        db_check = await self.bot.db.fetchval("SELECT * FROM automods WHERE guild_id = $1", ctx.guild.id)
 
-        if check is None:
+        if db_check is None:
+            return await ctx.send(f"{emotes.red_mark} Please toggle automod before continuing using `{ctx.prefix}toggleautomod`", delete_after=15)
+
+        elif db_check is not None and check is None:
             await self.bot.db.execute("INSERT INTO link(guild_id, punishment) VALUES ($1, $2)", ctx.guild.id, 1)
             await ctx.send(f"{emotes.white_mark} People who will be sending links will be punished now.")
-        elif check is not None:
+        elif db_check is not None and check is not None:
             await self.bot.db.execute("DELETE FROM link WHERE guild_id = $1", ctx.guild.id)
             await ctx.send(f"{emotes.white_mark} People who will be sending links won't be punished anymore")
     
@@ -127,11 +138,15 @@ class automod(commands.Cog, name="Automod"):
     async def massmentions(self, ctx):
         """ Mass mentions automod """
         check = await self.bot.db.fetchval("SELECT * FROM massmention WHERE guild_id = $1", ctx.guild.id)
+        db_check = await self.bot.db.fetchval("SELECT * FROM automods WHERE guild_id = $1", ctx.guild.id)
 
-        if check is None:
+        if db_check is None:
+            return await ctx.send(f"{emotes.red_mark} Please toggle automod before continuing using `{ctx.prefix}toggleautomod`", delete_after=15)
+
+        elif db_check is not None and check is None:
             await self.bot.db.execute("INSERT INTO massmention(guild_id, punishment) VALUES ($1, $2)", ctx.guild.id, 1)
             await ctx.send(f"{emotes.white_mark} People who will be mass mentioning will be punished now.\nDefault number is set to `3` mentions per message, but you can change it with `{ctx.prefix}mentions <number>`")
-        elif check is not None:
+        elif db_check is not None and check is not None:
             await self.bot.db.execute("DELETE FROM massmention WHERE guild_id = $1", ctx.guild.id)
             await ctx.send(f"{emotes.white_mark} People who will be mass mentioning won't be punished anymore")
         
@@ -141,11 +156,15 @@ class automod(commands.Cog, name="Automod"):
     async def masscaps(self, ctx):
         """ Mass caps automod """
         check = await self.bot.db.fetchval("SELECT * FROM caps WHERE guild_id = $1", ctx.guild.id)
+        db_check = await self.bot.db.fetchval("SELECT * FROM automods WHERE guild_id = $1", ctx.guild.id)
 
-        if check is None:
+        if db_check is None:
+            return await ctx.send(f"{emotes.red_mark} Please toggle automod before continuing using `{ctx.prefix}toggleautomod`", delete_after=15)
+
+        elif db_check is not None and check is None:
             await self.bot.db.execute("INSERT INTO caps(guild_id, punishment) VALUES ($1, $2)", ctx.guild.id, 1)
             await ctx.send(f"{emotes.white_mark} People who will be sending mass caps will be punished now.")
-        elif check is not None:
+        elif db_check is not None and check is not None:
             await self.bot.db.execute("DELETE FROM caps WHERE guild_id = $1", ctx.guild.id)
             await ctx.send(f"{emotes.white_mark} People who will be sending mass caps won't be punished anymore")
 
@@ -190,12 +209,14 @@ class automod(commands.Cog, name="Automod"):
 
     @whitelist.group(brief='Add whitelisted channels', invoke_without_command=True)
     @commands.has_permissions(manage_guild=True)
+    @commands.guild_only()
     async def channel(self, ctx):
 
         return await ctx.send_help(ctx.command)
     
     @channel.command(brief="Add a channel", name='add')
     @commands.has_permissions(manage_guild=True)
+    @commands.guild_only()
     async def _add(self, ctx, channel: discord.TextChannel):
         """ Add channels that won't get moderated """
  
@@ -210,6 +231,7 @@ class automod(commands.Cog, name="Automod"):
     
     @channel.command(brief="Remove whitelisted channel")
     @commands.has_permissions(manage_guild=True)
+    @commands.guild_only()
     async def remove(self, ctx, channel: discord.TextChannel):
         """ Remove channels that aren't being moderated """
 
@@ -258,6 +280,9 @@ class automod(commands.Cog, name="Automod"):
         for num, res in enumerate(await self.bot.db.fetch("SELECT * FROM whitelist WHERE guild_id = $1 AND role_id is null", ctx.guild.id), start=0):
             channelids.append(f"`[{num + 1}]`{ctx.guild.get_channel(res['channel_id']).mention}\n")
 
+        if len(channelids) == 0:
+            return await ctx.send(f"{emotes.red_mark} Server has no whitelisted channels.")
+
         paginator = Pages(ctx,
                           title=f"Whitelisted channels from automod:",
                           entries=channelids,
@@ -305,7 +330,7 @@ class automod(commands.Cog, name="Automod"):
     
     @role.command(brief="Remove whitelisted role(s)", name='removeall')
     @commands.has_permissions(manage_guild=True)
-    async def _removeall(self, ctx):
+    async def role_removeall(self, ctx):
         """ Remove all whitelisted role(s) """
 
         db_check = await self.bot.db.fetch("SELECT role_id FROM whitelist WHERE guild_id = $1 AND channel_id is null", ctx.guild.id)
@@ -333,15 +358,18 @@ class automod(commands.Cog, name="Automod"):
     
     @role.command(brief="List of whitelisted role(s)", name="list")
     @commands.has_permissions(manage_guild=True)
-    async def __list(self, ctx):
+    async def role_list(self, ctx):
 
-        channelids = []
+        roleids = []
         for num, res in enumerate(await self.bot.db.fetch("SELECT * FROM whitelist WHERE guild_id = $1 AND channel_id is null", ctx.guild.id), start=0):
-            channelids.append(f"`[{num + 1}]`{ctx.guild.get_role(res['role_id']).mention}\n")
+            roleids.append(f"`[{num + 1}]`{ctx.guild.get_role(res['role_id']).mention}\n")
+
+        if len(roleids) == 0:
+            return await ctx.send(f"{emotes.red_mark} Server has no whitelisted roles.")
 
         paginator = Pages(ctx,
                           title=f"Whitelisted roles from automod:",
-                          entries=channelids,
+                          entries=roleids,
                           thumbnail=None,
                           per_page = 15,
                           embed_color=ctx.bot.embed_color,
@@ -351,6 +379,7 @@ class automod(commands.Cog, name="Automod"):
 
     @commands.command(brief='Automod warnings')
     @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.has_permissions(manage_guild=True)
     async def autowarns(self, ctx, member: discord.Member):
         """ Check how many times automod punished a member """
 

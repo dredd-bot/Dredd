@@ -163,30 +163,6 @@ class Bot(commands.AutoShardedBot):
 
         self.temp_timer.append((guild, user, mod, reason, time, role))
 
-    
-    async def log_temp_unmute(self, ctx, member=None, reason=None):
-        check = await self.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", ctx.guild.id)
-
-        if check is None:
-            return
-        elif check is not None:
-            channel = await self.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", ctx.guild.id)
-            case = await self.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
-            chan = self.get_channel(channel)
-
-            if case is None:
-                await self.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", ctx.guild.id, 1)
-
-            casenum = await self.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
-
-            e = discord.Embed(color=self.logging_color, description=f"{emotes.log_memberedit} **{member}** unmuted `[#{casenum}]`")
-            e.add_field(name="Moderator:", value=f"{ctx.author} ({ctx.author.id})", inline=False)
-            e.add_field(name="Reason:", value=f"{reason}", inline=False)
-            e.set_thumbnail(url=member.avatar_url_as(format='png'))
-            e.set_footer(text=f"Member ID: {member.id}")
-
-            await chan.send(embed=e)
-            await self.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", ctx.guild.id)
 
 
 loop = asyncio.get_event_loop()

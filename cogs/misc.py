@@ -17,16 +17,11 @@ import discord
 import asyncio
 import random
 import aiohttp
-import datetime
-import re
 
-from discord.ext import commands, tasks
-
-from utils import checks
+from discord.ext import commands
 from utils.checks import has_voted, is_guild
 from utils.paginator import Pages
 from utils.Nullify import clean
-
 from datetime import datetime
 from db import emotes
 
@@ -89,9 +84,8 @@ class misc(commands.Cog, name="Misc"):
             return await ctx.send(embed=embed)
 
     @commands.command(brief="Report a bug", aliases=["report", "bug"])
-    @commands.guild_only()
     @commands.cooldown(1, 30, commands.BucketType.user)
-    async def bugreport(self, ctx, *, bug: str):
+    async def bugreport(self, ctx, *, bug: commands.clean_content):
         """ Report any bug you noticed in bot. """
 
         try:
@@ -117,7 +111,7 @@ class misc(commands.Cog, name="Misc"):
 
     @commands.command(category="Basic", brief="Suggest anything", aliases=['idea'])
     @commands.cooldown(1, 30, commands.BucketType.user)
-    async def suggest(self, ctx, *, suggestion: str):
+    async def suggest(self, ctx, *, suggestion: commands.clean_content):
         """ Suggest anything you want to see in the server/bot!
         Suggestion will be sent to support server for people to vote."""
 
@@ -140,11 +134,10 @@ class misc(commands.Cog, name="Misc"):
             await self.bot.db.execute("INSERT into suggestions(suggestion_info, suggestion_id, user_id, msg_id, approved) VALUES($1, $2, $3, $4, $5)", suggestion, len(ids) + 1, ctx.author.id, msg.id, False)
             await ctx.send(f"{emotes.white_mark} Your suggestion was sent successfully with id: **{len(ids) + 1}**! You can also follow this suggestion to know if it was approved or not by typing `{ctx.prefix}follow suggestion {len(ids) + 1}`")
 
-    @commands.group(brief='Follow something')
+    @commands.group(brief='Follow suggestions or bugs')
     @commands.cooldown(1, 15, commands.BucketType.user)
-    @commands.guild_only()
     async def follow(self, ctx):
-        """ You can follow suggestion and bugs 
+        """ You can follow suggestion and/or bugs 
         When they'll get approved or denied you'll get a dm from bot with a result """
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
@@ -183,7 +176,7 @@ class misc(commands.Cog, name="Misc"):
     
     @commands.command(brief='Set AFK state', aliases=['afk'])
     @commands.guild_only()
-    @checks.has_voted()
+    @has_voted()
     async def setafk(self, ctx, *, message: str = None):
         """
         Set your AFK state. Others will get notified when they'll mention you.
@@ -204,7 +197,6 @@ class misc(commands.Cog, name="Misc"):
             
 
     @commands.group(brief="Manage your todo list", invoke_without_command=True)
-    @commands.guild_only()
     async def todo(self, ctx):
         ''' Your todo list '''
         if ctx.invoked_subcommand is None:
@@ -217,7 +209,7 @@ class misc(commands.Cog, name="Misc"):
         Time is in UTC """
 
         if len(todo) > 200:
-            return await ctx.send(f"{emotes.red_mark} Your todo is too long!")
+            return await ctx.send(f"{emotes.red_mark} Your todo is too long! ({len(todo)}/200)")
         
         todocheck = await self.bot.db.fetchval("SELECT todo FROM todolist WHERE user_id = $1 AND todo = $2", ctx.author.id, todo)
 
@@ -336,6 +328,8 @@ class misc(commands.Cog, name="Misc"):
             return await ctx.send(f'{emotes.red_mark} You\'ve provided wrong id')
         if todoid not in todos.keys():
             return await ctx.send(f'{emotes.red_mark} I can\'t find todo with id `{todo_id}` in your todo list list.')
+        if len(content) > 200:
+            return await ctx.send(f"{emotes.red_mark} Your todo is too long! ({len(content)}/200)")
 
         todo_to_edit = todos[todoid]
 
@@ -408,7 +402,7 @@ class misc(commands.Cog, name="Misc"):
     #     if not check:
     #         return await ctx.send(f"{emotes.red_mark} I'm not logging your presences..")
 
-    @checks.is_guild(568567800910839811)
+    @is_guild(568567800910839811)
     @commands.command(brief="Ice's lmao count", hidden=True)
     async def lmaocount(self, ctx):
 

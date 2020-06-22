@@ -16,14 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import os
 import datetime
-import time
-import math
-import traceback
-import asyncio
-import re
-import random
 from discord.ext import commands
-from typing import Union
 from utils import default
 from datetime import datetime
 from db import emotes
@@ -104,7 +97,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.blacklisted} Attempted Invite", timestamp=datetime.utcnow(),
                               description=f"A blacklisted guild attempted to invite me.\n**Guild name:** {guild.name}\n**Guild ID:** {guild.id}\n**Guild Owner:** {guild.owner}\n**Guild size:** {len(guild.members)-1}\n**Blacklisted by:** {mod}\n**Blacklist reason:** {reason}")
             e.set_thumbnail(url=guild.icon_url)
-            await chan.send(embed=e)
+            return await chan.send(embed=e)
         
         # Guild is not blacklisted!
         # Insert guild's data to the database

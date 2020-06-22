@@ -260,6 +260,11 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
                 emj = f"{emotes.log_memberedit}"
                 rsn = "Member warned\n"
                 await self.bot.db.execute("INSERT INTO warnings(user_id, guild_id, id, reason, time) VALUES ($1, $2, $3, $4, $5)", message.author.id, message.guild.id, random_id, reason, datetime.utcnow())
+                try:
+                    await message.author.send(f"{emotes.warning} You were warned in {message.guild} for: `{reason}`")
+                except Exception as e:
+                    print(e)
+                    pass
             except Exception as e:
                 print(e)
                 rsn = f"Failed to warn member and/or delete message [Jump to message]({message.jump_url})\n"

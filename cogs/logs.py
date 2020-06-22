@@ -14,16 +14,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import json
-import os
 import datetime
-import time
-import math
-import traceback
-import asyncio
 import re
 from discord.ext import commands
-from typing import Union
 from utils import default
 from datetime import datetime
 from db import emotes
@@ -88,7 +81,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         embed.set_author(icon_url=message.author.avatar_url, name=message.author)
         embed.add_field(name="Message:", value=message.content, inline=False)
         embed.add_field(name="Channel:",
-                        value=message.channel.mention, inline=True)
+                        value=message.channel.mention)
         
 
         embed.set_footer(text=f"ID: {message.id}")
@@ -139,9 +132,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                     muterole = discord.utils.find(lambda r: r.name.lower() == "muted", member.guild.roles)
                     await member.add_roles(muterole, reason='User was muted before')
         if db_check3 is not None:
-            if member.bot and bots == False or bots is None:
+            if member.bot and bots == False:
                 return
             elif member.bot and bots == True:
+                pass
+            elif bots is None:
                 pass
             if message:
                 joinmessage = str(message)
@@ -169,7 +164,6 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
 ##############################
     @commands.Cog.listener()
-
     async def on_member_remove(self, member):
 
         await self.bot.db.execute("DELETE FROM warnings WHERE user_id = $1 AND guild_id = $2", member.id, member.guild.id)
@@ -191,9 +185,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             checks = await self.get_audit_logs(member.guild, limit=1, action=discord.AuditLogAction.kick)  
 
         if db_check1 is not None:
-            if member.bot and bots == False or bots is None:
+            if member.bot and bots == False:
                 return
             elif member.bot and bots == True:
+                pass
+            elif bots is None:
                 pass
             if message:
                 leavemessage = str(message)
@@ -209,6 +205,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         if db_check2 is not None:
             # Member leave log
+            logchannel = self.bot.get_channel(joinlog)
             embed = discord.Embed(
                 color=self.bot.logging_color, description=f"{emotes.log_memberleave} Member left", timestamp=datetime.utcnow())
             #embed.set_author(icon_url=member.avatar_url)
@@ -248,6 +245,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
             elif deleted and (datetime.utcnow() - checks[0].created_at).total_seconds() > 5:
                 return
+
 
         
 
