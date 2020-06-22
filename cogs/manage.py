@@ -180,11 +180,11 @@ class Managment(commands.Cog, name="Management"):
             elif option.lower() == 'joinmsg':
                 if db_check is not None:
                     return await ctx.send(f"{emotes.white_mark} Welcoming messages will be sent to {channel.mention} from now on!", delete_after=20)
-                await ctx.send(f"{emotes.white_mark} Welcoming messages have been enabled in this server and will be sent to {channel.mention}! You can change the welcoming message by typing `{ctx.prefix}togglemsg joinmsg [message]`", delete_after=20)
+                await ctx.send(f"{emotes.white_mark} Welcoming messages have been enabled in this server and will be sent to {channel.mention}! You can change the welcoming message by typing `{ctx.prefix}togglemsg welcoming [message]`", delete_after=20)
             elif option.lower() == 'leavemsg':
                 if db_check is not None:
                     return await ctx.send(f"{emotes.white_mark} Leaving messages will be sent to {channel.mention} from now on!", delete_after=20)
-                await ctx.send(f"{emotes.white_mark} Leaving messages have been enabled in this server and will be sent to {channel.mention}! You can change the leaving message by typing `{ctx.prefix}togglemsg leavemsg [message]`", delete_after=20)
+                await ctx.send(f"{emotes.white_mark} Leaving messages have been enabled in this server and will be sent to {channel.mention}! You can change the leaving message by typing `{ctx.prefix}togglemsg leaving [message]`", delete_after=20)
             elif option.lower() == 'memberupdate':
                 if db_check is not None:
                     return await ctx.send(f"{emotes.white_mark} Member update logs will be sent to {channel.mention} from now on!", delete_after=20)
