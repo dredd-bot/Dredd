@@ -137,3 +137,7 @@ cogs/__pycache__/
 utils/__pycache__/
 avatars/
 jishaku.txt
+old/
+temp/
+website/
+dredd.py
