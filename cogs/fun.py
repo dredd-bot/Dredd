@@ -37,15 +37,6 @@ class fun(commands.Cog, name="Fun"):
         self.help_icon = "<:funn:695710705932042244>"
         self.big_icon = "https://cdn.discordapp.com/emojis/695710705932042244.png?v=1"
 
-    async def bot_check(self, ctx):
-        if not ctx.guild:
-            self.bot.embed_color = 0x0361D2
-            return True
-
-        else:
-            self.bot.embed_color = 0x0361D2
-            return True
-
     async def api_img_creator(self, ctx, url, filename, content=None):
         async with ctx.channel.typing():
             req = await http.get(url, res_method="read")

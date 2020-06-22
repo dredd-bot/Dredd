@@ -26,18 +26,10 @@ class automod(commands.Cog, name="Automod"):
         self.big_icon = "https://cdn.discordapp.com/attachments/679643465407266817/701055848788787300/channeldeletee.png"
         self.bot.embed_color = 0x0058D6
 
-    async def cog_check(self, ctx): 
-        owners = await self.bot.db.fetchval("SELECT user_id FROM owners WHERE user_id = $1", ctx.author.id)
-        if owners:
-            return True
-        else:
-            support = await self.bot.db.fetchval("SELECT * FROM support")
-            embed = discord.Embed(color=self.bot.error_color, title=f"{emotes.red_mark} Error!", description=f"You attempted to use my testing command. It's not ready for release yet.\n\n[Join support server]({support}) to see when this command will be ready for release.")
-            #await ctx.send(embed=embed)
-            return True
-        
-        if ctx.guild is None:
+    async def cog_check(self, ctx):         
+        if not ctx.guild:
             return False
+        return True
 
     @commands.command(brief="Automod log channel")
     @commands.guild_only()

@@ -256,15 +256,12 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM memberupdate WHERE guild_id = $1", before.guild.id)
         logchannel = await self.bot.db.fetchval("SELECT channel_id FROM memberupdate WHERE guild_id = $1", before.guild.id)
-        # blacklist = await self.bot.db.fetchval("SELECT * FROM blacklist WHERE user_id = $1", before.id)
-        # if before.nick != after.nick:
-        #     if blacklist:
-        #         return
-        #     if before.nick is None:
-        #         nick = before.name
-        #     else:
-        #         nick = before.nick
-        #     await self.bot.db.execute("INSERT INTO nicknames(user_id, guild_id, nickname, time) VALUES ($1, $2, $3, $4)", before.id, before.guild.id, nick, datetime.utcnow())
+        if before.nick != after.nick:
+            if before.nick is None:
+                nick = before.name
+            elif before.nick:
+                nick = before.nick
+            await self.bot.db.execute("INSERT INTO nicknames(user_id, guild_id, nickname, time) VALUES ($1, $2, $3, $4)", before.id, before.guild.id, nick, datetime.utcnow())
 
         if db_check1 is None:
             return

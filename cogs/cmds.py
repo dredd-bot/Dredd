@@ -43,9 +43,6 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
         else:
             cmd = ctx.command.name
 
-        if ctx.command.cog_name == "YTT":
-            return
-
         if not cmd in self.bot.cmdUsage:
             self.bot.cmdUsage[cmd] = 1
         else:
@@ -56,17 +53,14 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
         else:
             self.bot.cmdUsers[str(ctx.author.id)] += 1
 
-        if not str(ctx.guild.id) in self.bot.guildUsage:
+        if ctx.guild and str(ctx.guild.id) not in self.bot.guildUsage:
             self.bot.guildUsage[str(ctx.guild.id)] = 1
-        else:
+        elif ctx.guild and str(ctx.guild.id) in self.bot.guildUsage:
             self.bot.guildUsage[str(ctx.guild.id)] += 1
 
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, exc):
-
-        if not ctx.channel.permissions_for(ctx.guild.me).send_messages:
-            return
 
         if isinstance(exc, commands.NSFWChannelRequired):
             file = discord.File("img/nsfwerror.png", filename="nsfwerror.png")

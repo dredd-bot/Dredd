@@ -283,7 +283,7 @@ class FieldPages(Pages):
 class TextPages(Pages):
     """Uses a commands.Paginator internally to paginate some text."""
 
-    def __init__(self, ctx, text, *, prefix='```', suffix='```', max_size=2000):
+    def __init__(self, ctx, text, *, prefix='```ml', suffix='```', max_size=2000):
         paginator = CommandPaginator(prefix=prefix, suffix=suffix, max_size=max_size - 200)
         for line in text.split('\n'):
             paginator.add_line(line)

@@ -141,7 +141,7 @@ class HelpCommand(commands.HelpCommand):
         if self.context.guild is not None:
             p = await self.context.bot.db.fetchval("SELECT prefix FROM guilds WHERE guild_id = $1", self.context.guild.id)
             prefix = f"**Bot prefix in this server:** `{p}`"
-        else:
+        elif self.context.guild is None:
             prefix = "**Bot prefix in DM's:** `!`"
         s = "Support"
         i = "Bot invite"
@@ -149,9 +149,9 @@ class HelpCommand(commands.HelpCommand):
         def check(m):
             return m.author == self.context.author
 
-        discmds = []
-        for command in await self.context.bot.db.fetch("SELECT command FROM guilddisabled WHERE guild_id = $1", self.context.guild.id):
-            discmds.append(command)
+        # discmds = []
+        # for command in await self.context.bot.db.fetch("SELECT command FROM guilddisabled WHERE guild_id = $1", self.context.guild.id):
+        #     discmds.append(command)
         
         emb = discord.Embed(color=self.context.bot.embed_color)
         emb.description = f"\n**This bot was made by:** {Moksej}\n{prefix}"

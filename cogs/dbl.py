@@ -41,7 +41,7 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
     # async def on_dbl_vote(self, data):
     #     channel = await self.bot.fetch_channel(679647378210291832)
     #     user = await self.bot.fetch_user(int(data['user']))
-    #     e = discord.Embed(color=0x5E82AC,
+    #     e = discord.Embed(color=0x5E82AC, 
     #                       title="Received Upvote!",
     #                       description=f"New upvote received from **{user}**!")
     #     e.set_author(icon_url=user.avatar_url, name=str(user))

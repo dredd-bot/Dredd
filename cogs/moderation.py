@@ -158,6 +158,7 @@ class moderation(commands.Cog, name="Moderation"):
     async def cog_check(self, ctx):
         if ctx.guild is None:
             return False
+        return True
 
 
 #########################################################################################################
@@ -449,8 +450,10 @@ class moderation(commands.Cog, name="Moderation"):
 
             if failed == 0:
                 await ctx.send(f"{emotes.white_mark} Succesfully muted **{total}** members for: `{reason}`.")
-            elif failed != 0:
+            elif failed != 0 and total - failed != 0:
                 await ctx.send(f"Successfully muted **{total - failed}/{total}** members for: `{reason}`.")
+            elif failed != 0 and total - failed == 0:
+                await ctx.send(f"{emotes.red_mark} Failed to mute all the members")
         except Exception as e:
             print(e)
             await ctx.send(f"Something failed while trying to mute members.")
@@ -599,7 +602,7 @@ class moderation(commands.Cog, name="Moderation"):
                     continue
                 try:
                     await member.remove_roles(muterole, reason=responsible(ctx.author, reason))
-                    await self.log_mute(ctx, member=member, reason=reason)
+                    await self.log_unmute(ctx, member=member, reason=reason)
                     await self.bot.db.execute("DELETE FROM moddata WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, member.id)
                     for g, u, m, r, t, ro in self.bot.temp_timer:
                         self.bot.temp_timer.remove((g, u, m, r, t, ro))
@@ -612,8 +615,10 @@ class moderation(commands.Cog, name="Moderation"):
 
             if failed == 0:
                 await ctx.send(f"{emotes.white_mark} Succesfully unmuted **{total}** members for: `{reason}`.")
-            else:
+            elif failed != 0 and total - failed != 0:
                 await ctx.send(f"Successfully unmuted **{total - failed}/{total}** members for: `{reason}`.")
+            elif failed != 0 and total - failed == 0:
+                await ctx.send(f"{emotes.red_mark} Failed to mute all the members")
         except Exception as e:
             print(e)
             await ctx.send(f"Something failed while trying to unmute members.")
@@ -675,7 +680,7 @@ class moderation(commands.Cog, name="Moderation"):
     @purge.command(brief="Every message", description="Clear all messages in chat")
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
-    @commands.
+    @commands.guild_only()
     async def all(self, ctx, search=100):
         """ Removes all messages
         Might take longer if you're purging messages that are older than 2 weeks """
@@ -691,6 +696,7 @@ class moderation(commands.Cog, name="Moderation"):
     @purge.command(brief="User messages", description="Clear messages sent from an user")
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
+    @commands.guild_only()
     async def user(self, ctx, member: discord.Member, search=100):
         """ Removes user messages """
         await ctx.message.delete()
@@ -705,6 +711,7 @@ class moderation(commands.Cog, name="Moderation"):
     @purge.command(brief="Bot's messages", description="Clear messages sent from an user")
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
+    @commands.guild_only()
     async def bot(self, ctx, bot: discord.Member, search=100):
         """ Removes bot's messages """
         if not bot.bot:
@@ -834,8 +841,11 @@ class moderation(commands.Cog, name="Moderation"):
         if ctx.me.top_role.position <= role.position:
             return await ctx.send("This role is above my permissions, I can't make it mentionable ;-;")
 
+        if role.mentionable == True:
+            return await ctx.send(f"{emotes.red_mark} That role is already mentionable!")
+
         await role.edit(mentionable=True, reason=f"announcerole command")
-        msg = await ctx.send(f"**{role.name}** is now mentionable, if you don't mention it within 30 seconds, I will revert the changes.")
+        msg = await ctx.send(f"**{role.mention}** is now mentionable, if you don't mention it within 30 seconds, I will revert the changes.")
 
         while True:
             def role_checker(m):
@@ -847,13 +857,13 @@ class moderation(commands.Cog, name="Moderation"):
                 checker = await self.bot.wait_for('message', timeout=30.0, check=role_checker)
                 if checker.author.id == ctx.author.id:
                     await role.edit(mentionable=False, reason=f"announcerole command")
-                    return await msg.edit(content=f"**{role.name}** mentioned by **{ctx.author}** in {checker.channel.mention}")
+                    return await msg.edit(content=f"**{role.mention}** mentioned by **{ctx.author}** in {checker.channel.mention}", allowed_mentions=discord.AllowedMentions(roles=False))
                     break
                 else:
                     await checker.delete()
             except asyncio.TimeoutError:
                 await role.edit(mentionable=False, reason=f"announcerole command")
-                return await msg.edit(content=f"**{role.name}** was never mentioned by **{ctx.author}**...")
+                return await msg.edit(content=f"**{role.mention}** was never mentioned by **{ctx.author}**...", allowed_mentions=discord.AllowedMentions(roles=False))
                 break
     
     @commands.command(brief="Member warnings", aliases=['warns'])

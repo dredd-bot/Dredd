@@ -28,20 +28,26 @@ class Managment(commands.Cog, name="Management"):
     
     async def bot_check(self, ctx):
         cmd = self.bot.get_command(ctx.command.name)
-        data = await self.bot.db.fetchval("select * from guilddisabled where command = $1 and guild_id = $2", str(cmd), ctx.guild.id)
+        try:
+            data = await self.bot.db.fetchval("select * from guilddisabled where command = $1 and guild_id = $2", str(cmd), ctx.guild.id)
+        except:
+            pass
 
-        if ctx.author is ctx.guild.owner:
+        if ctx.guild and ctx.author == ctx.guild.owner:
             return True
 
-        if ctx.guild is None:
-            return False
-
-        if data is not None:
+        if ctx.guild and data is not None:
             await ctx.send(f"{emotes.blacklisted} | `{cmd}` command is disabled in this server", delete_after=20)
             return False
         
-        if data is None:
+        if ctx.guild and data is None:
             return True
+        return True
+
+    def cog_check(self, ctx):
+        if not ctx.guild:
+            return False
+        return True
 
 
     @commands.command(brief="Change prefix", description="Change my prefix in the server")

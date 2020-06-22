@@ -74,7 +74,6 @@ class misc(commands.Cog, name="Misc"):
                               description=f"**Search:** {result['word']} | **by:** {result['author']}")
         embed.add_field(
             name="Votes:", value=f"\U0001f44d **{result['thumbs_up']}** | \U0001f44e **{result['thumbs_down']}**", inline=False)
-        # embed.add_field(name="URL", value=f"[Click here]({url})")
         embed.add_field(name="Definition", value=definition, inline=True)
         embed.add_field(name="Example", value=example, inline=True)
         embed.set_footer(text=f"© {self.bot.user}")

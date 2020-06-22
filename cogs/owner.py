@@ -27,7 +27,7 @@ import config
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands
 from utils import default, btime
-from utils.paginator import Pages
+from utils.paginator import Pages, TextPages
 from prettytable import PrettyTable
 from db import emotes
 
@@ -59,7 +59,6 @@ class owner(commands.Cog, name="Owner"):
         return True
 
     @commands.group(brief="Main commands")
-    @commands.guild_only()
     async def dev(self, ctx):
         """ Developer commands.
         Used to manage bot stuff."""
@@ -102,7 +101,7 @@ class owner(commands.Cog, name="Owner"):
         """ View someone nicknames """
         nicks = []
         for num, nick in enumerate(await self.bot.db.fetch("SELECT * FROM nicknames WHERE user_id = $1 LIMIT $2", user.id, limit), start=0):
-            nicks.append(f"`[{num + 1}]` {nick['nickname']}")
+            nicks.append(f"`[{num + 1}]` {nick['nickname']}\n")
         
         if not nicks:
             return await ctx.send(f"{emotes.red_mark} **{user}** has had no nicknames yet.")
@@ -202,7 +201,9 @@ class owner(commands.Cog, name="Owner"):
             for d in values:
                 x.add_row(d)
             
-            await ctx.send(f"```ml\n{x}```")
+            pages = TextPages(ctx,
+                          text=f'\n{x}')
+            return await pages.paginate()
         except Exception as e:
             await ctx.send(e)
 
@@ -575,7 +576,6 @@ class owner(commands.Cog, name="Owner"):
 - {e}```""")
 
     @dev.command(aliases=['edit', 'editmsg'], category="Messages", brief="Edit msg")
-    @commands.guild_only()
     @commands.is_owner()
     async def editmessage(self, ctx, id: int, *, newmsg: str):
         """Edits a message sent by the bot"""
@@ -818,7 +818,6 @@ class owner(commands.Cog, name="Owner"):
 
 # ! Cog managment
     @dev.group(brief="Cog managment", description="Manage cogs.")
-    @commands.guild_only()
     async def cog(self, ctx):
         """ Cog managment commands.
         cog r <cog> to reload already loaded cog.

@@ -48,6 +48,9 @@ class info(commands.Cog, name="Info"):
         if await ctx.bot.is_owner(ctx.author):
             return True
 
+        if not ctx.guild:
+            return True
+
         cmd = self.bot.get_command(ctx.command.name)
         data = await self.bot.db.fetchval("select * from cmds where command = $1", str(cmd))
 

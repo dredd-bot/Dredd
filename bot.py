@@ -64,15 +64,16 @@ async def run():
 
 async def get_prefix(bot, message):
     if not message.guild:
-        return
-    if message.guild:
+        custom_prefix = ['!']
+        return custom_prefix
+    elif message.guild:
         prefix = await bot.db.fetchval("SELECT prefix FROM guilds WHERE guild_id= $1", message.guild.id)
         if not await bot.is_admin(message.author):
             custom_prefix = prefix
         elif await bot.is_admin(message.author):
             custom_prefix = ['d ', prefix]
-        return custom_prefix
-    if custom_prefix is None:
+        return commands.when_mentioned_or(*custom_prefix)(bot, message)
+    elif custom_prefix is None:
         return
 
 
@@ -80,7 +81,7 @@ async def get_prefix(bot, message):
 class Bot(commands.AutoShardedBot):
     def __init__(self, **kwargs):
         super().__init__(
-            command_prefix = ['rw '],
+            command_prefix = get_prefix,
             case_insensitive = True,
             owner_id = 345457928972533773,
             reconnect = True,
