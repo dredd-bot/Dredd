@@ -72,7 +72,8 @@ async def get_prefix(bot, message):
             custom_prefix = prefix
         elif await bot.is_admin(message.author):
             custom_prefix = ['d ', prefix]
-        return commands.when_mentioned_or(*custom_prefix)(bot, message)
+            return commands.when_mentioned_or(*custom_prefix)(bot, message)
+        return commands.when_mentioned_or(custom_prefix)(bot, message)
     elif custom_prefix is None:
         return
 
