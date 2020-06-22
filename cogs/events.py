@@ -31,12 +31,6 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         moks = self.bot.get_user(345457928972533773)
         if ctx.author == moks:
             return True
-
-        if await self.bot.is_owner(ctx.author):
-            return True
-
-        if ctx.guild.id == 709521003759403063:
-            return True
         
         db_check = await self.bot.db.fetchval("SELECT user_id FROM blacklist WHERE user_id = $1", ctx.author.id)
         reason = await self.bot.db.fetchval("SELECT reason FROM blacklist WHERE user_id = $1", ctx.author.id)
@@ -53,7 +47,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             await ctx.send(embed=e, delete_after=15)
             print(f"{ctx.author} attempted to use my commands, but was blocked because of the blacklist.\n[REASON] {reason}")
             return False
-        return False
+        return True
 
 
     @commands.Cog.listener()
@@ -104,26 +98,23 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         prefix = '-'
         await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix, raidmode) VALUES ($1, $2, $3)", guild.id, prefix, False)
         
-        # if guild.id == 709521003759403063:
-        #     Zenpa = self.bot.get_user(373863656607318018)
-        #     Moksej = self.bot.get_user(345457928972533773)
-        #     support = await self.bot.db.fetchval("SELECT link FROM support")
-        #     try:
-        #         to_send = sorted([chan for chan in guild.channels if chan.permissions_for(
-        #             guild.me).send_messages and isinstance(chan, discord.TextChannel)], key=lambda x: x.position)[0]
-        #     except IndexError:
-        #         pass
-        #     else:
-        #         if to_send.permissions_for(guild.me).embed_links:  # We can embed!
-        #             e = discord.Embed(
-        #                 color=self.bot.join_color, title="A cool bot has spawned in!")
-        #             e.description = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also [join support server]({support})\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
-        #             await to_send.send(embed=e)
-        #         else:  # We were invited without embed perms...
-        #             msg = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also join support server: {support}\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
-        #             await to_send.send(msg)
-        # else:
-        #     pass
+        Zenpa = self.bot.get_user(373863656607318018)
+        Moksej = self.bot.get_user(345457928972533773)
+        support = await self.bot.db.fetchval("SELECT link FROM support")
+        try:
+            to_send = sorted([chan for chan in guild.channels if chan.permissions_for(
+                guild.me).send_messages and isinstance(chan, discord.TextChannel)], key=lambda x: x.position)[0]
+        except IndexError:
+            pass
+        else:
+            if to_send.permissions_for(guild.me).embed_links:  # We can embed!
+                e = discord.Embed(
+                    color=self.bot.join_color, title="A cool bot has spawned in!")
+                e.description = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also [join support server]({support})\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
+                await to_send.send(embed=e)
+            else:  # We were invited without embed perms...
+                msg = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also join support server: {support}\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
+                await to_send.send(msg)
 
         # Log the join
         logchannel = self.bot.get_channel(703653345948336198) 
