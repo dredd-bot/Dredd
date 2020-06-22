@@ -129,3 +129,10 @@ dmypy.json
 .pyre/
 
 cogs/test.py
+db/
+config.py
+img/
+.vscode/
+__pycache__
+avatars/
+jishaku.txt
