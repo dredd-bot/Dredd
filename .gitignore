@@ -133,6 +133,7 @@ db/
 config.py
 img/
 .vscode/
-__pycache__
+cogs/__pycache__/
+utils/__pycache__/
 avatars/
 jishaku.txt
