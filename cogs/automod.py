@@ -68,10 +68,12 @@ class automod(commands.Cog, name="Automod"):
 
         if db_check is None:
             await self.bot.db.execute("INSERT INTO automods(guild_id, punishment) VALUES ($1, $2)", ctx.guild.id, 1)
+            self.bot.automod[ctx.guild.id] = 1
             return await ctx.send(f"{emotes.white_mark} Automod was enabled. `{ctx.prefix}punishment <type>` to make it work", delete_after=15)
         
         if db_check is not None:
             await self.bot.db.execute(f"DELETE FROM automods WHERE guild_id = $1", ctx.guild.id)
+            self.bot.automod.pop(ctx.guild.id)
             return await ctx.send(f"{emotes.white_mark} Automod was disabled.", delete_after=15)
     
     @commands.group(brief="Toggle automod actions", invoke_without_command=True)

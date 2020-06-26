@@ -43,6 +43,16 @@ class BannedMember(commands.Converter):
                 raise commands.BadArgument('This member has not been banned before.')
             return entity
 
+class MemberNotFound(Exception):
+    pass
+
+class MemberID(commands.Converter):
+    async def convert(self, ctx, argument):
+        if not argument.isdigit():
+            raise commands.BadArgument("User needs to be an ID")
+        elif argument.isdigit():
+            return type('_Hackban', (), {'id': argument, '__str__': lambda s: s.id})()
+
 class moderation(commands.Cog, name="Moderation"):
 
     def __init__(self, bot):
@@ -245,7 +255,7 @@ class moderation(commands.Cog, name="Moderation"):
             total = len(members)
 
             if total == 0:
-                return await ctx.send("Please provide members to ban.")
+                raise commands.BadArgument("You're missing an argument - **users**") from None
             
 
             failed = 0
@@ -271,6 +281,28 @@ class moderation(commands.Cog, name="Moderation"):
         except Exception as e:
             print(e)
             await ctx.send(f"Something failed while trying to ban members.")
+
+    @commands.command(brief='Ban members that are not in the server')
+    @commands.guild_only()
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    @commands.has_permissions(ban_members=True)
+    @commands.bot_has_permissions(ban_members=True)
+    async def hackban(self, ctx, user: MemberID, *, reason: str = None):
+        """ Ban a user that isn't in this server """
+
+        try:
+            try:
+                m = await commands.MemberConverter().convert(ctx, str(user))
+                if m is not None:
+                    return await ctx.send(f"{emotes.warning} Hack-ban is to ban users that are not in this server.")
+            except:
+                pass
+            await ctx.guild.ban(user, reason=responsible(ctx.author, reason))
+            await ctx.send(f"{emotes.white_mark} Banned **{await self.bot.fetch_user(user)}** for `{reason}`")
+        except Exception as e:
+            print(e)
+            return await ctx.send(f"{emotes.error} Something failed!")
+
 
     @commands.command(brief="Unban members", description="Unban someone from the server")
     @commands.guild_only()

@@ -32,6 +32,9 @@ class Managment(commands.Cog, name="Management"):
             data = await self.bot.db.fetchval("select * from guilddisabled where command = $1 and guild_id = $2", str(cmd), ctx.guild.id)
         except:
             pass
+        
+        if await self.bot.is_admin(ctx.author):
+            return True
 
         if ctx.guild and ctx.author == ctx.guild.owner:
             return True
@@ -40,7 +43,7 @@ class Managment(commands.Cog, name="Management"):
             await ctx.send(f"{emotes.blacklisted} | `{cmd}` command is disabled in this server", delete_after=20)
             return False
         
-        if ctx.guild and data is None:
+        elif ctx.guild and data is None:
             return True
         return True
 

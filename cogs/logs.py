@@ -34,6 +34,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
     async def get_audit_logs(self, guild, limit=100, user=None, action=None):
         return await self.bot.get_guild(guild.id).audit_logs(limit=limit, user=user, action=action).flatten()
 
+    def cog_check(self, ctx):
+        if ctx.guild is None:
+            return False
+        return True
+
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
@@ -180,6 +185,9 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         moderation = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", member.guild.id)
 
         case = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", member.guild.id)
+
+        if member == self.bot.user:
+            return
 
         if member.guild.me.guild_permissions.view_audit_log:
             checks = await self.get_audit_logs(member.guild, limit=1, action=discord.AuditLogAction.kick)  

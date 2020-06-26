@@ -66,6 +66,7 @@ class admin(commands.Cog, name="Staff"):
             return await ctx.send("This guild is already in my blacklist.")
 
         await self.bot.db.execute("INSERT INTO blockedguilds(guild_id, reason, dev) VALUES ($1, $2, $3)", guild, reason, ctx.author.id)
+        self.bot.blacklisted_guilds[guild] = [reason]
 
         await ctx.send(f"I've successfully added **{guild}** guild to my blacklist", delete_after=10)
         try:
@@ -85,6 +86,7 @@ class admin(commands.Cog, name="Staff"):
             return await ctx.send("This guild isn't in my blacklist.")
 
         await self.bot.db.execute("DELETE FROM blockedguilds WHERE guild_id = $1", guild)
+        self.bot.blacklisted_guilds.pop(guild)
 
         await ctx.send(f"I've successfully removed **{guild}** guild from my blacklist", delete_after=10)
 
@@ -105,6 +107,7 @@ class admin(commands.Cog, name="Staff"):
             return await ctx.send("This user is already in my blacklist.")
 
         await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
+        self.bot.blacklisted_users[user.id] = [reason]
 
         await ctx.send(f"I've successfully added **{user}** to my blacklist", delete_after=10)
 
@@ -119,6 +122,7 @@ class admin(commands.Cog, name="Staff"):
             return await ctx.send("This user isn't in my blacklist.")
 
         await self.bot.db.execute("DELETE FROM blacklist WHERE user_id = $1", user.id)
+        self.bot.blacklisted_users.pop(user.id)
 
         await ctx.send(f"I've successfully removed **{user}** from my blacklist", delete_after=10)
 

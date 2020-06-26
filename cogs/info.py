@@ -43,17 +43,14 @@ class info(commands.Cog, name="Info"):
         self.big_icon = "https://cdn.discordapp.com/emojis/686251889586864145.png?v=1"
         self.bot.embed_color = 0x0058D6
         self.bot.help_command.cog = self
+
     async def bot_check(self, ctx):
-
-        if await ctx.bot.is_owner(ctx.author):
-            return True
-
-        if not ctx.guild:
-            return True
 
         cmd = self.bot.get_command(ctx.command.name)
         data = await self.bot.db.fetchval("select * from cmds where command = $1", str(cmd))
 
+        if await self.bot.is_admin(ctx.author):
+            return True
         
         if data is not None:
             await ctx.send(f"{emotes.blacklisted} | `{ctx.command.name}` is temporarily disabled for maintenance")

@@ -31,18 +31,18 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         moks = self.bot.get_user(345457928972533773)
         if ctx.author == moks:
             return True
-        
-        db_check = await self.bot.db.fetchval("SELECT user_id FROM blacklist WHERE user_id = $1", ctx.author.id)
-        reason = await self.bot.db.fetchval("SELECT reason FROM blacklist WHERE user_id = $1", ctx.author.id)
-
-        if reason == "No reason":
-            reasons = ''
-        elif reason != "No reason":
-            reasons = f"**Reason:** {reason}\n"
+        try:
+            if self.bot.blacklisted_users[ctx.author.id] == ['No reason']:
+                reasons = ''
+            elif self.bot.blacklisted_users[ctx.author.id] != ['No reason']:
+                reason = "".join(self.bot.blacklisted_users[ctx.author.id])
+                reasons = f"**Reason:** {reason}\n"
+        except KeyError:
+            return True
         
         support = await self.bot.db.fetchval("SELECT * FROM support")
 
-        if db_check is not None:
+        if self.bot.blacklisted_users[ctx.author.id]:
             e = discord.Embed(color=self.bot.error_color, title=f"{emotes.blacklisted} Error occured!", description=f"Uh oh! Looks like you are blacklisted from me and cannot execute my commands!\n{reasons}\n[Join support server to learn more]({support})")
             await ctx.send(embed=e, delete_after=15)
             print(f"{ctx.author} attempted to use my commands, but was blocked because of the blacklist.\n[REASON] {reason}")
@@ -73,25 +73,28 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         support = await self.bot.db.fetchval("SELECT * FROM support")
 
         # If it is blacklisted, log it.
-        if blacklist_check:
-            try:
-                to_send = sorted([chan for chan in guild.channels if chan.permissions_for(
-                    guild.me).send_messages and isinstance(chan, discord.TextChannel)], key=lambda x: x.position)[0]
-            except IndexError:
-                pass
-            else:
-                e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.blacklisted} Blacklist error!", description=f"Looks like the guild you've tried inviting me to is blacklisted and I cannot join it.\nBlacklist reason: {reason}\n\n[Join support server for more information]({support})")
-                await to_send.send(embed=e)
-                await guild.leave()
-            
-            # Send it to the log channel
-            chan = self.bot.get_channel(676419533971652633)
-            modid = await self.bot.db.fetchval("SELECT dev FROM blockedguilds WHERE guild_id = $1", guild.id)
-            mod = self.bot.get_user(modid)
-            e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.blacklisted} Attempted Invite", timestamp=datetime.utcnow(),
-                              description=f"A blacklisted guild attempted to invite me.\n**Guild name:** {guild.name}\n**Guild ID:** {guild.id}\n**Guild Owner:** {guild.owner}\n**Guild size:** {len(guild.members)-1}\n**Blacklisted by:** {mod}\n**Blacklist reason:** {reason}")
-            e.set_thumbnail(url=guild.icon_url)
-            return await chan.send(embed=e)
+        try:
+            if self.bot.blacklisted_guilds[guild.id]:
+                try:
+                    to_send = sorted([chan for chan in guild.channels if chan.permissions_for(
+                        guild.me).send_messages and isinstance(chan, discord.TextChannel)], key=lambda x: x.position)[0]
+                except IndexError:
+                    pass
+                else:
+                    e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.blacklisted} Blacklist error!", description=f"Looks like the guild you've tried inviting me to is blacklisted and I cannot join it.\nBlacklist reason: {reason}\n\n[Join support server for more information]({support})")
+                    await to_send.send(embed=e)
+                    await guild.leave()
+                
+                # Send it to the log channel
+                chan = self.bot.get_channel(676419533971652633)
+                modid = await self.bot.db.fetchval("SELECT dev FROM blockedguilds WHERE guild_id = $1", guild.id)
+                mod = self.bot.get_user(modid)
+                e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.blacklisted} Attempted Invite", timestamp=datetime.utcnow(),
+                                description=f"A blacklisted guild attempted to invite me.\n**Guild name:** {guild.name}\n**Guild ID:** {guild.id}\n**Guild Owner:** {guild.owner}\n**Guild size:** {len(guild.members)-1}\n**Blacklisted by:** {mod}\n**Blacklist reason:** {reason}")
+                e.set_thumbnail(url=guild.icon_url)
+                return await chan.send(embed=e)
+        except KeyError:
+            pass
         
         # Guild is not blacklisted!
         # Insert guild's data to the database
@@ -236,25 +239,28 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                     await message.author.send(f"Yo, {afkuser.name} is AFK, but he left a note: {note}")
                 except discord.Forbidden:
                     return
+    
+    @commands.Cog.listener('on_message')
+    async def lmao_count(self, message):
+
+        ice = self.bot.get_user(302604426781261824)
+        if "lmao" in message.content.lower():
+            if not message.author == ice:
+                return
+            await self.bot.db.execute('UPDATE lmaocount SET count = count + 1 WHERE user_id = $1', message.author.id)
+            
+        if "lmfao" in message.content.lower():
+            if not message.author == ice:
+                return
+            await self.bot.db.execute('UPDATE lmaocount SET lf = lf + 1 WHERE user_id = $1', message.author.id)
 
 
-    # @commands.Cog.listener('on_message')
-    # async def member_presence(self, message):
-    #     if message.author.bot:
-    #         return
-
-    #     if not message.author.activity:
-    #         return
-        
-    #     check = await self.bot.db.fetchval("SELECT * FROM presence_check WHERE user_id =$1", message.author.id)
-    #     if not check:
-    #         return
-        
-    #     if message.author.activity:
-    #         for activity in message.author.activities:
-    #             if activity.type == discord.ActivityType.playing:
-    #                 detail = datetime.utcnow() - activity.start
-    #                 await self.bot.db.execute("INSERT INTO presence(user_id, activity_name) VALUES ($1, $2)", message.author.id, activity.name)
+    @commands.Cog.listener('on_message')
+    async def del_staff_ping(self, message):
+        moksej = self.bot.get_user(345457928972533773)
+        if message.channel.id == 603800402013585408 and message.author.id == 568254611354419211:
+            if "added bot" in message.content.lower():
+                await moksej.send(f"New bot added {message.jump_url}")
 
 def setup(bot):
     bot.add_cog(Events(bot))

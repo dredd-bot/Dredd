@@ -231,6 +231,7 @@ class owner(commands.Cog, name="Owner"):
             return await ctx.send("This guild is already in my blacklist.")
 
         await self.bot.db.execute("INSERT INTO blockedguilds(guild_id, reason, dev) VALUES ($1, $2, $3)", guild, reason, ctx.author.id)
+        self.bot.blacklisted_guilds[guild] = [reason]
         
         bu = await self.bot.db.fetch("SELECT * FROM blockedguilds")
         server = await self.bot.db.fetchval("SELECT * FROM support")
@@ -272,11 +273,12 @@ class owner(commands.Cog, name="Owner"):
             return await ctx.send("This guild isn't in my blacklist.")
 
         await self.bot.db.execute("DELETE FROM blockedguilds WHERE guild_id = $1", guild)
+        self.bot.blacklisted_guilds.pop(guild)
 
         bu = await self.bot.db.fetch("SELECT * FROM blockedguilds")
 
         g = self.bot.get_guild(guild)
-        await ctx.send(f"I've successfully removed **{g}** guild from my blacklist", delete_after=10)
+        await ctx.send(f"I've successfully removed **{g}** ({guild}) guild from my blacklist", delete_after=10)
         try:
             m = self.bot.get_channel(697938958226686066)
             await m.edit(name=f"Watching {len(bu)} blacklisted guilds")
@@ -292,7 +294,7 @@ class owner(commands.Cog, name="Owner"):
             pass
 
         if reason is None:
-            reason = "No reason"
+            reason = 'No reason'
 
         db_check = await self.bot.db.fetchval("SELECT user_id FROM blacklist WHERE user_id = $1", user.id)
 
@@ -304,6 +306,7 @@ class owner(commands.Cog, name="Owner"):
             return await ctx.send("This user is already in my blacklist.")
 
         await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
+        self.bot.blacklisted_users[user.id] = [reason]
 
         bu = await self.bot.db.fetch("SELECT * FROM blacklist")
         m = self.bot.get_channel(697938394663223407)
@@ -326,6 +329,7 @@ class owner(commands.Cog, name="Owner"):
             return await ctx.send("This user isn't in my blacklist.")
 
         await self.bot.db.execute("DELETE FROM blacklist WHERE user_id = $1", user.id)
+        self.bot.blacklisted_users.pop(user.id)
 
         bu = await self.bot.db.fetch("SELECT * FROM blacklist")
         m = self.bot.get_channel(697938394663223407)
@@ -565,15 +569,6 @@ class owner(commands.Cog, name="Owner"):
             await ctx.send(err)
         except TypeError:
             await ctx.send("You need to either provide an image URL or upload one with the command")
-
-    @change.command(name='status', brief='Change bot status')
-    async def change_status(self, ctx, status: str):
-        try:
-            await self.bot.change_presence(status=str, activity=None)
-            await ctx.send("Done!")
-        except Exception as e:
-            return await ctx.send(f"""```diff
-- {e}```""")
 
     @dev.command(aliases=['edit', 'editmsg'], category="Messages", brief="Edit msg")
     @commands.is_owner()

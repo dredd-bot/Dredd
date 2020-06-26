@@ -40,22 +40,70 @@ async def run():
     if not hasattr(bot, 'uptime'):
         bot.uptime = datetime.datetime.utcnow()
     try:
+
         blacklist_user = await bot.db.fetch("SELECT * FROM blacklist")
+
         for user in blacklist_user:
             bot.blacklisted_users[user['user_id']] = [user['reason']]
-        print(f'[BLACKLIST] Successfully loaded user blacklist [{len(blacklist_user)}]')
+        print(f'[BLACKLIST] Users blacklist loaded [{len(blacklist_user)}]')
+
+
         blacklist_guild = await bot.db.fetch("SELECT * FROM blockedguilds")
         for guild in blacklist_guild:
             bot.blacklisted_guilds[guild['guild_id']] = [guild['reason']]
-        print(f'[BLACKLIST] Successfully loaded user blacklist [{len(blacklist_guild)}]')
+        print(f'[BLACKLIST] Guilds blacklist loaded [{len(blacklist_guild)}]')
+
+
         afk_user = await bot.db.fetch("SELECT * FROM userafk")
         for user in afk_user:
             bot.afk_users[user['user_id'], user['guild_id']] = [user['message']]
-        print(f'[AFK] AFK users were loaded [{len(afk_user)}]')
+        print(f'[AFK] AFK users loaded [{len(afk_user)}]')
+
+
         temp_mutees = await bot.db.fetch("SELECT * FROM moddata")
         for res in temp_mutees:
             bot.temp_timer.append((res['guild_id'], res['user_id'], res['mod_id'], res['reason'], res['time'], res['role_id']))
-        print(f'[TEMP MUTE] Mutees were loaded [{len(temp_mutees)}]')
+        print(f'[TEMP MUTE] Mutees loaded [{len(temp_mutees)}]')
+
+        automod = await bot.db.fetch("SELECT * FROM automods")
+        for res in automod:
+            bot.automod[res['guild_id']] = res['punishment']
+        print(f"[AUTOMOD] Automod settings loaded")
+
+        invites = await bot.db.fetch("SELECT * FROM inv")
+        for res in invites:
+            bot.anti_invites[res['guild_id']] = res['punishment']
+        print(f"[ANTI INVITE AUTOMOD] Anti invites loaded")
+
+        caps = await bot.db.fetch("SELECT * FROM caps")
+        for res in caps:
+            bot.anti_caps[res['guild_id']] = res['punishment']
+        print(f'[ANTI CAPS AUTOMOD] Anti caps loaded')
+        
+        links = await bot.db.fetch("SELECT * FROM link")
+        for res in links:
+            bot.anti_links[res['guild_id']] = res['punishment']
+        print(f"[ANTI LINKS AUTOMOD] Anti links loaded")
+
+        mentions = await bot.db.fetch("SELECT * FROM massmention")
+        mentions_limit = await bot.db.fetch("SELECT * FROM mentions")
+        for res in mentions:
+            bot.anti_mentions[res['guild_id']] = res['punishment']
+        for res in mentions_limit:
+            bot.anti_mentions_limit[res['guild_id']] = res['mentions']
+        print(f"[ANTI MENTIONS AUTOMOD] Anti mentions loaded")
+
+        automod_actions = await bot.db.fetch("SELECT * FROM automodaction")
+        for res in automod_actions:
+            bot.automod_actions[res['guild_id']] = res['channel_id']
+        print(f"[AUTOMOD ACTIONS] Automod actions loaded")
+
+        case = await bot.db.fetch("SELECT * FROM modlog")
+        for res in case:
+            bot.case_num[res['guild_id']] = res['case_num']
+        print("[CASES] Cases loaded")
+
+
         await bot.start(config.DISCORD_TOKEN)
     except KeyboardInterrupt:
         await db.close()
@@ -121,6 +169,15 @@ class Bot(commands.AutoShardedBot):
         self.blacklisted_users = {}
         self.afk_users = {}
         self.temp_timer = []
+
+        self.automod = {}
+        self.anti_invites = {}
+        self.anti_links = {}
+        self.anti_caps = {}
+        self.anti_mentions = {}
+        self.anti_mentions_limit = {}
+        self.automod_actions = {}
+        self.case_num = {}
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)

@@ -123,7 +123,7 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
 
         tb = traceback.format_exception(type(exc), exc, exc.__traceback__) 
         tbe = "".join(tb) + ""
-        log = self.bot.get_channel(703627099180630068)
+        log = self.bot.get_channel(675742172015755274)
         embed = discord.Embed(
             title=f"{emotes.error} Error occured while executing command!", color=self.bot.logembed_color, timestamp=datetime.utcnow())
         embed.description = f'''```py
