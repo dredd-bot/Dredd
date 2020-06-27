@@ -125,6 +125,23 @@ async def get_prefix(bot, message):
     elif custom_prefix is None:
         return
 
+class EditingContext(commands.Context):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=None):
+        if file or files:
+            return await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
+        reply = None
+        try:
+            reply = self.bot.cmd_edits[self.message.id]
+        except KeyError:
+            pass
+        if reply:
+            return await reply.edit(content=content, embed=embed, delete_after=delete_after)
+        msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
+        self.bot.cmd_edits[self.message.id] = msg
+        return msg
 
 
 class Bot(commands.AutoShardedBot):
@@ -162,6 +179,7 @@ class Bot(commands.AutoShardedBot):
         
         self.e = emotes
         self.config = config
+        self.cmd_edits = {}
 
         self.loop = asyncio.get_event_loop()
         self.session = aiohttp.ClientSession(loop=self.loop)
@@ -212,10 +230,9 @@ class Bot(commands.AutoShardedBot):
         if before.author.bot:
             return
 
-        if before.content == after.content:
-            return
-
-        await self.process_commands(after)
+        if after.content != before.content:
+            ctx = await self.get_context(after, cls=EditingContext)
+            await self.invoke(ctx)
 
     async def temp_punishment(self, guild: int, user: int, mod: int, reason: str, time: int, role: int):
         await self.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id) VALUES($1, $2, $3, $4, $5, $6)", guild, user, mod, reason, time, role)
