@@ -224,6 +224,13 @@ class Bot(commands.AutoShardedBot):
 
         self.loop.create_task(do_stuff())
 
+    async def on_message(self, message):
+        if message.author.bot:
+            return
+
+
+        ctx = await self.get_context(message, cls=EditingContext)
+        await self.invoke(ctx)
 
     async def on_message_edit(self, before, after):
 
@@ -231,8 +238,11 @@ class Bot(commands.AutoShardedBot):
             return
 
         if after.content != before.content:
-            ctx = await self.get_context(after, cls=EditingContext)
-            await self.invoke(ctx)
+            try:
+                ctx = await self.get_context(after, cls=EditingContext)
+                await self.invoke(ctx)
+            except discord.NotFound:
+                return
 
     async def temp_punishment(self, guild: int, user: int, mod: int, reason: str, time: int, role: int):
         await self.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id) VALUES($1, $2, $3, $4, $5, $6)", guild, user, mod, reason, time, role)
