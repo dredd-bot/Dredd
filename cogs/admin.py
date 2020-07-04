@@ -51,6 +51,7 @@ class admin(commands.Cog, name="Staff"):
 # ! Blacklist
 
     @admin.command(brief="Blacklist a guild", aliases=['guildban'])
+    @commands.cooldown(1, 60, commands.BucketType.user)
     async def guildblock(self, ctx, guild: int, *, reason: str = None):
         """ Blacklist bot from specific guild """
 

@@ -18,6 +18,7 @@ import time
 import os
 import codecs
 import pathlib
+import json
 
 from io import BytesIO
 from discord.ext import commands
@@ -279,44 +280,13 @@ class info(commands.Cog, name="Info"):
                 badge_list.append(badges[i])
         
         ranks = []
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
 
-        guild = self.bot.get_guild(671078170874740756)
-
-        if user == self.bot.get_user(345457928972533773):
-            owner = f"{emotes.bot_owner}"
-            ranks.append(owner)
-        
-        botadmin_role = guild.get_role(674929900674875413)
-        if user in guild.members:
-            if user in botadmin_role.members:
-                botadmin = f"{emotes.bot_admin}"
-                ranks.append(botadmin)
-
-        
-        botpartner_role = guild.get_role(683288670467653739)
-        if user in guild.members:
-            if user in botpartner_role.members:
-                botpartner = f"{emotes.bot_partner}"
-                ranks.append(botpartner)
-    
-
-        bughunter_role = guild.get_role(679643117510459432)
-        if user in guild.members:
-            if user in bughunter_role.members:
-                bughunter = f"{emotes.bot_hunter}"
-                ranks.append(bughunter)
-
-        supporter_role = guild.get_role(679642623107137549)
-        if user in guild.members:
-            if user in supporter_role.members:
-                supporter = f"{emotes.bot_early_supporter}"
-                ranks.append(supporter)
-
-        booster_role = guild.get_role(686259869874913287)
-        if user in guild.members:
-            if user in booster_role.members:
-                supporter = f"{emotes.bot_booster}"
-                ranks.append(supporter)
+        try:
+            ranks.append(" ".join(data["Badges"][f"{user.id}"]['Badges']))
+        except KeyError:
+            pass
 
         if user.bot:
             bot = "Yes"
@@ -367,7 +337,6 @@ class info(commands.Cog, name="Info"):
                 lnicks = "N/A"
             else:
                 lnicks = nicknamess[:-2]
-                
             uroles = ''
             for role in usercheck.roles:
                 if role.is_default():

@@ -16,6 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import os
 import datetime
+import json
 from discord.ext import commands
 from utils import default
 from datetime import datetime
@@ -206,18 +207,6 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 return
             if userid == message.author.id and not ctx.valid:               
                 await message.channel.send(f"Welcome back {message.author.mention}! Removing your AFK state.", delete_after=20)
-                mentions = []
-                for data in await self.bot.db.fetch("SELECT * FROM afkalert WHERE user_id = $1", message.author.id):
-                    mentions.append(f"**{self.bot.get_user(data['author_id'])}** mentioned you - `{data['msgs']}`\n[Jump to message]({data['msglink']})")
-                if mentions:
-                    # This is trash
-                    e = discord.Embed(color=self.bot.embed_color, title="Mentions log", description="Here's a list of all the messages you were mentioned in while you were afk.")
-                    e.add_field(name=f"Total messages ({len(mentions)})", value="\n".join(mentions))
-                    try:
-                        await message.author.send(embed=e)
-                    except:
-                        pass
-                await self.bot.db.execute("DELETE FROM afkalert WHERE user_id = $1", message.author.id)
                 return await self.bot.db.execute("DELETE FROM userafk WHERE user_id = $1 AND guild_id = $2", message.author.id, message.guild.id)
             
             for userids in message.mentions:
@@ -231,7 +220,6 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 afkmsg = "\n" + afkmsg
             note = await self.bot.db.fetchval("SELECT message FROM userafk WHERE user_id = $1 AND guild_id = $2", userid, message.guild.id)
             afkuser = message.guild.get_member(userid)
-            await self.bot.db.execute("INSERT INTO afkalert(author_id, user_id, msglink, msgs) VALUES ($1, $2, $3, $4)", message.author.id, afkuser.id, message.jump_url, message.content)
             try:
                 await message.channel.send(f'{message.author.mention}, {afkuser.name} is AFK, but he left a note: {note}', delete_after=30, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False))
             except discord.HTTPException:
@@ -261,6 +249,8 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         if message.channel.id == 603800402013585408 and message.author.id == 568254611354419211:
             if "added bot" in message.content.lower():
                 await moksej.send(f"New bot added {message.jump_url}")
+
+
 
 def setup(bot):
     bot.add_cog(Events(bot))

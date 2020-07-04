@@ -33,7 +33,7 @@ class HelpCommand(commands.HelpCommand):
         self.verify_checks = False
         
 
-        self.owner_cogs = ['Devishaku', 'Music', 'Owner', "Economy"]
+        self.owner_cogs = ['Devishaku', 'Music', 'Owner', "Economy", "Music"]
         self.admin_cogs = ['Staff']
         self.ignore_cogs = ["Help", "Events", "Cmds", "Logs", "dredd", 'DBL', 'BG', 'StatcordPost', "AutomodEvents"]
     
@@ -174,7 +174,7 @@ class HelpCommand(commands.HelpCommand):
         #emb.add_field(name="\u200b", value="\u200b")
         emb.add_field(name='📰 **Latest news**', value=f"{updates}", inline=False)
         emb.add_field(name='**Useful links**', value=f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.dbl} [Vote](https://top.gg/bot/667117267405766696/vote)")
-        emb.set_footer(text=f"- You can type {self.context.prefix}help <command> to see that command help and {self.context.prefix}help <category> to see that category commands")
+        emb.set_footer(text=f"- You can type {self.clean_prefix}help <command> to see that command help and {self.clean_prefix}help <category> to see that category commands")
 
         await self.context.send(embed=emb)
 
@@ -205,7 +205,7 @@ class HelpCommand(commands.HelpCommand):
 
         emb = discord.Embed(color=self.context.bot.embed_color, description=desc)
         emb.title = self.get_command_signature(command)
-        emb.add_field(name="Usage:\n", value=f"{self.context.prefix}{command.qualified_name} {command.signature}")
+        emb.add_field(name="Usage:\n", value=f"{self.clean_prefix}{command.qualified_name} {command.signature}")
         emb.add_field(name="Aliases:\n", value=aliases)
         emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/679705242124025897/680397954699231259/dredd_em.png')
 
@@ -244,7 +244,7 @@ class HelpCommand(commands.HelpCommand):
         # if group_command.root_parent:
         #     emb.add_field(name="Usage:\n", value=f"{self.context.prefix}{group_command.root_parent} <subcommand> ..")
         # else:
-        emb.add_field(name="Usage:\n", value=f"{self.context.prefix}{cmdsignature}")
+        emb.add_field(name="Usage:\n", value=f"{self.clean_prefix}{cmdsignature}")
         emb.add_field(name="Aliases:\n", value=aliases)
         emb.add_field(name=f"Subcommands: ({len(group.commands)})", value=sub_cmd_list[:-2], inline=False)
         emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/679705242124025897/680397954699231259/dredd_em.png')

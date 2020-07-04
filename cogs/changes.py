@@ -12,8 +12,9 @@ CHANGE_LOG = {
     'V0.8.0 Rewrite': "Removed `lolice`, `whowouldwin` commands.\n`permissions` now show what permissions you don't have as well.\nCompletely got rid of economy cog\nAutomod is now better and more simple to setup\nAdded todo list\nImproved commands structure\nAdded more management commands for bot's staff.",
     'V0.9.0 Rewrite': "Logs now have case numebrs (bans, unbans, mutes, kicks)\nRoles/channels create/edit/delete logs do not exist anymore\n`userinfo` command was changed a little bit. (design and emotes) also it was glitching out sometimes by showing incorrect status, especially when streaming.\nMessage deletes are now getting logged if you have `moderation` logging enabled.\nJoin role for bots is here!\nAdded char limit for afk and nick commands\nAdded discord's allowed_mentions feature\nYou can invoke commands by editing the message",
     'V1.0.0 Final Rewrite': "You can now follow suggestions and bugs\nPrefix command now has a char limit\nAdded temp mute\nIf user was muted before and rejoined the server, he'll be muted.\nAdded char limit for some of the fun commands\nFixed some stuff\nYou can disable join messages for bots",
-    'V1.0.1': '...'
-}
+    'V1.0.1': "Fixed a typo in setafk command\nHelp command shows clean prefix now instead of <@id> when you invoke commands using @mention\nGetting bot badges isn't automated anymore, and stored in json file.\nYou can invoke commands by editing your messages now.",
+    'v1.0.2': "..."
+    }
 
 version = '1.0.1'
 most_recent = CHANGE_LOG["V"+version]

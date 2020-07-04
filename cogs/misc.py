@@ -17,8 +17,10 @@ import discord
 import asyncio
 import random
 import aiohttp
+import math
 
 from discord.ext import commands
+from discord.utils import escape_markdown
 from utils.checks import has_voted, is_guild
 from utils.paginator import Pages
 from utils.Nullify import clean
@@ -183,7 +185,7 @@ class misc(commands.Cog, name="Misc"):
         db_check = await self.bot.db.fetchval("SELECT * FROM userafk WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, ctx.author.id)
         if message is None:
             msg = "I'm AFK :)"
-        elif message and len(message) > 64:
+        elif message and len(message) < 64:
             msg = message
         else:
             return await ctx.send(f"{emotes.red_mark} Your message is too long! You can have max 64 characters.")
@@ -201,9 +203,9 @@ class misc(commands.Cog, name="Misc"):
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
         
-    @todo.command()
+    @todo.command(aliases=['a'])
     @commands.cooldown(1, 15, commands.BucketType.user)
-    async def add(self, ctx, *, todo: str):
+    async def add(self, ctx, *, todo: commands.clean_content):
         """ Add something to your todo list 
         Time is in UTC """
 
@@ -218,7 +220,7 @@ class misc(commands.Cog, name="Misc"):
 
         await ctx.send(f"{emotes.white_mark} Added `{todo}` to your todo list")
     
-    @todo.command(name='list')
+    @todo.command(name='list', aliases=['l'])
     @commands.cooldown(1, 15, commands.BucketType.user)
     async def _list(self, ctx):
         """ Check your todo list """
@@ -248,7 +250,7 @@ class misc(commands.Cog, name="Misc"):
                           show_entry_count=True)
             await paginators.paginate()
     
-    @todo.command()
+    @todo.command(aliases=['r'])
     @commands.cooldown(1, 15, commands.BucketType.user)
     async def remove(self, ctx, *, todoid: str):
         """ Remove todo from your todo list """
@@ -277,10 +279,10 @@ class misc(commands.Cog, name="Misc"):
         entries = [(todos[todo_id]['user_id'], todos[todo_id]['time']) for todo_id in todos_to_remove]
         await self.bot.db.executemany(query, entries)
 
-        contents = '\n• '.join([f'`{todos[todo_id]["todo"]}`' for todo_id in todos_to_remove])
+        contents = '\n• '.join([f'`{escape_markdown(todos[todo_id]["todo"], as_needed=True)}`' for todo_id in todos_to_remove])
         return await ctx.send(f"{emotes.white_mark} Removed `{len(todo_ids)}` todo from your todo list:\n• {contents}")
 
-    @todo.command()
+    @todo.command(aliases=['c'])
     @commands.cooldown(1, 15, commands.BucketType.user)
     async def clear(self, ctx):
         """ Clear your todo list """
@@ -311,9 +313,9 @@ class misc(commands.Cog, name="Misc"):
             await checkmsg.clear_reactions()
             await checkmsg.edit(content="Cancelling...", delete_after=15)
         
-    @todo.command()
+    @todo.command(aliases=['e'])
     @commands.cooldown(1, 15, commands.BucketType.user)
-    async def edit(self, ctx, todoid: str, *, content: str):
+    async def edit(self, ctx, todoid: str, *, content: commands.clean_content):
         """ Edit todo in your todo list """
 
         todos = await self.bot.db.fetch('SELECT * FROM todolist WHERE user_id = $1 ORDER BY time', ctx.author.id)
@@ -410,8 +412,6 @@ class misc(commands.Cog, name="Misc"):
 
         ice = self.bot.get_user(302604426781261824)
         await ctx.send(f"**{ice}** said `lmao` **{numla}** times, and `lmfao` **{numlf}** times.")
-
-
 
 def setup(bot):
     bot.add_cog(misc(bot))

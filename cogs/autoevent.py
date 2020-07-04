@@ -31,6 +31,8 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         self.bot = bot
         self.help_icon = ""
         self.big_icon = ""
+        self.long_raid_cooldown = commands.CooldownMapping(commands.Cooldown(25, 15, commands.BucketType.guild))
+        self.short_raid_cooldown = commands.CooldownMapping.from_cooldown(8, 4, commands.BucketType.guild)
 
 # Automod   
     @commands.Cog.listener('on_message')
@@ -299,19 +301,19 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         mass_mentions, allow_links, mass_caps, discord_links
     ]
 #
-    # @commands.Cog.listener('on_member_join')
-    # async def raidmode(self, member):
-    #     raidcheck = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", member.guild.id)
+    @commands.Cog.listener('on_member_join')
+    async def raidmode(self, member):
+        raidcheck = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", member.guild.id)
 
-    #     if raidcheck == False:
-    #         return
+        if raidcheck == False:
+            return
             
-    #     elif raidcheck == True and member.guild.me.guild_permissions.kick_members:
-    #         try:
-    #             await member.send(f"{emotes.red_mark} **{member.guild.name}** has anti-raidmode activated, please join later...")
-    #         except:
-    #             pass
-    #         return await member.guild.kick(member, reason="anti-raidmode action")
+        elif raidcheck == True and member.guild.me.guild_permissions.kick_members:
+            try:
+                await member.send(f"{emotes.red_mark} **{member.guild.name}** has anti-raidmode activated, please join later...")
+            except:
+                pass
+            return await member.guild.kick(member, reason="anti-raidmode action")
 
 def setup(bot):
     bot.add_cog(AutomodEvents(bot))

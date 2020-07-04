@@ -252,11 +252,6 @@ class owner(commands.Cog, name="Owner"):
             await ctx.send(f"I've successfully left `{g}`")
         except Exception:
             pass
-        try:
-            m = self.bot.get_channel(697938958226686066)
-            await m.edit(name=f"Watching {len(bu)} blacklisted guilds")
-        except:
-            return
 
     @dev.command(brief="Unblacklist a guild", aliases=['guildunban'])
     async def guildunblock(self, ctx, guild: int):
@@ -279,11 +274,6 @@ class owner(commands.Cog, name="Owner"):
 
         g = self.bot.get_guild(guild)
         await ctx.send(f"I've successfully removed **{g}** ({guild}) guild from my blacklist", delete_after=10)
-        try:
-            m = self.bot.get_channel(697938958226686066)
-            await m.edit(name=f"Watching {len(bu)} blacklisted guilds")
-        except:
-            return
 
     @dev.command(brief="Bot block user", aliases=['botban'])
     async def botblock(self, ctx, user: discord.User, *, reason: str = None):
@@ -305,14 +295,13 @@ class owner(commands.Cog, name="Owner"):
         if db_check is not None:
             return await ctx.send("This user is already in my blacklist.")
 
-        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
+        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev, super) VALUES ($1, $2, $3, $4)", user.id, reason, ctx.author.id, False)
         self.bot.blacklisted_users[user.id] = [reason]
 
         bu = await self.bot.db.fetch("SELECT * FROM blacklist")
-        m = self.bot.get_channel(697938394663223407)
-        await m.edit(name=f"Watching {len(bu)} blacklisted users")
 
         await ctx.send(f"I've successfully added **{user}** to my blacklist", delete_after=10)
+
 
     @dev.command(brief="Bot unblock user", aliases=['botunban'])
     async def botunblock(self, ctx, user: discord.User):
@@ -330,10 +319,6 @@ class owner(commands.Cog, name="Owner"):
 
         await self.bot.db.execute("DELETE FROM blacklist WHERE user_id = $1", user.id)
         self.bot.blacklisted_users.pop(user.id)
-
-        bu = await self.bot.db.fetch("SELECT * FROM blacklist")
-        m = self.bot.get_channel(697938394663223407)
-        await m.edit(name=f"Watching {len(bu)} blacklisted users")
 
         await ctx.send(f"I've successfully removed **{user}** from my blacklist", delete_after=10)
     

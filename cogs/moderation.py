@@ -251,11 +251,11 @@ class moderation(commands.Cog, name="Moderation"):
         You can also provide multiple members to ban.
         """
 
+        if len(members) == 0:
+            raise commands.BadArgument("You're missing an argument - **users**") from None
+
         try:
             total = len(members)
-
-            if total == 0:
-                raise commands.BadArgument("You're missing an argument - **users**") from None
             
 
             failed = 0
@@ -1080,22 +1080,23 @@ class moderation(commands.Cog, name="Moderation"):
             await channel.send(f"{emotes.unlocked} This channel was unlocked for: `{reason}`")
             await ctx.send(f"{emotes.white_mark} {channel.mention} was unlocked!", delete_after=20)
 
-    # @commands.command(brief='Turn on/off server raid mode')
-    # @commands.guild_only()
-    # @commands.has_permissions(manage_guild=True)
-    # @commands.bot_has_permissions(kick_members=True)
-    # async def raidmode(self, ctx):
-    #     """ Raid is happening in your server? Turn on anti-raider! It'll kick every new member that joins. 
-    #     It'll also inform them in DMs that server is currently in anti-raid mode and doesn't allow new members! """
+    @commands.command(brief='Turn on/off server raid mode', hidden=True)
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    @commands.bot_has_permissions(kick_members=True)
+    @commands.is_owner()
+    async def raidmode(self, ctx):
+        """ Raid is happening in your server? Turn on anti-raider! It'll kick every new member that joins. 
+        It'll also inform them in DMs that server is currently in anti-raid mode and doesn't allow new members! """
 
-    #     raid_check = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", ctx.guild.id)
+        raid_check = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", ctx.guild.id)
 
-    #     if raid_check == False:
-    #         await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", True, ctx.guild.id)
-    #         await ctx.send(f"{emotes.white_mark} Raid mode was activated! New members will get kicked with a message in their DMs")
-    #     elif raid_check == True:
-    #         await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", False, ctx.guild.id)
-    #         await ctx.send(f"{emotes.white_mark} Raid mode was deactivated! New members won't be kicked anymore.")
+        if raid_check == False:
+            await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            await ctx.send(f"{emotes.white_mark} Raid mode was activated! New members will get kicked with a message in their DMs")
+        elif raid_check == True:
+            await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", False, ctx.guild.id)
+            await ctx.send(f"{emotes.white_mark} Raid mode was deactivated! New members won't be kicked anymore.")
         
             
     
