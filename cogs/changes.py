@@ -16,7 +16,7 @@ CHANGE_LOG = {
     'v1.0.2': "..."
     }
 
-version = '1.0.1'
+version = '1.0.2'
 most_recent = CHANGE_LOG["V"+version]
 
 def setup(bot):
