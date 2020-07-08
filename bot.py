@@ -70,39 +70,10 @@ async def run():
             bot.automod[res['guild_id']] = res['punishment']
         print(f"[AUTOMOD] Automod settings loaded")
 
-        invites = await bot.db.fetch("SELECT * FROM inv")
-        for res in invites:
-            bot.anti_invites[res['guild_id']] = res['punishment']
-        print(f"[ANTI INVITE AUTOMOD] Anti invites loaded")
-
-        caps = await bot.db.fetch("SELECT * FROM caps")
-        for res in caps:
-            bot.anti_caps[res['guild_id']] = res['punishment']
-        print(f'[ANTI CAPS AUTOMOD] Anti caps loaded')
-        
-        links = await bot.db.fetch("SELECT * FROM link")
-        for res in links:
-            bot.anti_links[res['guild_id']] = res['punishment']
-        print(f"[ANTI LINKS AUTOMOD] Anti links loaded")
-
-        mentions = await bot.db.fetch("SELECT * FROM massmention")
-        mentions_limit = await bot.db.fetch("SELECT * FROM mentions")
-        for res in mentions:
-            bot.anti_mentions[res['guild_id']] = res['punishment']
-        for res in mentions_limit:
-            bot.anti_mentions_limit[res['guild_id']] = res['mentions']
-        print(f"[ANTI MENTIONS AUTOMOD] Anti mentions loaded")
-
-        automod_actions = await bot.db.fetch("SELECT * FROM automodaction")
-        for res in automod_actions:
-            bot.automod_actions[res['guild_id']] = res['channel_id']
-        print(f"[AUTOMOD ACTIONS] Automod actions loaded")
-
         case = await bot.db.fetch("SELECT * FROM modlog")
         for res in case:
             bot.case_num[res['guild_id']] = res['case_num']
         print("[CASES] Cases loaded")
-
 
         await bot.start(config.DISCORD_TOKEN)
     except KeyboardInterrupt:
@@ -129,7 +100,7 @@ class EditingContext(commands.Context):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=None):
+    async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=discord.AllowedMentions(users=False, everyone=False, roles=False)):
         if file or files:
             return await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
         reply = None
@@ -138,7 +109,10 @@ class EditingContext(commands.Context):
         except KeyError:
             pass
         if reply:
-            return await reply.edit(content=content, embed=embed, delete_after=delete_after)
+            try:
+                return await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions)
+            except:
+                return
         msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
         self.bot.cmd_edits[self.message.id] = msg
         return msg
@@ -189,12 +163,6 @@ class Bot(commands.AutoShardedBot):
         self.temp_timer = []
 
         self.automod = {}
-        self.anti_invites = {}
-        self.anti_links = {}
-        self.anti_caps = {}
-        self.anti_mentions = {}
-        self.anti_mentions_limit = {}
-        self.automod_actions = {}
         self.case_num = {}
 
     def get(self, k, default=None):

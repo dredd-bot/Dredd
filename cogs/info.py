@@ -209,10 +209,20 @@ class info(commands.Cog, name="Info"):
         nitromsg = f"This server was boosted **{ctx.guild.premium_subscription_count}** times"
         nitromsg += "\n{0}".format(default.next_level(ctx))
 
+        ranks = []
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+
+        try:
+            ranks.append(' '.join(data["Servers"][f"{ctx.guild.id}"]["Badges"]))
+        except KeyError:
+            pass
 
         embed = discord.Embed(color=self.bot.embed_color)
         embed.set_author(icon_url=ctx.guild.icon_url,
                          name=f"Server Information")
+        if ranks:
+            embed.title = ' '.join(ranks)
         embed.add_field(name="__**General Information**__", value=f"**Guild name:** {ctx.guild.name}\n**Guild ID:** {ctx.guild.id}\n**Guild Owner:** {ctx.guild.owner}\n**Guild Owner ID:** {ctx.guild.owner.id}\n**Created at:** {default.date(ctx.guild.created_at)}\n**Region:** {str(ctx.guild.region).title()}\n**MFA:** {mfa}\n**Verification level:** {str(ctx.guild.verification_level).capitalize()}", inline=True)
         embed.add_field(name="__**Other**__", value=f"**Members:**\n{emotes.online_status} **{unique_online:,}**\n{emotes.idle_status} **{unique_idle:,}**\n{emotes.dnd_status} **{unique_dnd:,}**\n{emotes.streaming_status} **{unique_streaming:,}**\n{emotes.offline_status} **{unique_offline:,}**\n**Total:** {tot_mem:,} ({humann:,} Humans/{botts:,} Bots)\n**Channels:** {emotes.other_unlocked} {len(ctx.guild.text_channels)}/{emotes.other_vcunlock} {len(ctx.guild.voice_channels)}\n**Roles:** {len(ctx.guild.roles)}", inline=True)
         embed.add_field(name='__**Server boost status**__',
@@ -284,7 +294,7 @@ class info(commands.Cog, name="Info"):
             data = json.load(f)
 
         try:
-            ranks.append(" ".join(data["Badges"][f"{user.id}"]['Badges']))
+            ranks.append(" ".join(data["Users"][f"{user.id}"]['Badges']))
         except KeyError:
             pass
 
@@ -337,24 +347,26 @@ class info(commands.Cog, name="Info"):
                 lnicks = "N/A"
             else:
                 lnicks = nicknamess[:-2]
-            uroles = ''
+            uroles = []
             for role in usercheck.roles:
                 if role.is_default():
                     continue
-                uroles += f"{role.mention}, "
+                uroles.append(role.mention)  
 
-            if len(uroles) > 500:
-                uroles = "Too many roles ...."
+            uroles.reverse()
+
+            if len(str(uroles)) > 300:
+                uroles = ["Too many roles ...."]
 
             profile = discord.Profile
             
             emb = discord.Embed(color=self.bot.embed_color)
             if ranks:
-                emb.title = ' '.join(ranks)
+                emb.title = ''.join(ranks)
             emb.set_author(icon_url=user.avatar_url, name=f"{user}'s information")
             emb.add_field(name="__**General Info:**__", value=f"**Full name:** {user}\n**User ID:** {user.id}\n**Account created:** {user.created_at.__format__('%A %d %B %Y, %H:%M')}\n**Bot:** {bot}\n**Avatar URL:** [Click here]({user.avatar_url}){discord_badges}", inline=False)
             emb.add_field(name="__**Activity Status:**__", value=f"**Status:** {ustatus}\n**Activity status:** {default.member_activity(usercheck)}", inline=False)
-            emb.add_field(name="__**Server Info:**__", value=f"**Nickname:** {escape_markdown(nick, as_needed=True)}\n**Latest nicknames:** {escape_markdown(lnicks, as_needed=True)}\n**Joined at:** {default.date(usercheck.joined_at)}\n**Roles: ({len(usercheck.roles) - 1})** {uroles[:-2]}", inline=True)    
+            emb.add_field(name="__**Server Info:**__", value=f"**Nickname:** {escape_markdown(nick, as_needed=True)}\n**Latest nicknames:** {escape_markdown(lnicks, as_needed=True)}\n**Joined at:** {default.date(usercheck.joined_at)}\n**Roles: ({len(usercheck.roles) - 1}) **" + ", ".join(uroles), inline=True)    
             if user.is_avatar_animated() == False:
                 emb.set_thumbnail(url=user.avatar_url_as(format='png'))
             elif user.is_avatar_animated() == True:

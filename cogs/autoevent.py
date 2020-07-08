@@ -40,11 +40,11 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         if message.guild is None:
             return
             
-        # try:
-        #     setting = self.bot.automod[message.guild.id]
-        # except KeyError:
-        #     return
-        setting = await self.bot.db.fetchval("SELECT punishment FROM automods WHERE guild_id = $1", message.guild.id)
+        try:
+            setting = self.bot.automod[message.guild.id]
+        except KeyError:
+            return
+        # setting = await self.bot.db.fetchval("SELECT punishment FROM automods WHERE guild_id = $1", message.guild.id)
 
         if setting == 0 or setting is None:
             return
@@ -78,11 +78,11 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         message = after
         if message.guild is None:
             return
-        # try:
-        #     setting = self.bot.automod[message.guild.id]
-        # except KeyError:
-        #     return
-        setting = await self.bot.db.fetchval("SELECT punishment FROM automods WHERE guild_id = $1", message.guild.id)
+        try:
+            setting = self.bot.automod[message.guild.id]
+        except KeyError:
+            return
+        # setting = await self.bot.db.fetchval("SELECT punishment FROM automods WHERE guild_id = $1", message.guild.id)
 
         if setting == 0 or setting is None:
             return
@@ -215,12 +215,7 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         return False
 
     async def mass_mentions(self, message):
-        
-        # try:
-        #     setting = self.bot.anti_mentions[message.guild.id]
-        # except KeyError:
-        #     return
-        punishment = await self.bot.db.fetchval("SELECT punishment FROM masmention WHERE guild_id = $1", message.guild.id)
+        punishment = await self.bot.db.fetchval("SELECT punishment FROM massmention WHERE guild_id = $1", message.guild.id)
         chech = await self.bot.db.fetchval("SELECT mentions FROM mentions WHERE guild_id = $1", message.guild.id)
         exes = await self.bot.db.fetchval("SELECT mm FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
         channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", message.guild.id)

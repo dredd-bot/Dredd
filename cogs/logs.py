@@ -183,8 +183,10 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         joinlog = await self.bot.db.fetchval("SELECT channel_id FROM joinlog WHERE guild_id = $1", member.guild.id)
 
         moderation = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", member.guild.id)
-
-        case = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", member.guild.id)
+        try:
+            case = self.bot.case_num[member.guild.id]
+        except KeyError:
+            self.bot.case_num[member.guild.id] = 1
 
         if member == self.bot.user:
             return
@@ -235,10 +237,8 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 pass
             logchannel = self.bot.get_channel(moderation)
             if deleted and (datetime.utcnow() - checks[0].created_at).total_seconds() < 5:
-                if case is None:
-                    await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", member.guild.id, 1)
 
-                casenum = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", member.guild.id)
+                casenum = self.bot.case_num[member.guild.id]
                 embed = discord.Embed(
                     color=self.bot.logging_color, description=f"{emotes.log_memberleave} Member kicked `[#{casenum}]`", timestamp=datetime.utcnow())
                 #embed.set_author(icon_url=member.avatar_url)
@@ -248,7 +248,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 embed.add_field(name="Joined at:", value=default.date(member.joined_at), inline=False)
                 embed.add_field(name='Moderator:', value=deleted, inline=False)
                 embed.set_thumbnail(url=member.avatar_url)
-                await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", member.guild.id)
+                self.bot.case_num[member.guild.id] += 1
                 return await logchannel.send(embed=embed)
 
             elif deleted and (datetime.utcnow() - checks[0].created_at).total_seconds() > 5:
@@ -346,16 +346,16 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM moderation WHERE guild_id = $1", guild.id)
         logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
-        case = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", guild.id)
+        try:
+            case = self.bot.case_num[guild.id]
+        except KeyError:
+            self.bot.case_num[guild.id] = 1
 
         if logchannel is not None:
             channel = self.bot.get_channel(logchannel)
 
         if db_check1 is None:
             return
-        
-        if case is None:
-            await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", guild.id, 1)
         
         try:
             deleted = ""
@@ -365,7 +365,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             print(e)
             pass
 
-        casenum = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", guild.id)
+        casenum = self.bot.case_num[guild.id]
 
         embed = discord.Embed(color=self.bot.logging_color,
                               description=f"{emotes.log_ban} Member banned! `[#{casenum}]`",
@@ -376,7 +376,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if deleted:
             embed.add_field(name="Moderator:", value=deleted)
         embed.set_thumbnail(url=user.avatar_url)
-        await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", guild.id)
+        self.bot.case_num[guild.id] += 1
         await channel.send(embed=embed)
 
     @commands.Cog.listener()
@@ -384,15 +384,15 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM moderation WHERE guild_id = $1", guild.id)
         logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
-        case = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", guild.id)
+        try:
+            case = self.bot.case_num[guild.id]
+        except KeyError:
+            self.bot.case_num[guild.id] = 1
 
         channel = self.bot.get_channel(logchannel)
 
         if db_check1 is None:
             return
-
-        if case is None:
-            await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", guild.id, 1)
 
         try:
             deleted = ""
@@ -402,7 +402,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             print(e)
             pass
 
-        casenum = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", guild.id)
+        casenum = self.bot.case_num[guild.id]
 
         embed = discord.Embed(color=self.bot.logging_color,
                               description=f"{emotes.log_unban} Member unbanned! `[#{casenum}]`",
@@ -413,7 +413,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if deleted:
             embed.add_field(name="Moderator", value=deleted)
         embed.set_thumbnail(url=user.avatar_url)
-        await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", guild.id)
+        self.bot.case_num[guild.id] += 1
         await channel.send(embed=embed)
 
     @commands.Cog.listener()
@@ -421,15 +421,15 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM moderation WHERE guild_id = $1", member.guild.id)
         logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", member.guild.id)
-        case = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", member.guild.id)
+        try:
+            case = self.bot.case_num[member.guild.id]
+        except KeyError:
+            self.bot.case_num[member.guild.id] = 1
 
         channel = self.bot.get_channel(logchannel)
 
         if db_check1 is None:
             return
-
-        if case is None:
-            await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", member.guild.id, 1)
 
         try:
             deleted = ""
@@ -439,7 +439,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             print(e)
             pass
 
-        casenum = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", member.guild.id)
+        casenum = self.bot.case_num[member.guild.id]
         
         if before.mute != after.mute:
             if after.mute is False:
@@ -454,7 +454,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             if deleted:
                 embed.add_field(name="Moderator:", value=deleted)
             embed.set_thumbnail(url=member.avatar_url)
-            await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", member.guild.id)
+            self.bot.case_num[member.guild.id] += 1
             await channel.send(embed=embed)
     
     @commands.Cog.listener()
