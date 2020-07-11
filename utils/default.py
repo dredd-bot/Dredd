@@ -90,7 +90,10 @@ def member_activity(member):
                 message += "\n"
 
         elif activity.type == discord.ActivityType.streaming:
-            message += f"{emotes.stream_presence} Streaming **[{activity.name}]({activity.url})** on **{activity.platform}**\n"
+            try:
+                message += f"{emotes.stream_presence} Streaming **[{activity.name}]({activity.url})** on **{activity.platform}**\n"
+            except AttributeError:
+                message += f"{emotes.stream_presence} Shit broke while trying to figure out streaming details."
 
         elif activity.type == discord.ActivityType.watching:
             message += f"{emotes.rich_presence} Watching **{clean(activity.name)}**\n"
