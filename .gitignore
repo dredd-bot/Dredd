@@ -141,3 +141,4 @@ old/
 temp/
 website/
 dredd.py
+cogs/music.py
