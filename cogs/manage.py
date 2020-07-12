@@ -85,6 +85,11 @@ class Managment(commands.Cog, name="Management"):
         db_check8 = await self.bot.db.fetchval("SELECT guild_id FROM joinrole WHERE guild_id = $1", ctx.guild.id)
         db_check9 = await self.bot.db.fetchval("SELECT guild_id FROM leavemsg WHERE guild_id = $1", ctx.guild.id)
         db_check10 = await self.bot.db.fetchval("SELECT guild_id FROM automodaction WHERE guild_id = $1", ctx.guild.id)
+        joinmsg = await self.bot.db.fetchval("SELECT msg FROM joinmsg WHERE guild_id = $1", ctx.guild.id)
+        leavemsg = await self.bot.db.fetchval("SELECT msg FROM leavemsg WHERE guild_id = $1", ctx.guild.id)
+
+        joinmsg = joinmsg or f"{emotes.joined} ::member.mention:: joined the server! There are ::server.members:: members in the server now."
+        leavemsg = leavemsg or f"{emotes.left} ::member.mention:: left the server... There are ::server.members:: members left in the server."
 
         logs  = f"{f'{emotes.setting_no}' if db_check3 is None else f'{emotes.setting_yes}'} Edited messages\n"
         logs += f"{f'{emotes.setting_no}' if db_check1 is None else f'{emotes.setting_yes}'} Deleted messages\n"
@@ -97,10 +102,14 @@ class Managment(commands.Cog, name="Management"):
         settings += f"{f'{emotes.setting_no}' if db_check7 is None else f'{emotes.setting_yes}'} Welcoming Messages\n"
         settings += f"{f'{emotes.setting_no}' if db_check9 is None else f'{emotes.setting_yes}'} Leaving Messages\n"
 
+        welcoming = f"**Join message:**\n{joinmsg}\n"
+        welcoming += f"**Leave message:**\n{leavemsg}"
+
 
         embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.log_settings} **{ctx.guild}** server settings")
         embed.add_field(name="Logs:", value=logs, inline=False)
         embed.add_field(name="Settings:", value=settings, inline=False)
+        embed.add_field(name="Welcoming & Leaving:", value=welcoming, inline=False)
 
         await ctx.send(embed=embed)
     

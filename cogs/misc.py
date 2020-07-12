@@ -328,7 +328,7 @@ class misc(commands.Cog, name="Misc"):
         if not todoid.isdigit():
             return await ctx.send(f'{emotes.red_mark} You\'ve provided wrong id')
         if todoid not in todos.keys():
-            return await ctx.send(f'{emotes.red_mark} I can\'t find todo with id `{todo_id}` in your todo list list.')
+            return await ctx.send(f'{emotes.red_mark} I can\'t find todo with id `{todoid}` in your todo list list.')
         if len(content) > 200:
             return await ctx.send(f"{emotes.red_mark} Your todo is too long! ({len(content)}/200)")
 

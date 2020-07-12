@@ -94,7 +94,7 @@ class info(commands.Cog, name="Info"):
         Moksej = self.bot.get_user(345457928972533773)
 
         embed = discord.Embed(color=self.bot.embed_color)
-        embed.add_field(name="__**General Information:**__", value=f"**Developer:** {Moksej}\n**Library:**\n{emotes.other_python} [Discord.py](https://github.com/Rapptz/discord.py)\n**Version:** {discord.__version__}\n**Last boot:** {default.timeago(datetime.utcnow() - self.bot.uptime)}\n**Bot version:** {version}", inline=True)
+        embed.add_field(name="__**General Information:**__", value=f"**Developer:** {excape_markdown(Moksej, as_needed=True)}\n**Library:**\n{emotes.other_python} [Discord.py](https://github.com/Rapptz/discord.py)\n**Version:** {discord.__version__}\n**Last boot:** {default.timeago(datetime.utcnow() - self.bot.uptime)}\n**Bot version:** {version}", inline=True)
         embed.add_field(name="__**Other Information:**__", value=f"**Created:** {default.date(self.bot.user.created_at)}\n({default.timeago(datetime.utcnow() - self.bot.user.created_at)})\n**Total:**\nCommands: **{totcmd:,}**\nMembers: **{mems:,}**\nServers: **{len(self.bot.guilds):,}**\nChannels: {emotes.other_unlocked} **{text:,}** | {emotes.other_vcunlock} **{voice:,}**\n", inline=True)
 
         embed.set_image(
@@ -206,7 +206,7 @@ class info(commands.Cog, name="Info"):
         humann = sum(1 for member in ctx.guild.members if not member.bot)
         botts = sum(1 for member in ctx.guild.members if member.bot)
 
-        nitromsg = f"This server was boosted **{ctx.guild.premium_subscription_count}** times"
+        nitromsg = f"This server has **{ctx.guild.premium_subscription_count}** boosts"
         nitromsg += "\n{0}".format(default.next_level(ctx))
 
         ranks = []
@@ -533,6 +533,9 @@ class info(commands.Cog, name="Info"):
         comds = ''
         for commands in cmmds:
             comds += f"{commands}, "
+
+        if not comd and not comds:
+            return await ctx.send(f"{emotes.warning} There are no commands disabled!")
             
         e = discord.Embed(color=self.bot.embed_color, description=f"List of all disabled commands")
         if comd:
@@ -571,7 +574,17 @@ class info(commands.Cog, name="Info"):
                           show_entry_count=False,
                           author=ctx.author)
         await paginator.paginate()
-    
+
+
+    @commands.command(brief='Change log for each version', aliases=['changes'])
+    @commands.cooldown(1, 15, commands.BucketType.user)
+    async def changelog(self, ctx):
+        e = discord.Embed(color=self.bot.logging_color)
+        e.add_field(name=f"Most recent changes for v{self.bot.version}:", value=f"{self.bot.most_recent_change}\n─────────────────────", inline=False)
+        for ver, change in [v for v in reversed([tuple(v) for v in self.bot.changelog.items()])][:3]:
+            e.add_field(name=ver, value=change, inline=False)
+
+        await ctx.send(embed=e)
 
 
 

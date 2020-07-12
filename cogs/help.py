@@ -29,7 +29,8 @@ class HelpCommand(commands.HelpCommand):
         super().__init__(command_attrs={
 	    		'help': 'Shows help about bot and/or commands',
                 'brief': 'See cog/command help',
-                'usage': '[category / command]'})
+                'usage': '[category / command]',
+                'cooldown': commands.Cooldown(1, 3, commands.BucketType.user)})
         self.verify_checks = False
         
 

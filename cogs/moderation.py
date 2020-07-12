@@ -1045,9 +1045,9 @@ class moderation(commands.Cog, name="Moderation"):
 
     @commands.command(brief='Lock a text channel')
     @commands.guild_only()
-    @commands.has_permissions(manage_channels=True)
-    @commands.bot_has_permissions(manage_channels=True)
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.cooldown(1, 300, commands.BucketType.guild)
     async def lockchannel(self, ctx, channel: discord.TextChannel, *, reason: str = None):
         """ Lock any text channels from everyone being able to chat """
         
@@ -1064,8 +1064,8 @@ class moderation(commands.Cog, name="Moderation"):
     @commands.command(brief='Unlock a text channel')
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
-    @commands.bot_has_permissions(manage_channels=True, manage_roles=True)
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.cooldown(1, 300, commands.BucketType.guild)
     async def unlockchannel(self, ctx, channel: discord.TextChannel, *, reason: str = None):
         """ Unlock text channel to everyone 
         This will sync permissions with category """
@@ -1080,11 +1080,113 @@ class moderation(commands.Cog, name="Moderation"):
             await channel.send(f"{emotes.unlocked} This channel was unlocked for: `{reason}`")
             await ctx.send(f"{emotes.white_mark} {channel.mention} was unlocked!", delete_after=20)
 
-    @commands.command(brief='Turn on/off server raid mode', hidden=True)
+    @commands.command(brief='Lockdown the server', hidden=True)
+    @commands.guild_only()
+    @commands.cooldown(1, 300, commands.BucketType.guild)
+    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    async def lockdown(self, ctx, *, reason: commands.clean_content):
+        """ Will lock all the channels in the server """
+
+        lock = 0
+        for channel in ctx.guild.channels:
+            if channel.overwrites_for(ctx.guild.default_role).read_messages == False:
+                continue
+            if channel.overwrites_for(ctx.guild.default_role).send_messages == False:
+                await self.bot.db.execute("INSERT INTO lockdown(guild_id, channel_id) values ($1, $2)", ctx.guild.id, channel.id)
+                continue
+            if isinstance(channel, discord.CategoryChannel):
+                continue
+            try:
+                await channel.set_permissions(ctx.guild.default_role, read_messages = True, send_messages=False, connect=False, reason=responsible(ctx.author, reason))
+                await channel.set_permissions(ctx.guild.me, send_messages=True, reason=responsible(ctx.author, reason))
+                if isinstance(channel, discord.TextChannel):
+                    await channel.send(f"{emotes.locked} **Channel locked for:** {reason}")
+                lock += 1
+            except Exception as e:
+                print(e)
+                pass
+        
+        await ctx.send(f"{emotes.white_mark} Locked {lock} channels")
+    
+    @commands.command(brief='Unlockdown the server')
+    @commands.guild_only()
+    @commands.cooldown(1, 300, commands.BucketType.guild)
+    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    async def unlockdown(self, ctx, *, reason: commands.clean_content):
+        """ Unlock all the channels that were previously locked using a lockdown. """
+
+        check = await self.bot.db.fetchval("SELECT * FROM lockdown WHERE guild_id = $1", ctx.guild.id)
+        if check is None:
+            try:
+                def check(r, u):
+                    return u.id == ctx.author.id and r.message.id == checkmsg.id
+
+                channels = 0
+                for channel in ctx.guild.channels:
+                    if isinstance(channel, discord.CategoryChannel):
+                        continue
+                    channels += 1
+                
+                checkmsg = await ctx.send(f"Are you sure you want to unlock {channels} channels in this server?")
+                await checkmsg.add_reaction(f'{emotes.white_mark}')
+                await checkmsg.add_reaction(f'{emotes.red_mark}')
+                react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
+
+                if str(react) == f"{emotes.white_mark}":
+                    await checkmsg.edit(content=f"{emotes.loading1} Started unlocking process")
+                    unlocked = 0
+                    for channel in ctx.guild.channels:
+                        if isinstance(channel, discord.CategoryChannel):
+                            continue
+                        try:
+                            await channel.set_permissions(ctx.guild.default_role, read_messages = True, send_messages=True, connect=True, reason=responsible(ctx.author, reason))
+                            await channel.send(f"{emotes.unlocked} **Channel unlocked for:** {reason}")
+                            unlocked += 1
+                        except Exception as e:
+                            print(e)
+                            pass
+                    return await ctx.send(f"{emotes.white_mark} Unlocked {unlocked} channels.", delete_after=15)
+
+                elif str(react) == f"{emotes.red_mark}":
+                    await checkmsg.edit(content=f"Ok. Not unlocking any channels", delete_after=15)
+                    try:
+                        return await checkmsg.clear_reactions()
+                    except:
+                        return
+            except asyncio.TimeoutError:
+                await checkmsg.edit(content=f"{emotes.warning} Timeout!")
+                try:
+                    return await checkmsg.clear_reactions()
+                except:
+                    return
+
+        unlocked = 0
+        for channel in ctx.guild.channels:
+            if channel.overwrites_for(ctx.guild.default_role).read_messages == False:
+                continue      
+            if await self.bot.db.fetchval("SELECT channel_id FROM lockdown WHERE guild_id = $1 and channel_id = $2", ctx.guild.id, channel.id):
+                continue
+            if isinstance(channel, discord.CategoryChannel):
+                continue
+            try:
+                await channel.set_permissions(ctx.guild.default_role, read_messages = True, send_messages=True, connect=True, reason=responsible(ctx.author, reason))
+                if isinstance(channel, discord.TextChannel):
+                    await channel.send(f"{emotes.unlocked} **Channel unlocked for:** {reason}")
+                unlocked += 1
+            except Exception as e:
+                print(e)
+                pass
+
+        await ctx.send(f"{emotes.white_mark} Unlocked {unlocked} channels")
+        await self.bot.db.execute("DELETE FROM lockdown WHERE guild_id = $1", ctx.guild.id)
+    
+
+    @commands.command(brief='Turn on/off server raid mode')
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
     @commands.bot_has_permissions(kick_members=True)
-    @commands.is_owner()
     async def raidmode(self, ctx):
         """ Raid is happening in your server? Turn on anti-raider! It'll kick every new member that joins. 
         It'll also inform them in DMs that server is currently in anti-raid mode and doesn't allow new members! """

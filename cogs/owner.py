@@ -23,6 +23,7 @@ import importlib
 import asyncio
 import discordlists
 import config
+import json
 
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands
@@ -54,6 +55,10 @@ class owner(commands.Cog, name="Owner"):
         Local check, makes all commands in this cog owner-only
         """
         if not await ctx.bot.is_owner(ctx.author):
+            try:
+                await ctx.message.add_reaction('<:youtried:731954681739345921>')
+            except:
+                pass
             await ctx.send(f"{emotes.bot_owner} | This command is owner-locked", delete_after=20)
             return False
         return True
@@ -295,7 +300,7 @@ class owner(commands.Cog, name="Owner"):
         if db_check is not None:
             return await ctx.send("This user is already in my blacklist.")
 
-        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev, super) VALUES ($1, $2, $3, $4)", user.id, reason, ctx.author.id, False)
+        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
         self.bot.blacklisted_users[user.id] = [reason]
 
         bu = await self.bot.db.fetch("SELECT * FROM blacklist")

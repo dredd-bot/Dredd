@@ -56,7 +56,7 @@ class Background(commands.Cog, name="BG"):
     @tasks.loop(seconds=1)
     async def temp_mute(self):
         for guild, user, mod, reason, timed, roleid in self.bot.temp_timer:
-            if timed - time.time() <= 0:
+            if timed and timed - time.time() <= 0:
                 g = self.bot.get_guild(guild)
                 m = g.get_member(user)
                 r = g.get_role(roleid)

@@ -46,7 +46,7 @@ class admin(commands.Cog, name="Staff"):
         Used to help managing bot stuff."""
 
         if ctx.invoked_subcommand is None:
-            await ctx.send("How can I help you my admin?")
+            await ctx.send_help(ctx.command)
 
 # ! Blacklist
 

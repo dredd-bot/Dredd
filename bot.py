@@ -86,14 +86,17 @@ async def get_prefix(bot, message):
         custom_prefix = ['!']
         return custom_prefix
     elif message.guild:
-        prefix = await bot.db.fetchval("SELECT prefix FROM guilds WHERE guild_id= $1", message.guild.id)
-        if not await bot.is_admin(message.author):
-            custom_prefix = prefix
-        elif await bot.is_admin(message.author):
-            custom_prefix = ['d ', prefix]
-            return commands.when_mentioned_or(*custom_prefix)(bot, message)
-        return commands.when_mentioned_or(custom_prefix)(bot, message)
-    elif custom_prefix is None:
+        try:
+            prefix = await bot.db.fetchval("SELECT prefix FROM guilds WHERE guild_id= $1", message.guild.id)
+            if not await bot.is_admin(message.author):
+                custom_prefix = prefix
+            elif await bot.is_admin(message.author):
+                custom_prefix = ['d ', prefix]
+                return commands.when_mentioned_or(*custom_prefix)(bot, message)
+            return commands.when_mentioned_or(custom_prefix)(bot, message)
+        except TypeError:
+            return
+    else:
         return
 
 class EditingContext(commands.Context):
@@ -196,9 +199,12 @@ class Bot(commands.AutoShardedBot):
         if message.author.bot:
             return
 
-
-        ctx = await self.get_context(message, cls=EditingContext)
-        await self.invoke(ctx)
+        try:
+            ctx = await self.get_context(message, cls=EditingContext)
+            if ctx.valid:
+                await self.invoke(ctx)
+        except:
+            return
 
     async def on_message_edit(self, before, after):
 
@@ -208,7 +214,8 @@ class Bot(commands.AutoShardedBot):
         if after.content != before.content:
             try:
                 ctx = await self.get_context(after, cls=EditingContext)
-                await self.invoke(ctx)
+                if ctx.valid:
+                    await self.invoke(ctx)
             except discord.NotFound:
                 return
 

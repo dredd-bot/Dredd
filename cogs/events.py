@@ -18,6 +18,7 @@ import os
 import datetime
 import json
 from discord.ext import commands
+from discord.utils import escape_markdown
 from utils import default
 from datetime import datetime
 from db import emotes
@@ -161,8 +162,11 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             return
 
         # We dont want to listen to commands
-        ctx = await self.bot.get_context(message)
-        if ctx.valid:
+        try:
+            ctx = await self.bot.get_context(message)
+            if ctx.valid:
+                return
+        except:
             return
 
         # Something happened in DM's
@@ -221,10 +225,10 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             note = await self.bot.db.fetchval("SELECT message FROM userafk WHERE user_id = $1 AND guild_id = $2", userid, message.guild.id)
             afkuser = message.guild.get_member(userid)
             try:
-                await message.channel.send(f'{message.author.mention}, {afkuser.name} is AFK, but he left a note: {note}', delete_after=30, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False))
+                await message.channel.send(f'{message.author.mention}, {escape_markdown(afkuser.name, as_needed=True)} is AFK, but he left a note: {note}', delete_after=30, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False))
             except discord.HTTPException:
                 try:
-                    await message.author.send(f"Yo, {afkuser.name} is AFK, but he left a note: {note}")
+                    await message.author.send(f"Yo, {escape_markdown(afkuser.name, as_needed=True)} is AFK, but he left a note: {note}")
                 except discord.Forbidden:
                     return
     
@@ -249,6 +253,8 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         if message.channel.id == 603800402013585408 and message.author.id == 568254611354419211:
             if "added bot" in message.content.lower():
                 await moksej.send(f"New bot added {message.jump_url}")
+            if "resubmitted bot" in message.content.lower():
+                await moksej.send(f"Bot resubmitted {message.jump_url}")
 
 
 

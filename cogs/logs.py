@@ -124,18 +124,21 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if db_check1 is not None:
             if member.guild.me.guild_permissions.manage_roles:
                 # Role on join
-                if member.bot:
+                if member.bot and botrole is not None:
                     role = member.guild.get_role(botrole)
                     await member.add_roles(role, reason='Autorole')
-                elif not member.bot:
+                elif not member.bot and peoplerole is not None:
                     role = member.guild.get_role(peoplerole)
                     await member.add_roles(role, reason='Autorole')
-                    # if member.guild.id == 671078170874740756:
-                    #     roles = member.guild.get_role(679642623107137549)
-                    #     await member.add_roles(roles)
+                    if member.guild.id == 671078170874740756:
+                        roles = member.guild.get_role(679642623107137549)
+                        await member.add_roles(roles)
                 if temp_mute:
                     muterole = discord.utils.find(lambda r: r.name.lower() == "muted", member.guild.roles)
-                    await member.add_roles(muterole, reason='User was muted before')
+                    if muterole:
+                        await member.add_roles(muterole, reason='User was muted before')
+                    else:
+                        return
         if db_check3 is not None:
             if member.bot and bots == False:
                 return
