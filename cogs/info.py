@@ -94,7 +94,7 @@ class info(commands.Cog, name="Info"):
         Moksej = self.bot.get_user(345457928972533773)
 
         embed = discord.Embed(color=self.bot.embed_color)
-        embed.add_field(name="__**General Information:**__", value=f"**Developer:** {excape_markdown(Moksej, as_needed=True)}\n**Library:**\n{emotes.other_python} [Discord.py](https://github.com/Rapptz/discord.py)\n**Version:** {discord.__version__}\n**Last boot:** {default.timeago(datetime.utcnow() - self.bot.uptime)}\n**Bot version:** {version}", inline=True)
+        embed.add_field(name="__**General Information:**__", value=f"**Developer:** {escape_markdown(str(Moksej), as_needed=True)}\n**Library:**\n{emotes.other_python} [Discord.py](https://github.com/Rapptz/discord.py)\n**Version:** {discord.__version__}\n**Last boot:** {default.timeago(datetime.utcnow() - self.bot.uptime)}\n**Bot version:** {version}", inline=True)
         embed.add_field(name="__**Other Information:**__", value=f"**Created:** {default.date(self.bot.user.created_at)}\n({default.timeago(datetime.utcnow() - self.bot.user.created_at)})\n**Total:**\nCommands: **{totcmd:,}**\nMembers: **{mems:,}**\nServers: **{len(self.bot.guilds):,}**\nChannels: {emotes.other_unlocked} **{text:,}** | {emotes.other_vcunlock} **{voice:,}**\n", inline=True)
 
         embed.set_image(
