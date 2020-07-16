@@ -39,6 +39,15 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             return False
         return True
 
+    async def update_query(self, guildid=None, case=None):
+        check = await self.bot.db.fetch("SELECT * FROM modlog WHERE guild_id = $1", guildid)
+
+        if check is None:
+            await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES($1, $2)", guildid, case)
+        elif check is not None:
+            await self.bot.db.execute("UPDATE modlog SET case_num = $1 WHERE guild_id = $2", case, guildid)
+            
+
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
@@ -251,6 +260,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 embed.add_field(name="Joined at:", value=default.date(member.joined_at), inline=False)
                 embed.add_field(name='Moderator:', value=deleted, inline=False)
                 embed.set_thumbnail(url=member.avatar_url)
+                await self.update_query(guildid=member.guild.id, case=casenum)
                 self.bot.case_num[member.guild.id] += 1
                 return await logchannel.send(embed=embed)
 
@@ -267,12 +277,6 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM memberupdate WHERE guild_id = $1", before.guild.id)
         logchannel = await self.bot.db.fetchval("SELECT channel_id FROM memberupdate WHERE guild_id = $1", before.guild.id)
-        if before.nick != after.nick:
-            if before.nick is None:
-                nick = before.name
-            elif before.nick:
-                nick = before.nick
-            await self.bot.db.execute("INSERT INTO nicknames(user_id, guild_id, nickname, time) VALUES ($1, $2, $3, $4)", before.id, before.guild.id, nick, datetime.utcnow())
 
         if db_check1 is None:
             return
@@ -379,6 +383,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if deleted:
             embed.add_field(name="Moderator:", value=deleted)
         embed.set_thumbnail(url=user.avatar_url)
+        await self.update_query(guildid=guild.id, case=casenum)
         self.bot.case_num[guild.id] += 1
         await channel.send(embed=embed)
 
@@ -416,6 +421,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if deleted:
             embed.add_field(name="Moderator", value=deleted)
         embed.set_thumbnail(url=user.avatar_url)
+        await self.update_query(guildid=guild.id, case=casenum)
         self.bot.case_num[guild.id] += 1
         await channel.send(embed=embed)
 
@@ -457,6 +463,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             if deleted:
                 embed.add_field(name="Moderator:", value=deleted)
             embed.set_thumbnail(url=member.avatar_url)
+            await self.update_query(guildid=member.guild.id, case=casenum)
             self.bot.case_num[member.guild.id] += 1
             await channel.send(embed=embed)
     

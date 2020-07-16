@@ -14,10 +14,11 @@ CHANGE_LOG = {
     'V1.0.0 Final Rewrite': "You can now follow suggestions and bugs\nPrefix command now has a char limit\nAdded temp mute\nIf user was muted before and rejoined the server, he'll be muted.\nAdded char limit for some of the fun commands\nFixed some stuff\nYou can disable join messages for bots",
     'V1.0.1': "Fixed a typo in setafk command\nHelp command shows clean prefix now instead of <@id> when you invoke commands using @mention\nGetting bot badges isn't automated anymore, and stored in json file.\nYou can invoke commands by editing your messages now.",
     'V1.0.2': "Roles are now reversed in userinfo\nRoles char limit fixed in userinfo\nServers can now have badges\nHelp command has a cooldown now\nAutomod now is changed a little bit, mostly database requests\nUpdated database requests with logs (case numbers are now cached)",
-    'V1.0.3': "1. Leaving and welcoming messages are now visible in serversettings\n2. Changelog command is here\n3. If there are no disabled commands, bot will return that there are none.\n4. Lockdown and unlockdown commands are here!\n5. Mentioning an AFK user will now show his username in clean content, for ex: ***Example*** will be **\*Example\***\n6. Raidmode is now here!"
+    'V1.0.3': "1. Leaving and welcoming messages are now visible in serversettings\n2. Changelog command is here\n3. If there are no disabled commands, bot will return that there are none.\n4. Lockdown and unlockdown commands are here!\n5. Mentioning an AFK user will now show his username in clean content, for ex: ***Example*** will be **\*Example\***\n6. Raidmode is now here!",
+    'V1.0.4': "1. More management commands for bot staff\n2. You can now opt-out yourself from nicknames logging by doing `<serverprefix>nicks opt-out`\n3. Updated Privacy Policy.\n4. Voting unlocks the vote-locked commands instantly"
     }
 
-version = '1.0.3'
+version = '1.0.4'
 most_recent = CHANGE_LOG["V"+version]
 
 def setup(bot):

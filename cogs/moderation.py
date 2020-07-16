@@ -1129,7 +1129,7 @@ class moderation(commands.Cog, name="Moderation"):
                         continue
                     channels += 1
                 
-                checkmsg = await ctx.send(f"Are you sure you want to unlock {channels} channels in this server?")
+                checkmsg = await ctx.send(f"No results of previously locked channels using `lockdown` were found are you sure you want to unlock all **{channels}** channels in this server?")
                 await checkmsg.add_reaction(f'{emotes.white_mark}')
                 await checkmsg.add_reaction(f'{emotes.red_mark}')
                 react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)

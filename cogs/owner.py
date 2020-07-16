@@ -727,7 +727,7 @@ class owner(commands.Cog, name="Owner"):
         """ Announce something in support server announcement channel """
 
         async with aiohttp.ClientSession() as session:
-            webhook = Webhook.from_url('discord-webhook-url', adapter=AsyncWebhookAdapter(session))
+            webhook = Webhook.from_url(config.WEBHOOK_URL, adapter=AsyncWebhookAdapter(session))
             await webhook.send(message, username=ctx.author.name, avatar_url=ctx.author.avatar_url)
             
         await ctx.message.add_reaction(f'{emotes.white_mark}')
@@ -817,7 +817,7 @@ class owner(commands.Cog, name="Owner"):
         try:
             self.bot.load_extension(f"cogs.{name}")
         except Exception as e:
-            return await ctx.send(f"```diff\n- {e}```")
+            return await ctx.send(f"```py\n{e}```")
         await ctx.send(f"📥 Loaded extension **cogs/{name}.py**")
 
 
@@ -830,7 +830,7 @@ class owner(commands.Cog, name="Owner"):
             await ctx.send(f"🔁 Reloaded extension **cogs/{name}.py**")
 
         except Exception as e:
-            return await ctx.send(f"```diff\n- {e}```")
+            return await ctx.send(f"```py\n{e}```")
 
     @cog.command(aliases=['u'], brief="Unload cog", description="Unload any cog")
     async def unload(self, ctx, name: str):
@@ -838,7 +838,7 @@ class owner(commands.Cog, name="Owner"):
         try:
             self.bot.unload_extension(f"cogs.{name}")
         except Exception as e:
-            return await ctx.send(f"```diff\n- {e}```")
+            return await ctx.send(f"```py\n{e}```")
         await ctx.send(f"📤 Unloaded extension **cogs/{name}.py**")
     
     @cog.command(aliases=['ra'], brief="Reload all cogs")
@@ -940,7 +940,165 @@ class owner(commands.Cog, name="Owner"):
                                                                              len(result["success"].keys()),
                                                                              len(result["failure"].keys())))
 
+# Badges
 
+    @commands.group(name="add-badge", aliases=['addbadge', 'abadge'], invoke_without_command=True)
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def add_badge(self, ctx):
+        await ctx.send_help(ctx.command)
+
+    @add_badge.command(name="user", aliases=['u'])
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def add_badge_user(self, ctx, user: discord.User, badge):
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+
+        avail_badges = ['bot_early_supporter', 'bot_admin', 'bot_owner','bot_partner', 'bot_booster', 'bot_verified', 'discord_bug1', 'discord_bug2']
+        if badge.lower() not in avail_badges:
+            return await ctx.send(f"{emotes.warning} **Invalid badge! Here are the valid ones:** {', '.join(avail_badges)}", delete_after=20)
+
+        if badge.lower() == "bot_early_supporter":
+            badge = emotes.bot_early_supporter
+        elif badge.lower() == "bot_partner":
+            badge = emotes.bot_partner
+        elif badge.lower() == "bot_booster":
+            badge = emotes.bot_booster
+        elif badge.lower() == "bot_verified":
+            badge = emotes.bot_verified
+        elif badge.lower() == "bot_admin":
+            badge = emotes.bot_admin
+        elif badge.lower() == "bot_owner":
+            badge = emotes.bot_owner
+        elif badge.lower() == "discord_bug1":
+            badge = emotes.discord_bug1
+        elif badge.lower() == "discord_bug2":
+            badge = emotes.discord_bug2
+
+        try:
+            if badge in data['Users'][f'{user.id}']["Badges"]:
+                return await ctx.send(f"{emotes.warning} {user} already has {badge} badge")
+            elif badge not in data['Users'][f'{user.id}']["Badges"]:
+                data['Users'][f'{user.id}']["Badges"] += [badge]
+        except KeyError:
+            data['Users'][f"{user.id}"] = {"Badges": [badge]}
+
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
+
+        await ctx.send(f"{emotes.white_mark} Added {badge} to {user}.")
+    
+    @add_badge.command(name='server', aliases=['g'])
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def add_badge_server(self, ctx, guild: str, badge):
+        if not guild.isdigit():
+            return await ctx.send(f"{emotes.warning} That's not an id")
+        try:
+            guild = self.bot.get_guild(int(guild))
+            
+            with open('db/badges.json', 'r') as f:
+                data = json.load(f)
+
+            avail_badges = ['bot_partner', 'bot_verified']
+            if badge.lower() not in avail_badges:
+                return await ctx.send(f"{emotes.warning} **Invalid badge! Here are the valid ones:** {', '.join(avail_badges)}", delete_after=20)
+
+            if badge.lower() == "bot_partner":
+                badge = emotes.bot_partner
+            elif badge.lower() == "bot_verified":
+                badge = emotes.bot_verified
+
+            try:
+                if badge in data['Servers'][f'{guild.id}']["Badges"]:
+                    return await ctx.send(f"{emotes.warning} {guild} already has {badge} badge")
+                elif badge not in data['Servers'][f'{guild.id}']["Badges"]:
+                    data['Servers'][f'{guild.id}']["Badges"] += [badge]
+            except KeyError:
+                data['Servers'][f"{guild.id}"] = {"Badges": [badge]}
+
+            with open('db/badges.json', 'w') as f:
+                data = json.dump(data, f, indent=4)
+            await ctx.send(f"{emotes.white_mark} Added {badge} to {guild}.")
+        except AttributeError:
+            return await ctx.send(f"{emotes.warning} Can't seem to find that guild, are you sure the ID is correct?")
+    
+    @commands.group(name="remove-badge", aliases=['removebadge', 'rbadge'], invoke_without_command=True)
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def remove_badge(self, ctx):
+        await ctx.send_help(ctx.command)
+
+    @remove_badge.command(name="remove-badge", aliases=['removebadge', 'rbadge'])
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def remove_badge_user(self, ctx, user: discord.User, badge):
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+
+        avail_badges = ['bot_early_supporter', 'bot_admin', 'bot_owner','bot_partner', 'bot_booster', 'bot_verified', 'discord_bug1', 'discord_bug2']
+        if badge.lower() not in avail_badges:
+            return await ctx.send(f"{emotes.warning} **Invalid badge! Here are the valid ones:** {', '.join(avail_badges)}", delete_after=20)
+
+        if badge.lower() == "bot_early_supporter":
+            badge = emotes.bot_early_supporter
+        elif badge.lower() == "bot_partner":
+            badge = emotes.bot_partner
+        elif badge.lower() == "bot_booster":
+            badge = emotes.bot_booster
+        elif badge.lower() == "bot_verified":
+            badge = emotes.bot_verified
+        elif badge.lower() == "bot_admin":
+            badge = emotes.bot_admin
+        elif badge.lower() == "bot_owner":
+            badge = emotes.bot_owner
+        elif badge.lower() == "discord_bug1":
+            badge = emotes.discord_bug1
+        elif badge.lower() == "discord_bug2":
+            badge = emotes.discord_bug2
+
+        try:
+            if len(data['Users'][f'{user.id}']["Badges"]) < 2:
+                data['Users'].pop(f"{user.id}")
+            else:
+                data['Users'][f'{user.id}']["Badges"].remove(badge)
+        except Exception as e:
+            return await ctx.send(f"{emotes.warning} {user} has no badges! {e}")
+
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
+
+        await ctx.send(f"{emotes.white_mark} Removed {badge} from {user}.")
+    
+    @remove_badge.command(name='server', aliases=['g'])
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def remove_badge_server(self, ctx, guild: str, badge):
+        if not guild.isdigit():
+            return await ctx.send(f"{emotes.warning} That's not an id")
+        try:
+            guild = self.bot.get_guild(int(guild))
+            
+            with open('db/badges.json', 'r') as f:
+                data = json.load(f)
+
+            avail_badges = ['bot_partner', 'bot_verified']
+            if badge.lower() not in avail_badges:
+                return await ctx.send(f"{emotes.warning} **Invalid badge! Here are the valid ones:** {', '.join(avail_badges)}", delete_after=20)
+
+            if badge.lower() == "bot_partner":
+                badge = emotes.bot_partner
+            elif badge.lower() == "bot_verified":
+                badge = emotes.bot_verified
+
+            try:
+                if len(data['Servers'][f'{guild.id}']["Badges"]) < 2:
+                    data['Servers'].pop(f"{guild.id}")
+                else:
+                    data['Server'][f'{guild.id}']["Badges"].remove(badge)
+            except Exception as e:
+                return await ctx.send(f"{emotes.warning} {guild} has no badges! `{e}`")
+
+            with open('db/badges.json', 'w') as f:
+                data = json.dump(data, f, indent=4)
+            await ctx.send(f"{emotes.white_mark} Removed {badge} from {guild}.")
+        except AttributeError:
+            return await ctx.send(f"{emotes.warning} Can't seem to find that guild, are you sure the ID is correct?")
 
 
 def setup(bot):

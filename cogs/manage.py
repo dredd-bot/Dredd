@@ -87,6 +87,7 @@ class Managment(commands.Cog, name="Management"):
         db_check10 = await self.bot.db.fetchval("SELECT guild_id FROM automodaction WHERE guild_id = $1", ctx.guild.id)
         joinmsg = await self.bot.db.fetchval("SELECT msg FROM joinmsg WHERE guild_id = $1", ctx.guild.id)
         leavemsg = await self.bot.db.fetchval("SELECT msg FROM leavemsg WHERE guild_id = $1", ctx.guild.id)
+        raidmode = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", ctx.guild.id)
 
         joinmsg = joinmsg or f"{emotes.joined} ::member.mention:: joined the server! There are ::server.members:: members in the server now."
         leavemsg = leavemsg or f"{emotes.left} ::member.mention:: left the server... There are ::server.members:: members left in the server."
@@ -101,6 +102,7 @@ class Managment(commands.Cog, name="Management"):
         settings = f"{f'{emotes.setting_no}' if db_check8 is None else f'{emotes.setting_yes}'} Role On Join\n"
         settings += f"{f'{emotes.setting_no}' if db_check7 is None else f'{emotes.setting_yes}'} Welcoming Messages\n"
         settings += f"{f'{emotes.setting_no}' if db_check9 is None else f'{emotes.setting_yes}'} Leaving Messages\n"
+        settings += f"{f'{emotes.setting_no}' if raidmode is False else f'{emotes.setting_yes}'} Raid mode"
 
         welcoming = f"**Join message:**\n{joinmsg}\n"
         welcoming += f"**Leave message:**\n{leavemsg}"
@@ -115,7 +117,7 @@ class Managment(commands.Cog, name="Management"):
     
     @commands.command(brief="Log channels", description="Enable logging in your server.")
     @commands.has_permissions(manage_guild=True)
-    @commands.bot_has_permissions(manage_messages=True, view_audit_log=True, manage_channels=True)
+    @commands.bot_has_permissions(view_audit_log=True, manage_channels=True)
     async def togglelog(self, ctx, option = None, *, channel: discord.TextChannel = None):
         """ Toggle log for the given option.  
         Leaving channel empty will disable the log. """

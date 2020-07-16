@@ -256,6 +256,19 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             if "resubmitted bot" in message.content.lower():
                 await moksej.send(f"Bot resubmitted {message.jump_url}")
 
+    @commands.Cog.listener('on_member_update')
+    async def nicknames_logging(self, before, after):
+        if before.bot:
+            return
+        nicks_opout = await self.bot.db.fetchval("SELECT user_id FROM nicks_op_out WHERE user_id = $1", before.id)
+        
+        if before.nick != after.nick and nicks_opout is None:
+            if before.nick is None:
+                nick = before.name
+            elif before.nick:
+                nick = before.nick
+            await self.bot.db.execute("INSERT INTO nicknames(user_id, guild_id, nickname, time) VALUES ($1, $2, $3, $4)", before.id, before.guild.id, nick, datetime.utcnow())
+
 
 
 def setup(bot):

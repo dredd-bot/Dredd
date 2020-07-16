@@ -18,6 +18,7 @@ import os
 import platform
 import psutil
 import asyncio
+import json
 
 from discord.ext import commands
 from db import emotes
@@ -451,6 +452,73 @@ class admin(commands.Cog, name="Staff"):
                 return await checkmsg.edit(content=f"Cancelling..")
             except:
                 return
+    
+    @admin.command(name="add-badge", aliases=['addbadge', 'abadge'])
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def add_badge(self, ctx, user: discord.User, badge):
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+
+        avail_badges = ['bot_early_supporter', 'bot_partner', 'bot_booster', 'bot_verified', 'discord_bug1']
+        if badge.lower() not in avail_badges:
+            return await ctx.send(f"{emotes.warning} **Invalid badge! Here are the valid ones:** {', '.join(avail_badges)}", delete_after=20)
+
+        if badge.lower() == "bot_early_supporter":
+            badge = emotes.bot_early_supporter
+        elif badge.lower() == "bot_partner":
+            badge = emotes.bot_partner
+        elif badge.lower() == "discord_bug1":
+            badge = emotes.discord_bug1
+        elif badge.lower() == "bot_booster":
+            badge = emotes.bot_booster
+        elif badge.lower() == "bot_verified":
+            badge = emotes.bot_verified
+
+        try:
+            if badge in data['Users'][f'{user.id}']["Badges"]:
+                return await ctx.send(f"{emotes.warning} {user} already has {badge} badge")
+            elif badge not in data['Users'][f'{user.id}']["Badges"]:
+                data['Users'][f'{user.id}']["Badges"] += [badge]
+        except KeyError:
+            data['Users'][f"{user.id}"] = {"Badges": [badge]}
+
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
+
+        await ctx.send(f"{emotes.white_mark} Added {badge} to {user}.")
+
+    @admin.command(name="remove-badge", aliases=['removebadge', 'rbadge'])
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    async def remove_badge(self, ctx, user: discord.User, badge):
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+
+        avail_badges = ['bot_early_supporter', 'bot_partner', 'bot_booster', 'bot_verified']
+        if badge.lower() not in avail_badges:
+            return await ctx.send(f"{emotes.warning} **Invalid badge! Here are the valid ones:** {', '.join(avail_badges)}", delete_after=20)
+
+        if badge.lower() == "bot_early_supporter":
+            badge = emotes.bot_early_supporter
+        elif badge.lower() == "bot_partner":
+            badge = emotes.bot_partner
+        elif badge.lower() == "bot_hunter":
+            badge = emotes.bot_hunter
+        elif badge.lower() == "bot_booster":
+            badge = emotes.bot_booster
+        elif badge.lower() == "bot_verified":
+            badge = emotes.bot_verified
+
+        try:
+            data['Users'][f'{user.id}']["Badges"].remove(badge)
+        except KeyError as e:
+            print(e)
+            return await ctx.send(f"{emotes.warning} {user} has no badges!")
+
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
+
+        await ctx.send(f"{emotes.white_mark} Removed {badge} from {user}.")
+
 
 
 def setup(bot):

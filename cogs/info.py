@@ -334,19 +334,22 @@ class info(commands.Cog, name="Info"):
 
             if not ustatus:
                 ustatus = f'{status[str(usercheck.status)]}'
-            
-            nicknames = []
-            for nicks, in await self.bot.db.fetch(f"SELECT nickname FROM nicknames WHERE user_id = $1 AND guild_id = $2 ORDER BY time DESC", user.id, ctx.guild.id):
-                nicknames.append(nicks)
+            nicks_opout = await self.bot.db.fetchval("SELECT user_id FROM nicks_op_out WHERE user_id = $1", usercheck.id)
+            if nicks_opout is None:
+                nicknames = []
+                for nicks, in await self.bot.db.fetch(f"SELECT nickname FROM nicknames WHERE user_id = $1 AND guild_id = $2 ORDER BY time DESC", user.id, ctx.guild.id):
+                    nicknames.append(nicks)
+                    
+                nicknamess = ""
+                for nickss in nicknames[:5]:
+                    nicknamess += f"{nickss}, "
                 
-            nicknamess = ""
-            for nickss in nicknames[:5]:
-                nicknamess += f"{nickss}, "
-            
-            if nicknamess == "":
-                lnicks = "N/A"
-            else:
-                lnicks = nicknamess[:-2]
+                if nicknamess == "":
+                    lnicks = "N/A"
+                else:
+                    lnicks = nicknamess[:-2]
+            elif nicks_opout is not None:
+                lnicks = 'User is opted out.'
             uroles = []
             for role in usercheck.roles:
                 if role.is_default():
@@ -415,13 +418,23 @@ class info(commands.Cog, name="Info"):
             # embed.set_footer(text=f'© {self.bot.user}')
             await ctx.send(embed=embed)
         
-    @commands.command(brief="Check someone's latest nicknames", aliases=['nicks'])
+    @commands.group(brief="Nicknames management", aliases=['nicks'])
     @commands.guild_only()
-    async def nicknames(self, ctx, member: discord.Member = None):
-        """ Tells you last 10 nicknames that member had """
+    @commands.cooldown(1, 15, commands.BucketType.user)
+    async def nicknames(self, ctx):
+        """ Check someones nicknames or opt out """
+        if ctx.invoked_subcommand is None:
+            await ctx.send_help(ctx.command)
 
+    @nicknames.command(name='history',brief='Check someone\'s latest nicknames')
+    @commands.guild_only()
+    @commands.cooldown(1, 15, commands.BucketType.user)
+    async def nicknames_history(self, ctx, member: discord.Member = None):
+        
         member = member or ctx.author
-
+        nicks_opout = await self.bot.db.fetchval("SELECT user_id FROM nicks_op_out WHERE user_id = $1", member.id)
+        if nicks_opout is not None:
+            return await ctx.send(f"{emotes.warning} I'm sorry, but I do not store any of the **{member}'s** nicknames due to them being opted out.")
         nick = []
         for nicks, in await self.bot.db.fetch(f"SELECT nickname FROM nicknames WHERE user_id = $1 AND guild_id = $2 ORDER BY time DESC", member.id, ctx.guild.id):
             nick.append(nicks)
@@ -442,6 +455,59 @@ class info(commands.Cog, name="Info"):
 
         await ctx.send(embed=e)
 
+    @nicknames.command(name='opt-out', brief="Opt out so the bot wouldn't store your nicknames anymore!", aliases=['optout'])
+    @commands.cooldown(1, 15, commands.BucketType.user)
+    async def nicknames_optout(self, ctx):
+        """ Opt out if you want the bot to stop logging your nicknames. You can also opt in by invoking this command.
+        By opting out I'll stop logging your nicknames in any server we share. """
+        nicks_opout = await self.bot.db.fetchval("SELECT user_id FROM nicks_op_out WHERE user_id = $1 AND guild_id = $2", ctx.author.id, ctx.guild.id)
+        if nicks_opout is not None:
+            def check(r, u):
+                return u.id == ctx.author.id and r.message.id == checkmsg.id
+            try:
+                checkmsg = await ctx.send(f"Are you sure you want to opt-in? Once you'll opt-in I'll be logging your nicknames again")
+                await checkmsg.add_reaction(f'{emotes.white_mark}')
+                await checkmsg.add_reaction(f'{emotes.red_mark}')
+                react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
+
+                if str(react) == f"{emotes.white_mark}": 
+                    await self.bot.db.execute('DELETE FROM nicks_op_out WHERE user_id = $1 AND guild_id = $2', ctx.author.id, ctx.guild.id)
+                    await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your nicknames once again.")
+                    await checkmsg.delete()
+
+            # ? They don't want to unban anyone
+
+                if str(react) == f"{emotes.red_mark}":      
+                    await checkmsg.delete()
+                    await ctx.channel.send("Alright. Not opting you in")
+            except Exception as e:
+                print(e)
+                return
+            
+        elif nicks_opout is None:
+            def check(r, u):
+                return u.id == ctx.author.id and r.message.id == checkmsg.id
+            try:
+                checkmsg = await ctx.send(f"Are you sure you want to opt-out? I won't be logging your nicknames if you will. All the nicknames from this server that I have stored in my database will also be deleted.")
+                await checkmsg.add_reaction(f'{emotes.white_mark}')
+                await checkmsg.add_reaction(f'{emotes.red_mark}')
+                react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
+
+                if str(react) == f"{emotes.white_mark}": 
+                    await self.bot.db.execute('INSERT INTO nicks_op_out(guild_id, user_id) VALUES($1, $2)', ctx.guild.id, ctx.author.id)
+                    await self.bot.db.execute("DELETE FROM nicknames WHERE user_id = $1 AND guild_id = $2", ctx.author.id, ctx.guild.id)
+                    await ctx.channel.send(f"{emotes.white_mark} You're now opted-out! I won't be logging your nicknames anymore")
+                    await checkmsg.delete()
+
+            # ? They don't want to unban anyone
+
+                if str(react) == f"{emotes.red_mark}":      
+                    await checkmsg.delete()
+                    await ctx.channel.send("Alright. Not opting you out")
+            except Exception as e:
+                print(e)
+                return
+            
     @commands.command(brief="Support server invite")
     @commands.cooldown(1, 20, commands.BucketType.user)
     async def support(self, ctx):
@@ -468,7 +534,7 @@ class info(commands.Cog, name="Info"):
     async def vote(self, ctx):
         """ Give me a vote, please. Thanks... """
 
-        e = discord.Embed(color=self.bot.embed_color, description=f"{emotes.pfp_normal} You can vote for me [here](https://top.gg/bot/667117267405766696/vote)")
+        e = discord.Embed(color=self.bot.embed_color, description=f"{emotes.pfp_normal} You can vote for me [here](https://discord.boats/bot/667117267405766696/vote)")
         await ctx.send(embed=e)
     
     @commands.command(brief="Credits to people helped", description="All the people who helped with creating this bot are credited")

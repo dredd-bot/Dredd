@@ -34,7 +34,7 @@ class automod(commands.Cog, name="Automod"):
     @commands.command(brief="Automod log channel")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    @commands.bot_has_permissions(manage_guild=True)
+    @commands.bot_has_permissions(manage_channels=True)
     async def logchannel(self, ctx, channel: discord.TextChannel = None):
         """ Choose where automod actions will be sent to. """
         

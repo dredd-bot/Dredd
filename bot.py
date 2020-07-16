@@ -62,6 +62,8 @@ async def run():
 
         temp_mutees = await bot.db.fetch("SELECT * FROM moddata")
         for res in temp_mutees:
+            if res['time'] is None:
+                continue
             bot.temp_timer.append((res['guild_id'], res['user_id'], res['mod_id'], res['reason'], res['time'], res['role_id']))
         print(f'[TEMP MUTE] Mutees loaded [{len(temp_mutees)}]')
 
@@ -202,7 +204,7 @@ class Bot(commands.AutoShardedBot):
         try:
             ctx = await self.get_context(message, cls=EditingContext)
             if ctx.valid:
-                await self.invoke(ctx)
+                msg = await self.invoke(ctx)
         except:
             return
 
@@ -215,7 +217,7 @@ class Bot(commands.AutoShardedBot):
             try:
                 ctx = await self.get_context(after, cls=EditingContext)
                 if ctx.valid:
-                    await self.invoke(ctx)
+                    msg = await self.invoke(ctx)
             except discord.NotFound:
                 return
 

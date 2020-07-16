@@ -47,6 +47,8 @@ BFD_TOKEN = ''
 # Statcord
 STAT_TOKEN = ''
 
+WEBHOOK_URL = ''
+
 # PSQL
 DB_CONN_INFO = {
     "user": "",

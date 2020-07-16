@@ -137,7 +137,14 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
             await log.send(embed=embed)
         except Exception:
             print(tb)
-            await log.send(f"{emotes.error} Printed an error")
+            e = discord.Ember(color=self.bot.logembed_color, timestamp=datetime.utcnow())
+            e.title = f"{emotes.error} Error too long!"
+            e.description = f"```py\n{exc}```"
+            e.add_field(name='Error information:', value=f'''`{ctx.message.clean_content}`
+**Server:** {guild} **ID:** {guild_id}
+**Channel:** {channel} **ID:** {channel_id};
+**Author:** {ctx.author} **ID:** {ctx.author.id}''')
+            await log.send(embed=e)
 
         e = discord.Embed(color=self.bot.error_color, timestamp=datetime.utcnow(), description=f'{emotes.error} An error occured while executing command `{ctx.command}`\n[Join support server]({support})')
         e.add_field(name="Error info:", value=f"""```py
