@@ -727,7 +727,7 @@ class owner(commands.Cog, name="Owner"):
         """ Announce something in support server announcement channel """
 
         async with aiohttp.ClientSession() as session:
-            webhook = Webhook.from_url('https://discordapp.com/api/webhooks/717096788674215937/t6wNzdhCTtapVwJRA-XEMnORrxLpFySx6IlB16Zo3De4fVnnrg7YUQvSxv2Wk94_tLGn', adapter=AsyncWebhookAdapter(session))
+            webhook = Webhook.from_url('discord-webhook-url', adapter=AsyncWebhookAdapter(session))
             await webhook.send(message, username=ctx.author.name, avatar_url=ctx.author.avatar_url)
             
         await ctx.message.add_reaction(f'{emotes.white_mark}')
