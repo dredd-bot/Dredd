@@ -40,4 +40,4 @@
 ##### • We need to prevent people/servers that abuse the bot, break bot rules.
 
 ### 5. I'm questioning why do you need all this data, and this Privacy Policy doesn't answer my question. What should I do?
-#### Feel free to join the [support server](https://discord.gg/f3MaASW) and/or contact [Moksej#3335](https://discord.com/channels/@me/345457928972533773).
+#### Feel free to join the [support server](https://discord.gg/f3MaASW) and/or contact [Moksej#3335](https://discord.com/channels/@me/537729765545607169).
