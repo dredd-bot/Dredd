@@ -14,7 +14,7 @@
 ##### • Bot administrator
 ##### • Bot developer(s)
 #### Following people can access warnings, temporary mutes:
-##### • Server moderators that the user was muted/warned
+##### • Server moderators that the user was muted/warned in
 #### Following people can access nickname changes (history):
 ##### • Everyone who is in the same server as you
 #### Following people can access todo lists:
