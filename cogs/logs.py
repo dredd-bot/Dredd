@@ -16,6 +16,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import datetime
 import re
+import traceback
+import json
 from discord.ext import commands
 from utils import default
 from datetime import datetime
@@ -40,28 +42,41 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         return True
 
     async def update_query(self, guildid=None, case=None):
-        check = await self.bot.db.fetch("SELECT * FROM modlog WHERE guild_id = $1", guildid)
+        check = await self.bot.db.fetchval("SELECT * FROM modlog WHERE guild_id = $1", guildid)
 
         if check is None:
             await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES($1, $2)", guildid, case)
         elif check is not None:
             await self.bot.db.execute("UPDATE modlog SET case_num = $1 WHERE guild_id = $2", case, guildid)
-            
+    
+    async def event_error(self, error=None, event=None, guild=None):
+        channel = self.bot.get_guild(671078170874740756).get_channel(703627099180630068)
+        tb = traceback.format_exception(type(error), error, error.__traceback__) 
+        tbe = "".join(tb) + ""
 
+        if len(tbe) < 2048:
+            tbe = tbe
+        elif len(tbe) > 2048:
+            tbe = error
+
+        e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.error} Error occured on event {event}")
+        e.description = f"```py\n{tbe}```"
+        e.add_field(name='Guild:', value=f"{guild} ({guild.id})")
+        await channel.send(embed=e)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
 
         if before.guild is None:
             return
+        
+        if before.author.bot:
+            return
 
         db_check = await self.bot.db.fetchval("SELECT guild_id FROM msgedit WHERE guild_id = $1", before.guild.id)
         lchannels = await self.bot.db.fetchval("SELECT channel_id FROM msgedit WHERE guild_id = $1", before.guild.id)
 
         if db_check is None:
-            return
-
-        if before.author.bot:
             return
 
         if before.content == after.content:
@@ -79,8 +94,9 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         lchannel = before.guild.get_channel(lchannels)
         try:
             await lchannel.send(embed=embed)
-        except:
-            pass
+        except Exception as e:
+            await self.event_error(error=e, event='on_message_edit',guild=before.guild)
+            return
 
 # ~ End
 
@@ -89,17 +105,10 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
     async def on_message_delete(self, message):
         if message.author.bot:
             return
-
-        embed = discord.Embed(
-            color=self.bot.logging_color, description=f"{emotes.log_msgdelete} Message deleted!", timestamp=datetime.utcnow())
-        embed.set_author(icon_url=message.author.avatar_url, name=message.author)
-        embed.add_field(name="Message:", value=message.content, inline=False)
-        embed.add_field(name="Channel:",
-                        value=message.channel.mention)
         
-
-        embed.set_footer(text=f"ID: {message.id}")
-
+        if message.guild is None:
+            return
+        
         db_check = await self.bot.db.fetchval("SELECT guild_id FROM msgdelete WHERE guild_id = $1", message.guild.id)
         channels = await self.bot.db.fetchval("SELECT channel_id FROM msgdelete WHERE guild_id = $1", message.guild.id)
 
@@ -107,7 +116,20 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             return
 
         channel = message.guild.get_channel(channels)
-        await channel.send(embed=embed)
+
+        embed = discord.Embed(
+            color=self.bot.logging_color, description=f"{emotes.log_msgdelete} Message deleted!", timestamp=datetime.utcnow())
+        embed.set_author(icon_url=message.author.avatar_url, name=message.author)
+        embed.add_field(name="Message:", value=message.content, inline=False)
+        embed.add_field(name="Channel:",
+                        value=message.channel.mention)
+        embed.set_footer(text=f"ID: {message.id}")
+
+        try:
+            await channel.send(embed=embed)
+        except Exception as e:
+            await self.event_error(error=e, event='on_message_delete', guild=message.guild)
+            return
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
@@ -128,6 +150,18 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         # ! Temp mute
         temp_mute = await self.bot.db.fetchval("SELECT user_id FROM moddata WHERE user_id = $1 AND guild_id = $2", member.id, member.guild.id)
 
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+        try:
+            badges = data['Users'][f"{member.id}"]['Badges']
+        except KeyError:
+            badges = ''
+            pass
+        except Exception as e:
+            badges = ''
+            print(e)
+            pass
+
                    
 
         if db_check1 is not None:
@@ -135,17 +169,27 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 # Role on join
                 if member.bot and botrole is not None:
                     role = member.guild.get_role(botrole)
-                    await member.add_roles(role, reason='Autorole')
+
+                    try:
+                        await member.add_roles(role, reason='Autorole')
+                    except Exception as e:
+                        await self.event_error(error=e, event='on_member_join (bot role)', guild=before.guild)
+                        return
                 elif not member.bot and peoplerole is not None:
                     role = member.guild.get_role(peoplerole)
-                    await member.add_roles(role, reason='Autorole')
-                    if member.guild.id == 671078170874740756:
-                        roles = member.guild.get_role(679642623107137549)
-                        await member.add_roles(roles)
+                    try:
+                        await member.add_roles(role, reason='Autorole')
+                    except Exception as e:
+                        await self.event_error(error=e, event='on_member_join (people role)', guild=before.guild)
+                        return
                 if temp_mute:
                     muterole = discord.utils.find(lambda r: r.name.lower() == "muted", member.guild.roles)
                     if muterole:
-                        await member.add_roles(muterole, reason='User was muted before')
+                        try:
+                            await member.add_roles(muterole, reason='User was muted before')
+                        except Exception as e:
+                            await self.event_error(error=e, event='on_member_join (anti evading mute)', guild=member.guild)
+                            return
                     else:
                         return
         if db_check3 is not None:
@@ -165,7 +209,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 joinmessage = f"{emotes.joined} {member.mention} joined the server! There are {member.guild.member_count} members in the server now."
             # Welcome msg
             welcomechannel = self.bot.get_channel(joinmsg)
-            await welcomechannel.send(joinmessage, allowed_mentions=discord.AllowedMentions(users=True))
+            try:
+                await welcomechannel.send(joinmessage, allowed_mentions=discord.AllowedMentions(users=True))
+            except Exception as e:
+                await self.event_error(error=e, event='on_member_join (welcome message)', guild=member.guild)
+                return
         if db_check2 is not None:
             # Member join log
             logchannel = self.bot.get_channel(joinlog)
@@ -177,7 +225,13 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             embed.add_field(name="Created at:", value=default.date(
                 member.created_at), inline=False)
             embed.set_thumbnail(url=member.avatar_url)
-            await logchannel.send(embed=embed)
+            if member.guild.id == 671078170874740756 and badges:
+                embed.add_field(name='User badges', value=', '.join(badges), inline=False)
+            try:
+                await logchannel.send(embed=embed)
+            except Exception as e:
+                await self.event_error(error=e, event='on_member_join (welcome log message)', guild=member.guild)
+                return
 
 ##############################
     @commands.Cog.listener()
@@ -223,7 +277,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 leavemessage = f"{emotes.left} {member.mention} left the server... There are {member.guild.member_count} members left in the server."
 
             leavechannel = self.bot.get_channel(leavelog)
-            await leavechannel.send(leavemessage, allowed_mentions=discord.AllowedMentions(users=True))
+            try:
+                await leavechannel.send(leavemessage, allowed_mentions=discord.AllowedMentions(users=True))
+            except Exception as e:
+                await self.event_error(error=e, event='on_member_remove (leave message)', guild=member.guild)
+                return
 
         if db_check2 is not None:
             # Member leave log
@@ -236,13 +294,20 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 member.created_at), inline=False)
             embed.add_field(name="Joined at:", value=default.date(member.joined_at), inline=False)
             embed.set_thumbnail(url=member.avatar_url)
-            await logchannel.send(embed=embed)
+            try:
+                await logchannel.send(embed=embed)
+            except Exception as e:
+                await self.event_error(error=e, event='on_member_remove (leave log message)', guild=member.guild)
+                return
 
         if moderation is not None:
             try:
                 deleted = ""
+                reason = ""
                 async for entry in member.guild.audit_logs(limit=1, action=discord.AuditLogAction.kick):
                     deleted += f"{entry.user} ({entry.user.id})"
+                    if entry.target == member:
+                        reason += f"{entry.reason}"
                     #print(entry)
             except Exception as e:
                 print(e)
@@ -254,21 +319,26 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 embed = discord.Embed(
                     color=self.bot.logging_color, description=f"{emotes.log_memberleave} Member kicked `[#{casenum}]`", timestamp=datetime.utcnow())
                 #embed.set_author(icon_url=member.avatar_url)
-                embed.add_field(name="Username:", value=f"{member} ({member.id})", inline=True)
+                embed.add_field(name="Username:", value=f"{member} ({member.id})", inline=False)
                 embed.add_field(name="Created at:", value=default.date(
                     member.created_at), inline=False)
                 embed.add_field(name="Joined at:", value=default.date(member.joined_at), inline=False)
-                embed.add_field(name='Moderator:', value=deleted, inline=False)
+                if deleted:
+                    embed.add_field(name='Moderator:', value=deleted, inline=False)
+                if reason:
+                    embed.add_field(name="Reason:", value=reason, inline=False)
                 embed.set_thumbnail(url=member.avatar_url)
                 await self.update_query(guildid=member.guild.id, case=casenum)
                 self.bot.case_num[member.guild.id] += 1
-                return await logchannel.send(embed=embed)
+                try:
+                    return await logchannel.send(embed=embed)
+                except Exception as e:
+                    await self.event_error(error=e, event='on_member_remove (kick message)', guild=member.guild)
+                    return
 
             elif deleted and (datetime.utcnow() - checks[0].created_at).total_seconds() > 5:
                 return
 
-
-        
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
@@ -310,7 +380,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 e.add_field(name="Changed by:", value=deleted, inline=False)
             e.set_thumbnail(url=after.avatar_url)
             e.set_footer(text=f'User ID: {after.id}')
-            await channel.send(embed=e)
+            try:
+                await channel.send(embed=e)
+            except Exception as e:
+                await self.event_error(error=e, event='on_member_update', guild=before.guild)
+                return
 
     @commands.Cog.listener()
     async def on_user_update(self, before, after):
@@ -339,14 +413,22 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                     e.set_thumbnail(url=after.avatar_url)
                     #e.set_image(url=before.avatar_url)
                     e.set_footer(text=f"User ID: {after.id}")
-                    await channel.send(embed=e)
+                    try:
+                        await channel.send(embed=e)
+                    except Exception as e:
+                        await self.event_error(error=e, event='on_user_update (avatar)', guild=before.guild)
+                        return
                             
                 # Username changed
                 if before.name != after.name:
                     e = discord.Embed(color=self.bot.logging_color, title=f"{emotes.log_memberedit} Username updated", description=f"**{before.name}** changed his username to **{after.name}**", timestamp=datetime.utcnow())
                     #e.set_author(name=after, icon_url=after.avatar_url)
                     e.set_footer(text=f"User ID: {after.id}")
-                    await channel.send(embed=e)
+                    try:
+                        await channel.send(embed=e)
+                    except Exception as e:
+                        await self.event_error(error=e, event='on_user_update (name)', guild=before.guild)
+                        return
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild, user):
@@ -366,8 +448,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         
         try:
             deleted = ""
+            reason = ""
             async for entry in guild.audit_logs(action=discord.AuditLogAction.ban, limit=1):
                 deleted += f"{entry.user} ({entry.user.id})"
+                if entry.target == user:
+                    reason += f"{entry.reason}"
         except Exception as e:
             print(e)
             pass
@@ -378,14 +463,20 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                               description=f"{emotes.log_ban} Member banned! `[#{casenum}]`",
                               timestamp=datetime.utcnow())
         embed.add_field(name="Member:",
-                        value=f'{user} ({user.id})', inline=True)
-        embed.add_field(name="Member created at:", value=default.date(user.created_at), inline=True)
+                        value=f'{user} ({user.id})', inline=False)
+        embed.add_field(name="Member created at:", value=default.date(user.created_at), inline=False)
         if deleted:
-            embed.add_field(name="Moderator:", value=deleted)
+            embed.add_field(name="Moderator:", value=deleted, inline=False)
+        if reason:
+            embed.add_field(name='Reason:', value=reason, inline=False)
         embed.set_thumbnail(url=user.avatar_url)
         await self.update_query(guildid=guild.id, case=casenum)
         self.bot.case_num[guild.id] += 1
-        await channel.send(embed=embed)
+        try:
+            await channel.send(embed=embed)
+        except Exception as e:
+            await self.event_error(error=e, event='on_member_ban', guild=guild)
+            return
 
     @commands.Cog.listener()
     async def on_member_unban(self, guild, user):
@@ -404,8 +495,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         try:
             deleted = ""
+            reason = ""
             async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=1):
                 deleted += f"{entry.user} ({entry.user.id})"
+                if entry.target == user:
+                    reason += f"{entry.reason}"
         except Exception as e:
             print(e)
             pass
@@ -416,14 +510,20 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                               description=f"{emotes.log_unban} Member unbanned! `[#{casenum}]`",
                               timestamp=datetime.utcnow())
         embed.add_field(name="User name",
-                        value=f'{user} ({user.id})', inline=True)
-        embed.add_field(name="Member created at:", value=default.date(user.created_at), inline=True)
+                        value=f'{user} ({user.id})', inline=False)
+        embed.add_field(name="Member created at:", value=default.date(user.created_at), inline=False)
         if deleted:
-            embed.add_field(name="Moderator", value=deleted)
+            embed.add_field(name="Moderator", value=deleted, inline=False)
+        if reason:
+            embed.add_field(name="Reason:", value=reason, inline=False)
         embed.set_thumbnail(url=user.avatar_url)
         await self.update_query(guildid=guild.id, case=casenum)
         self.bot.case_num[guild.id] += 1
-        await channel.send(embed=embed)
+        try:
+            await channel.send(embed=embed)
+        except Exception as e:
+            await self.event_error(error=e, event='on_member_unban', guild=guild)
+            return
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -465,7 +565,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             embed.set_thumbnail(url=member.avatar_url)
             await self.update_query(guildid=member.guild.id, case=casenum)
             self.bot.case_num[member.guild.id] += 1
-            await channel.send(embed=embed)
+            try:
+                await channel.send(embed=embed)
+            except Exception as e:
+                await self.event_error(error=e, event='on_voice_state_update', guild=before.guild)
+                return
     
     @commands.Cog.listener()
     async def on_guild_update(self, before, after):
@@ -483,8 +587,12 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                               description=f"{emotes.log_guildupdate} Guild name was changed!",
                               timestamp=datetime.utcnow())
             embed.add_field(name="Name:", value=f"{before.name} → {after.name}")
+            try:
+                await channels.send(embed=embed)
+            except Exception as e:
+                await self.event_error(error=e, event='on_guild_update', guild=before.guild)
+                return
 
-            await channels.send(embed=embed)
         
         if before.region != after.region:
             embed = discord.Embed(color=self.bot.logging_color,
@@ -492,7 +600,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                               timestamp=datetime.utcnow())
             embed.add_field(name="Region:", value=f"{before.region} → {after.region}")
 
-            await channels.send(embed=embed)
+            try:
+                await channels.send(embed=embed)
+            except Exception as e:
+                await self.event_error(error=e, event='on_guild_update', guild=before.guild)
+                return
         
         if before.afk_channel != after.afk_channel:
             embed = discord.Embed(color=self.bot.logging_color,
@@ -500,7 +612,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                               timestamp=datetime.utcnow())
             embed.add_field(name="AFK Channel:", value=f"{before.afk_channel} → {after.afk_channel}")
 
-            await channels.send(embed=embed)
+            try:
+                await channels.send(embed=embed)
+            except Exception as e:
+                await self.event_error(error=e, event='on_guild_update', guild=before.guild)
+                return
         
         if before.icon_url != after.icon_url:
             embed = discord.Embed(color=self.bot.logging_color,
@@ -509,7 +625,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             embed.add_field(name="Before:", value=f"[Old icon]({before.icon_url})")
             embed.set_thumbnail(url=after.icon_url)
 
-            await channels.send(embed=embed)
+            try:
+                await channels.send(embed=embed)
+            except Exception as e:
+                await self.event_error(error=e, event='on_guild_update', guild=before.guild)
+                return
         
         if before.mfa_level != after.mfa_level:
             embed = discord.Embed(color=self.bot.logging_color,
@@ -517,8 +637,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                               timestamp=datetime.utcnow())
             embed.add_field(name="MFA level:", value=f"{before.mfa_level} → {after.mfa_level}")
             
-
-            await channels.send(embed=embed)
+            try:
+                await channels.send(embed=embed)
+            except Exception as e:
+                await self.event_error(error=e, event='on_guild_update', guild=before.guild)
+                return
         
         if before.verification_level != after.verification_level:
             embed = discord.Embed(color=self.bot.logging_color,
@@ -535,7 +658,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                               timestamp=datetime.utcnow())
             embed.add_field(name="Notifications:", value=f"{before.default_notifications.name} → {after.default_notifications.name}")
 
-            await channels.send(embed=embed)
+            try:
+                await channels.send(embed=embed)
+            except Exception as e:
+                await self.event_error(error=e, event='on_guild_update', guild=before.guild)
+                return
 
 
 def setup(bot):

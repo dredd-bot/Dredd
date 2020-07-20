@@ -80,11 +80,9 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
             return await ctx.send(f"{emotes.red_mark} | {cleaned}", delete_after=20)
         if isinstance(exc, commands.MissingPermissions):
             perms = "`" + '`, `'.join(exc.missing_perms) + "`" 
-            embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.red_mark} You're missing {perms} permissions")
             return await ctx.send(f"{emotes.red_mark} | You're missing {perms} permissions", delete_after=20)
         if isinstance(exc, commands.BotMissingPermissions):
             perms = "`" + '`, `'.join(exc.missing_perms) + "`" 
-            embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.red_mark} I'm missing {perms} permissions")
             return await ctx.send(f"{emotes.red_mark} | I'm missing {perms} permissions", delete_after=20)
         if isinstance(exc, commands.CheckFailure):
             return
@@ -137,7 +135,7 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
             await log.send(embed=embed)
         except Exception:
             print(tb)
-            e = discord.Ember(color=self.bot.logembed_color, timestamp=datetime.utcnow())
+            e = discord.Embed(color=self.bot.logembed_color, timestamp=datetime.utcnow())
             e.title = f"{emotes.error} Error too long!"
             e.description = f"```py\n{exc}```"
             e.add_field(name='Error information:', value=f'''`{ctx.message.clean_content}`

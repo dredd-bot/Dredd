@@ -56,7 +56,8 @@ async def run():
 
         afk_user = await bot.db.fetch("SELECT * FROM userafk")
         for user in afk_user:
-            bot.afk_users[user['user_id'], user['guild_id']] = [user['message']]
+            #bot.afk_users[user['user_id'], user['guild_id']] = [user['message']]
+            bot.afk_users.append((user['user_id'], user['guild_id'], user['message'], user['time']))
         print(f'[AFK] AFK users loaded [{len(afk_user)}]')
 
 
@@ -164,7 +165,7 @@ class Bot(commands.AutoShardedBot):
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.blacklisted_guilds = {}
         self.blacklisted_users = {}
-        self.afk_users = {}
+        self.afk_users = []
         self.temp_timer = []
 
         self.automod = {}

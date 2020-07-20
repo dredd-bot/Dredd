@@ -291,6 +291,9 @@ class owner(commands.Cog, name="Owner"):
         if reason is None:
             reason = 'No reason'
 
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+
         db_check = await self.bot.db.fetchval("SELECT user_id FROM blacklist WHERE user_id = $1", user.id)
 
         if user.id == 345457928972533773 or user.id == 373863656607318018:
@@ -299,6 +302,14 @@ class owner(commands.Cog, name="Owner"):
 
         if db_check is not None:
             return await ctx.send("This user is already in my blacklist.")
+
+        try:
+            data['Users'][f'{user.id}']["Badges"] = [f'{emotes.blacklisted}']
+        except KeyError:
+            data['Users'][f'{user.id}'] = {"Badges": [f'{emotes.blacklisted}']}
+        
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
 
         await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
         self.bot.blacklisted_users[user.id] = [reason]
@@ -319,11 +330,21 @@ class owner(commands.Cog, name="Owner"):
 
         db_check = await self.bot.db.fetchval("SELECT user_id FROM blacklist WHERE user_id = $1", user.id)
 
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+
         if db_check is None:
             return await ctx.send("This user isn't in my blacklist.")
 
         await self.bot.db.execute("DELETE FROM blacklist WHERE user_id = $1", user.id)
         self.bot.blacklisted_users.pop(user.id)
+        try:
+            data['Users'].pop(f"{user.id}")
+        except KeyError:
+            pass
+        
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
 
         await ctx.send(f"I've successfully removed **{user}** from my blacklist", delete_after=10)
     
@@ -1026,13 +1047,13 @@ class owner(commands.Cog, name="Owner"):
     async def remove_badge(self, ctx):
         await ctx.send_help(ctx.command)
 
-    @remove_badge.command(name="remove-badge", aliases=['removebadge', 'rbadge'])
+    @remove_badge.command(name="user", aliases=['u'])
     @commands.cooldown(1, 30, commands.BucketType.user)
     async def remove_badge_user(self, ctx, user: discord.User, badge):
         with open('db/badges.json', 'r') as f:
             data = json.load(f)
 
-        avail_badges = ['bot_early_supporter', 'bot_admin', 'bot_owner','bot_partner', 'bot_booster', 'bot_verified', 'discord_bug1', 'discord_bug2']
+        avail_badges = ['bot_early_supporter', 'bot_admin', 'bot_owner','bot_partner', 'bot_booster', 'bot_verified', 'discord_bug1', 'discord_bug2', 'blacklisted']
         if badge.lower() not in avail_badges:
             return await ctx.send(f"{emotes.warning} **Invalid badge! Here are the valid ones:** {', '.join(avail_badges)}", delete_after=20)
 
@@ -1052,6 +1073,8 @@ class owner(commands.Cog, name="Owner"):
             badge = emotes.discord_bug1
         elif badge.lower() == "discord_bug2":
             badge = emotes.discord_bug2
+        elif badge.lower() == "blacklisted":
+            badge = emotes.blacklisted
 
         try:
             if len(data['Users'][f'{user.id}']["Badges"]) < 2:

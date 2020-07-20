@@ -84,32 +84,6 @@ class misc(commands.Cog, name="Misc"):
             await asyncio.sleep(5)
             return await ctx.send(embed=embed)
 
-    @commands.command(brief="Report a bug", aliases=["report", "bug"])
-    @commands.cooldown(1, 30, commands.BucketType.user)
-    async def bugreport(self, ctx, *, bug: commands.clean_content):
-        """ Report any bug you noticed in bot. """
-
-        try:
-            await ctx.message.delete()
-        except Exception:
-            pass
-
-        logchannel = self.bot.get_channel(683702242414821466)
-
-        if len(bug) > 128:
-            return await ctx.send(f"{emotes.warning} Your bug report is over 128 characters!")
-        elif len(bug) < 128:
-            ids = await self.bot.db.fetch("SELECT bug_id FROM bugs")
-            e = discord.Embed(color=self.bot.logging_color, title=f"Bug report! [ID: {len(ids) + 1}]", description=f"A new bug was reported")
-            e.add_field(name="Bug that was reported:", value=f"```\n{bug}```", inline=False)
-            e.add_field(name="Author:", value=f"{ctx.author} ({ctx.author.id})", inline=False)
-            e.add_field(name="Guild:", value=f"{ctx.guild} ({ctx.guild.id})", inline=False)
-            msg = await logchannel.send(embed=e)
-            await msg.add_reaction(f"{emotes.white_mark}")
-            await msg.add_reaction(f"{emotes.red_mark}")
-            await self.bot.db.execute("INSERT into bugs(bug_info, bug_id, user_id, msg_id, approved) VALUES($1, $2, $3, $4, $5)", bug, len(ids) + 1, ctx.author.id, msg.id, False)
-            await ctx.send(f"{emotes.white_mark} Bug report was sent successfully with id: **{len(ids) + 1}**! You can also follow this bug report to know if it was approved or not by typing `{ctx.prefix}follow bug {len(ids) + 1}`")
-
     @commands.command(category="Basic", brief="Suggest anything", aliases=['idea'])
     @commands.cooldown(1, 30, commands.BucketType.user)
     async def suggest(self, ctx, *, suggestion: commands.clean_content):
@@ -138,26 +112,10 @@ class misc(commands.Cog, name="Misc"):
     @commands.group(brief='Follow suggestions or bugs')
     @commands.cooldown(1, 15, commands.BucketType.user)
     async def follow(self, ctx):
-        """ You can follow suggestion and/or bugs 
+        """ You can follow suggestions 
         When they'll get approved or denied you'll get a dm from bot with a result """
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
-
-    @follow.command()
-    async def bug(self, ctx, bugid: int):
-        """ Follow bugs """
-        check = await self.bot.db.fetchval("SELECT approved FROM bugs WHERE bug_id = $1", bugid)
-        tracks = await self.bot.db.fetchval("SELECT * FROM track_bug WHERE user_id = $1 AND bug_id = $2", ctx.author.id, bugid)
-
-        if check is None:
-            await ctx.send(f"{emotes.warning} Looks like bug with id {bugid} doesn't exist.")
-        elif check == False and tracks is None:
-            await self.bot.db.execute("INSERT INTO track_bug(user_id, bug_id) VALUES($1, $2)", ctx.author.id, bugid)
-            await ctx.send(f"{emotes.white_mark} Started following bug with id: **{bugid}**, you'll get notified if the bug was approved or not.")
-        elif check == True:
-            await ctx.send(f"{emotes.warning} That bug report is already approved/denied, you cannot follow it.")
-        elif tracks:
-            await ctx.send(f"{emotes.red_mark} You're already following bug with id **{bugid}**")
 
     @follow.command()
     async def suggestion(self, ctx, suggestionid: int):
@@ -184,17 +142,22 @@ class misc(commands.Cog, name="Misc"):
         """
         db_check = await self.bot.db.fetchval("SELECT * FROM userafk WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, ctx.author.id)
         if message is None:
-            msg = "I'm AFK :)"
+            msgs = "I'm AFK :)"
         elif message and len(message) < 64:
-            msg = message
+            msgs = message
         else:
             return await ctx.send(f"{emotes.red_mark} Your message is too long! You can have max 64 characters.")
         if db_check is None:
-            await self.bot.db.execute("INSERT INTO userafk(user_id, guild_id, message) VALUES ($1, $2, $3)", ctx.author.id, ctx.guild.id, msg)
-            await ctx.send(f"{emotes.white_mark} | Set your **AFK** state to --> `{msg}`", delete_after=20)
+            await self.bot.db.execute("INSERT INTO userafk(user_id, guild_id, message, time) VALUES ($1, $2, $3, $4)", ctx.author.id, ctx.guild.id, msgs, datetime.now())
+            self.bot.afk_users.append((ctx.author.id, ctx.guild.id, msgs, datetime.now()))
+            await ctx.send(f"{emotes.white_mark} | Set your **AFK** state to --> `{msgs}`", delete_after=20)
         else:
-            await self.bot.db.execute("UPDATE userafk SET message = $1 WHERE user_id = $2 AND guild_id = $3", msg, ctx.author.id, ctx.guild.id)
-            await ctx.send(f"{emotes.white_mark} | Changed your **AFK** state to --> `{msg}`", delete_after=20)
+            await self.bot.db.execute("UPDATE userafk SET message = $1 WHERE user_id = $2 AND guild_id = $3", msgs, ctx.author.id, ctx.guild.id)
+            for user, guild, msg, time in self.bot.afk_users:
+                if ctx.author.id == user and ctx.guild.id == guild:
+                    self.bot.afk_users.remove((user, guild, msg, time))
+                    self.bot.afk_users.append((user, guild, msgs, datetime.now()))
+            await ctx.send(f"{emotes.white_mark} | Changed your **AFK** state to --> `{msgs}`", delete_after=20)
             
 
     @commands.group(brief="Manage your todo list", invoke_without_command=True)

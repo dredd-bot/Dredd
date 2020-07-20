@@ -51,7 +51,13 @@ class MemberID(commands.Converter):
         if not argument.isdigit():
             raise commands.BadArgument("User needs to be an ID")
         elif argument.isdigit():
-            return type('_Hackban', (), {'id': argument, '__str__': lambda s: s.id})()
+            member_id = int(argument, base=10)
+            try:
+                ban_check = await ctx.guild.fetch_ban(discord.Object(id=member_id))
+                if ban_check:
+                    raise commands.BadArgument('This user is already banned.') from None
+            except discord.NotFound:
+                return type('_Hackban', (), {'id': argument, '__str__': lambda s: s.id})()
 
 class moderation(commands.Cog, name="Moderation"):
 
@@ -65,6 +71,20 @@ class moderation(commands.Cog, name="Moderation"):
 
 #########################################################################################################
 
+    async def log_delete(self, ctx, data, messages=None):
+        check = await self.bot.db.fetchval("SELECT * FROM msgdelete WHERE guild_id = $1", ctx.guild.id)
+
+        if check is None:
+            return
+        elif check is not None:
+            channel = await self.bot.db.fetchval("SELECT channel_id FROM msgdelete WHERE guild_id = $1", ctx.guild.id)
+            chan = self.bot.get_channel(channel)
+            
+            #e = discord.Embed(color=self.bot.logging_color, description=f"{messages} messages were deleted by **{ctx.author}**. [View File]({data})")
+            text = f"**{messages}** Message(s) were deleted by **{ctx.author}**."
+            file=data
+            await chan.send(text, file=file)
+
     async def do_removal(self, ctx, limit, predicate, *, before=None, after=None):
         if limit > 2000:
             return await ctx.send("You can purge maximum amount of 2000 messages!")
@@ -76,9 +96,19 @@ class moderation(commands.Cog, name="Moderation"):
 
         if after is not None:
             after = discord.Object(id=after)
+        
+        msgs = []
+        for message in await ctx.channel.history(limit=limit).flatten():
+            msgs.append(f"[{message.created_at}] {message.author} - {message.content}\n")
+
+        msgs.reverse()
+        msghis = "".join(msgs)
+
+        data = BytesIO(msghis.encode('utf-8'))
 
         try:
             deleted = await ctx.channel.purge(limit=limit, before=before, after=after, check=predicate)
+            await self.log_delete(ctx, data=discord.File(data, filename=f"{timetext(f'{ctx.channel}-Messages')}"), messages=len(deleted))
         except discord.Forbidden as e:
             return await ctx.send("No permissions")
         except discord.HTTPException as e:
@@ -91,29 +121,15 @@ class moderation(commands.Cog, name="Moderation"):
             messages = f"{emotes.log_msgdelete} Deleted **{deleted}** messages"
 
         to_send = '\n'.join(messages)
-        
+
         if len(to_send) > 2000:
+
             text = f"{emotes.log_msgdelete} Removed `{deleted}` messages"
             await ctx.send(text, delete_after=10)
         else:
             e = discord.Embed(color=self.bot.embed_color)
             e.description = f"{messages}"
             await ctx.send(embed=e, delete_after=10)
-
-
-    async def log_delete(self, ctx, data):
-        check = await self.bot.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", ctx.guild.id)
-
-        if check is None:
-            return
-        elif check is not None:
-            channel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", ctx.guild.id)
-            chan = self.bot.get_channel(channel)
-            
-            #e = discord.Embed(color=self.bot.logging_color, description=f"{messages} messages were deleted by **{ctx.author}**. [View File]({data})")
-            text = f"Messages were deleted by **{ctx.author}**."
-            file=data
-            await chan.send(text, file=file)
 
     async def log_mute(self, ctx, member=None, reason=None, timed=None):
         check = await self.bot.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", ctx.guild.id)
@@ -252,7 +268,7 @@ class moderation(commands.Cog, name="Moderation"):
         """
 
         if len(members) == 0:
-            raise commands.BadArgument("You're missing an argument - **users**") from None
+            raise commands.BadArgument("You're missing an argument - **members**") from None
 
         try:
             total = len(members)
@@ -348,7 +364,7 @@ class moderation(commands.Cog, name="Moderation"):
             # ? They want to unban everyone
 
             if str(react) == f"{emotes.white_mark}": 
-                unb = await ctx.send(f"Unbanning **{bans}** members from this guild.")    
+                unb = await ctx.channel.send(f"Unbanning **{bans}** members from this guild.")    
                 await checkmsg.delete()
                 for user in await ctx.guild.bans():
                     await ctx.guild.unban(user.user, reason=responsible(ctx.author, reason))
@@ -359,7 +375,7 @@ class moderation(commands.Cog, name="Moderation"):
 
             if str(react) == f"{emotes.red_mark}":      
                 await checkmsg.delete()
-                await ctx.send("Alright. Not unbanning anyone..")
+                await ctx.channel.send("Alright. Not unbanning anyone..")
 
             # ? They want to see ban list
 
@@ -380,7 +396,7 @@ class moderation(commands.Cog, name="Moderation"):
                 
 
                 if str(react) == f"{emotes.white_mark}": 
-                    unb = await ctx.send(f"Unbanning **{bans}** members from this guild.")    
+                    unb = await ctx.channel.send(f"Unbanning **{bans}** members from this guild.")    
                     await checkmsg.delete()
                     for user in await ctx.guild.bans():
                         await ctx.guild.unban(user.user, reason=responsible(ctx.author, reason))
@@ -391,9 +407,10 @@ class moderation(commands.Cog, name="Moderation"):
 
                 if str(react) == f"{emotes.red_mark}":      
                     await checkmsg.delete()
-                    await ctx.send("Alright. Not unbanning anyone..")
+                    await ctx.channel.send("Alright. Not unbanning anyone..")
 
         except Exception as e:
+            print(e)
             return
 
                 
@@ -717,13 +734,7 @@ class moderation(commands.Cog, name="Moderation"):
         """ Removes all messages
         Might take longer if you're purging messages that are older than 2 weeks """
         await ctx.message.delete()
-        msgs = ""
-        for message in await ctx.channel.history(limit=search).flatten():
-            msgs += f"[{message.created_at}] {message.author} - {message.content}\n"
-
-        data = BytesIO(msgs.encode('utf-8'))
         await self.do_removal(ctx, search, lambda e: True)
-        await self.log_delete(ctx, data=discord.File(data, filename=f"{timetext(f'{ctx.channel}-Messages')}"))
     
     @purge.command(brief="User messages", description="Clear messages sent from an user")
     @commands.has_permissions(manage_messages=True)
@@ -732,13 +743,7 @@ class moderation(commands.Cog, name="Moderation"):
     async def user(self, ctx, member: discord.Member, search=100):
         """ Removes user messages """
         await ctx.message.delete()
-        msgs = ""
-        for message in await ctx.channel.history(limit=search).flatten():
-            if message.author == member:
-                msgs += f"[{message.created_at}] {message.author} - {message.content}\n"
-        data = BytesIO(msgs.encode('utf-8'))
         await self.do_removal(ctx, search, lambda e: e.author == member)
-        await self.log_delete(ctx, data=discord.File(data, filename=f"{timetext(f'{member}_messages')}"))
     
     @purge.command(brief="Bot's messages", description="Clear messages sent from an user")
     @commands.has_permissions(manage_messages=True)

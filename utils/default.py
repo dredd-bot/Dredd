@@ -91,7 +91,11 @@ def member_activity(member):
 
         elif activity.type == discord.ActivityType.streaming:
             try:
-                message += f"{emotes.stream_presence} Streaming **[{activity.name}]({activity.url})** on **{activity.platform}**\n"
+                if activity.name == activity.platform:
+                    act = "Twitch"
+                elif activity.name != activity.platform:
+                    act = activity.platform
+                message += f"{emotes.stream_presence} Streaming **[{activity.name}]({activity.url})** on **{act}**\n"
             except AttributeError:
                 message += f"{emotes.stream_presence} Shit broke while trying to figure out streaming details."
 

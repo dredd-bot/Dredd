@@ -117,10 +117,11 @@ class Managment(commands.Cog, name="Management"):
     
     @commands.command(brief="Log channels", description="Enable logging in your server.")
     @commands.has_permissions(manage_guild=True)
-    @commands.bot_has_permissions(view_audit_log=True, manage_channels=True)
+    @commands.bot_has_permissions(manage_channels=True)
     async def togglelog(self, ctx, option = None, *, channel: discord.TextChannel = None):
         """ Toggle log for the given option.  
-        Leaving channel empty will disable the log. """
+        Leaving channel empty will disable the log. 
+        It is highly recommended for bot to have view audit logs permissions as well"""
 
         options = ["msgdelete", "msgedit", "moderation", "joinlog", "joinmsg", "leavemsg", "memberupdate"]
         optionsmsg = f'`joinlog`, `memberupdate`, `msgedit`, `msgdelete`, `moderation`, `joinmsg`, `leavemsg`'
@@ -396,7 +397,7 @@ class Managment(commands.Cog, name="Management"):
 
         if data is not None:
             await self.bot.db.execute("DELETE FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id)
-            return await ctx.send(f"{emotes.white_mark} **{cmd.name}** was disabled in this guild.")
+            return await ctx.send(f"{emotes.white_mark} **{cmd.name}** was enabled in this guild.")
 
         if data is None:
             return await ctx.send(f"{emotes.red_mark} **{cmd.name}** is not disabled")

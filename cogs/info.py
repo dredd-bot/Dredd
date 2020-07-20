@@ -54,7 +54,7 @@ class info(commands.Cog, name="Info"):
             return True
         
         if data is not None:
-            await ctx.send(f"{emotes.blacklisted} | `{ctx.command.name}` is temporarily disabled for maintenance")
+            await ctx.send(f"{emotes.blacklisted} | `{ctx.command}` is temporarily disabled for maintenance")
             return False
 
         if data is None:
@@ -262,7 +262,7 @@ class info(commands.Cog, name="Info"):
         await ctx.send(embed=embed)
 
 
-    @commands.command(brief="Get user information", aliases=['user'])
+    @commands.command(brief="Get user information", aliases=['user', 'ui'])
     @commands.guild_only()
     @commands.cooldown(1, 15, commands.BucketType.user)
     async def userinfo(self, ctx, *, user: discord.User = None):
@@ -358,8 +358,8 @@ class info(commands.Cog, name="Info"):
 
             uroles.reverse()
 
-            if len(str(uroles)) > 300:
-                uroles = ["Too many roles ...."]
+            if len(uroles) > 10:
+                uroles = [f"{', '.join(uroles[:10])} (+{len(usercheck.roles) - 11})"]
 
             profile = discord.Profile
             

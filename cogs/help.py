@@ -14,7 +14,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-
+import itertools
 from discord.ext import commands
 from utils.paginator import Pages
 from db import emotes
@@ -31,7 +31,7 @@ class HelpCommand(commands.HelpCommand):
                 'brief': 'See cog/command help',
                 'usage': '[category / command]',
                 'cooldown': commands.Cooldown(1, 3, commands.BucketType.user)})
-        self.verify_checks = False
+        self.verify_checks = True
         
 
         self.owner_cogs = ['Devishaku', 'Music', 'Owner', "Economy", "Music"]
@@ -146,6 +146,9 @@ class HelpCommand(commands.HelpCommand):
             prefix = "**Bot prefix in DM's:** `!`"
         s = "Support"
         i = "Bot invite"
+        dbl = "[top.gg](https://top.gg/bot/667117267405766696/vote)"
+        boats = "[discord.boats](https://discord.boats/bot/667117267405766696/vote)"
+        privacy = "[Privacy Policy](https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md)"
 
         def check(m):
             return m.author == self.context.author
@@ -157,6 +160,16 @@ class HelpCommand(commands.HelpCommand):
         emb = discord.Embed(color=self.context.bot.embed_color)
         emb.description = f"\n**This bot was made by:** {Moksej}\n{prefix}"
 
+        # def key(c):
+        #     return c.cog_name or '\u200bUncategorized Commands'
+
+        # entries = await self.filter_commands(self.context.bot.commands, sort=True, key=key)
+        # for cg, cm in itertools.groupby(entries, key=key):
+        #     cats = []
+        #     cm = sorted(cm, key=lambda c: c.name)
+        #     cats.append(f'**{cg}**\n{"•".join([f"`{c.name}`" for c in cm])}\n')
+        #     emb.description += "\n".join(cats)
+        # return await self.context.send(embed=emb)
         cogs = ""
         for extension in self.context.bot.cogs.values():
             if extension.qualified_name in self.ignore_cogs:
@@ -167,14 +180,16 @@ class HelpCommand(commands.HelpCommand):
                 continue
             if extension.qualified_name in self.admin_cogs and not await self.context.bot.is_admin(self.context.author):
                 continue
-            c = f"`" + f"`, `".join([c.qualified_name for c in set(extension.get_commands()) if not c.hidden]) + '`'
+            c = f"`" + f"`, `".join([c.qualified_name for c in set(extension.get_commands())]) + '`'
+            # entries = await self.filter_commands(set(extension.get_commands()), sort=True)
+            # return await self.context.send(entries)
             emb.add_field(name=f"{extension.help_icon} **{extension.qualified_name}**", value=c, inline=False)
         
         updates = await self.context.bot.db.fetchval('SELECT * FROM updates')
         #emb.add_field(name="**Commands**", value=f"{cogs}")
         #emb.add_field(name="\u200b", value="\u200b")
         emb.add_field(name='📰 **Latest news**', value=f"{updates}", inline=False)
-        emb.add_field(name='**Useful links**', value=f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.dbl} [Vote](https://top.gg/bot/667117267405766696/vote)")
+        emb.add_field(name='**Useful links**', value=f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.dbl} {dbl} | {emotes.boats} {boats} | {emotes.discord_privacy} {privacy}")
         emb.set_footer(text=f"- You can type {self.clean_prefix}help <command> to see that command help and {self.clean_prefix}help <category> to see that category commands")
 
         await self.context.send(embed=emb)
