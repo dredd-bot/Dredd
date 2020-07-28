@@ -5,7 +5,7 @@
 ### 1. What does it store?
 #### Dredd stores the following: 
 ##### • Server IDs for servers data (prefixes, and other settings like logging, automod and so on), blacklist.
-##### • User IDs for blacklist, nickname changes, todo lists, warnings (including automod warns) from moderators in servers, temporary mutes, suggestions, bug reports and following suggestions/bug reports.
+##### • User IDs for blacklist, nickname changes, todo lists, warnings (including automod warns) from moderators in servers, temporary mutes, suggestions and following suggestions.
 
 ### 2. Who can access the data?
 #### Following people can access ALL of the data:
@@ -31,13 +31,16 @@
 
 ### 4. Why does it store the data?
 #### It stores server IDs for settings and data because:
-##### • Without those most of the bot wouldn't be functional. The logs would break or wouldn't be customisable, you couldn't invoke any of the commands bot has.
-#### It stores user IDs for nickname changes, todo lists, warnings, temporary mutes, suggestions and bugs because:
+##### • Without those most of the bot wouldn't be functional. The loggs would break or wouldn't be customisable, you couldn't invoke any of the commands bot has.
+#### It stores user IDs for nickname changes, todo lists, warnings, temporary mutes, suggestions because:
 ##### • Bot needs to find the user that has the data stored in the database as - todo lists, nickname changes and return that data to them
-##### • Bot needs to find the user that has data stored in database as - suggestions, bug reports to know who was the owner of the suggestion/bug report and inform them when the suggestion/bug was approved/confirmed. Also the users that followed that suggestion/bug report.
+##### • Bot needs to find the user that has data stored in database as - suggestions to know who was the owner of the suggestion and inform them when the suggestion was approved/denied. Also the users that followed that suggestion.
 ##### • Bot needs to find the user who was temporarily muted and punish them if they try to rejoin or unmute them when their punishment ends.
 #### It stores server IDs and user IDs for blacklist because:
 ##### • We need to prevent people/servers that abuse the bot, break bot rules.
 
 ### 5. I'm questioning why do you need all this data, and this Privacy Policy doesn't answer my question. What should I do?
-#### Feel free to join the [support server](https://discord.gg/f3MaASW) and/or contact Moksej#3335.
+#### Feel free to join the [support server](https://discord.gg/f3MaASW) and/or contact Moksej#3335 (345457928972533773).
+
+### Please note, that we can change this policy without any warning at any given time.
+#### Last changed: `2020 July 23rd`
