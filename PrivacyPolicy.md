@@ -43,4 +43,4 @@
 #### Feel free to join the [support server](https://discord.gg/f3MaASW) and/or contact Moksej#3335 (345457928972533773).
 
 ### Please note, that we can change this policy without any warning at any given time.
-#### Last changed: `2020 July 23rd`
+#### **Last changed:** `2020 July 23rd`
