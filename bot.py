@@ -40,9 +40,13 @@ async def run():
     if not hasattr(bot, 'uptime'):
         bot.uptime = datetime.datetime.utcnow()
     try:
+        
+        prefixes = await bot.db.fetch("SELECT * FROM guilds")
+        for res in prefixes:
+            bot.prefixes[res['guild_id']] = res['prefix']
+        print(f'[PREFIXES] Prefixes loaded')
 
         blacklist_user = await bot.db.fetch("SELECT * FROM blacklist")
-
         for user in blacklist_user:
             bot.blacklisted_users[user['user_id']] = [user['reason']]
         print(f'[BLACKLIST] Users blacklist loaded [{len(blacklist_user)}]')
@@ -160,6 +164,7 @@ class Bot(commands.AutoShardedBot):
         self.e = emotes
         self.config = config
         self.cmd_edits = {}
+        self.prefixes = {}
 
         self.loop = asyncio.get_event_loop()
         self.session = aiohttp.ClientSession(loop=self.loop)
