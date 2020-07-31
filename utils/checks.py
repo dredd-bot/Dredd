@@ -52,3 +52,14 @@ def is_guild(ID):
             return False
     return commands.check(predicate)
 
+def test_command():
+    async def predicate(ctx):
+        if await ctx.bot.is_admin(ctx.author):
+            return True
+        elif not await ctx.bot.is_admin(ctx.author):
+            e = discord.Embed(color=ctx.bot.logembed_color, description=f"{emotes.warning} This command is in it's testing phase, please [join support server]({ctx.bot.support}) if you want to know when it'll be available.")
+            await ctx.send(embed=e)
+            return False
+        return False
+    return commands.check(predicate)
+

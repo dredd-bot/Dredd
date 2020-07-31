@@ -40,7 +40,7 @@ async def run():
     if not hasattr(bot, 'uptime'):
         bot.uptime = datetime.datetime.utcnow()
     try:
-        
+
         prefixes = await bot.db.fetch("SELECT * FROM guilds")
         for res in prefixes:
             bot.prefixes[res['guild_id']] = res['prefix']
@@ -94,7 +94,7 @@ async def get_prefix(bot, message):
         return custom_prefix
     elif message.guild:
         try:
-            prefix = await bot.db.fetchval("SELECT prefix FROM guilds WHERE guild_id= $1", message.guild.id)
+            prefix = bot.prefixes[message.guild.id]
             if not await bot.is_admin(message.author):
                 custom_prefix = prefix
             elif await bot.is_admin(message.author):
@@ -160,6 +160,11 @@ class Bot(commands.AutoShardedBot):
         self.logging_color = 0xE08C0B #E08C0B
         self.memberlog_color = 0x55d655 #55d655
         self.join_color = 0xEE621B #EE621B
+
+        self.support = 'https://discord.gg/f3MaASW'
+        self.invite = '<https://discordapp.com/oauth2/authorize?client_id=667117267405766696&scope=bot&permissions=477588727>'
+        self.privacy = '<https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md>'
+        self.license = '<https://github.com/TheMoksej/Dredd/blob/master/LICENSE>'
         
         self.e = emotes
         self.config = config
@@ -170,6 +175,7 @@ class Bot(commands.AutoShardedBot):
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.blacklisted_guilds = {}
         self.blacklisted_users = {}
+        self.informed_times = []
         self.afk_users = []
         self.temp_timer = []
 

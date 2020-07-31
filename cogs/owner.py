@@ -27,6 +27,7 @@ import json
 
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands
+from discord.utils import escape_markdown
 from utils import default, btime
 from utils.paginator import Pages, TextPages
 from prettytable import PrettyTable
@@ -239,7 +240,7 @@ class owner(commands.Cog, name="Owner"):
         self.bot.blacklisted_guilds[guild] = [reason]
         
         bu = await self.bot.db.fetch("SELECT * FROM blockedguilds")
-        server = await self.bot.db.fetchval("SELECT * FROM support")
+        server = self.bot.support
 
         g = self.bot.get_guild(guild)
         await ctx.send(f"I've successfully added **{g}** guild to my blacklist", delete_after=10)
@@ -348,6 +349,24 @@ class owner(commands.Cog, name="Owner"):
 
         await ctx.send(f"I've successfully removed **{user}** from my blacklist", delete_after=10)
     
+    @dev.command(brief='DM block a user', aliases=['dmban'])
+    async def dmblock(self, ctx, user: discord.User):
+
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
+        db_check = await self.bot.db.fetchval("SELECT user_id FROM dm_black WHERE user_id = $1", user.id)
+
+
+        if db_check is not None:
+            return await ctx.send("This user is already in my dm blacklist.")
+
+        await self.bot.db.execute("INSERT INTO dm_black(user_id) values($1)", user.id)
+
+        await ctx.send(f"I've successfully added **{user}** to my dm blacklist", delete_after=10)
+    
     @dev.command(aliases=["bu"])
     async def blacklistedusers(self, ctx, page: int = 1):
 
@@ -408,48 +427,6 @@ class owner(commands.Cog, name="Owner"):
                                   description=f"Set latest updates to {updates}")
             await ctx.send(embed=embed, delete_after=10)
 
-    @dev.command(brief="Bot invite change")
-    async def invite(self, ctx, *, invite: str):
-        """ Change bot invite """
-        try:
-            await ctx.message.delete()
-        except:
-            pass
-
-        db_check = await self.bot.db.fetchval(f"SELECT * FROM invite")
-
-        if db_check is None:
-            await self.bot.db.execute("INSERT INTO invite(link) VALUES ($1)", invite)
-            embed = discord.Embed(color=self.bot.embed_color,
-                                  description=f"Set bot invite to {invite}")
-            await ctx.send(embed=embed, delete_after=10)
-
-        if db_check is not None:
-            await self.bot.db.execute(f"UPDATE invite SET link = $1", invite)
-            embed = discord.Embed(color=self.bot.embed_color,
-                                  description=f"Set bot invite to {invite}")
-            await ctx.send(embed=embed, delete_after=10)
-
-    @dev.command(brief="Support invite change")
-    async def support(self, ctx, *, invite: str):
-        """ Change bot support invite link """
-        try:
-            await ctx.message.delete()
-        except:
-            pass
-        db_check = await self.bot.db.fetchval(f"SELECT * FROM support")
-
-        if db_check is None:
-            await self.bot.db.execute("INSERT INTO support(link) VALUES ($1)", invite)
-            embed = discord.Embed(color=self.bot.embed_color,
-                                  description=f"Set support invite to {invite}")
-            await ctx.send(embed=embed, delete_after=10)
-
-        if db_check is not None:
-            await self.bot.db.execute(f"UPDATE support SET link = $1", invite)
-            embed = discord.Embed(color=self.bot.embed_color,
-                                  description=f"Set support invite to {invite}")
-            await ctx.send(embed=embed, delete_after=10)
 
     
     @dev.command(brief='Change log of bot')
@@ -668,18 +645,31 @@ class owner(commands.Cog, name="Owner"):
                 if sperms[p] == True and guild.me.guild_permissions.administrator == False:
                     perm.append(f"`{p}`, ")
 
+            invites = ''
+            try:
+                guildinv = await guild.invites()
+                for inv in guildinv[:1]:
+                    invites += f'{inv}'
+            except:
+                pass
+
+            invs = f'[Invite]({invites})' if invites else ""
+
+
             if guild.me.guild_permissions.administrator == True:
-                    perm = [f'{emotes.white_mark} Administrator  ']
+                    perm = [f'`Administrator`  ']
             e = discord.Embed(color=self.bot.embed_color, title=f'**{guild}** Inspection')
+            e.set_thumbnail(url=guild.icon_url)
             if botfarm > 50 and len(guild.members) > 15:
                 e.description = f"{emotes.warning} This **MIGHT** be a bot farm, do you want me to leave this guild? `[Ratio: {botfarm}%]`"
             e.add_field(name='Important information:', value=f"""
-**Total Members:** {len(guild.members):,} which {people:,} of them are humans and {bots:,} bots. `[Ratio: {botfarm}%]`
+**Total Members:** {len(guild.members):,} which {people:,} of them are humans and {bots:,} bots. `[Ratio: {botfarm}%]` {invs}
 **Server Owner:** {guild.owner} ({guild.owner.id})""", inline=False)
             e.add_field(name='Other information:', value=f"""
 **Total channels/roles:** {len(guild.channels)} {emotes.other_unlocked} / {len(guild.roles)} roles
 **Server created at:** {default.date(guild.created_at)}
-**Joined server at:** {humanize.naturaltime(guild.get_member(self.bot.user.id).joined_at)}""", inline=False)
+**Joined server at:** {btime.human_timedelta(guild.get_member(self.bot.user.id).joined_at)} ({default.date(guild.get_member(self.bot.user.id).joined_at)})
+**Prefix:** {escape_markdown(self.bot.prefixes[guild.id])}""", inline=False)
             e.add_field(name="My permissions:", value="".join(perm)[:-2])
             await ctx.send(embed=e)
         except AttributeError:
@@ -699,7 +689,7 @@ class owner(commands.Cog, name="Owner"):
             reason = "No reason"
         if guild == 667065302260908032 or guild == 684891633203806260 or guild == 650060149100249091 or guild == 368762307473571840:
             return await ctx.send("You cannot leave that guild")
-        server = await self.bot.db.fetchval("SELECT * FROM support")
+        server = self.bot.support
         owner = self.bot.get_guild(guild).owner
         g = self.bot.get_guild(guild).name
         emb = discord.Embed(color=self.bot.logging_color, title="Uh oh!",

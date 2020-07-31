@@ -36,11 +36,11 @@ class Managment(commands.Cog, name="Management"):
         if await self.bot.is_admin(ctx.author):
             return True
 
-        if ctx.guild and ctx.author == ctx.guild.owner:
+        if ctx.guild and ctx.author.guild_permissions.administrator:
             return True
 
         if ctx.guild and data is not None:
-            await ctx.send(f"{emotes.blacklisted} | `{cmd}` command is disabled in this server", delete_after=20)
+            await ctx.send(f"{emotes.warning} | `{cmd}` command is disabled in this server", delete_after=20)
             return False
         
         elif ctx.guild and data is None:
@@ -66,6 +66,7 @@ class Managment(commands.Cog, name="Management"):
 
         elif prefix and len(prefix) < 6:
             await self.bot.db.execute("UPDATE guilds SET prefix = $1 WHERE guild_id = $2", prefix, ctx.guild.id)
+            self.bot.prefixes[ctx.guild.id] = prefix
             await ctx.send(f"Changed server prefix to `{prefix}`!")
         else:
             await ctx.send(f"{emotes.warning} Prefix is too long!")
@@ -130,7 +131,7 @@ class Managment(commands.Cog, name="Management"):
 
         if option is None or option.lower() not in options:
             e = discord.Embed(color=self.bot.embed_color,
-                              title=f"{emotes.blacklisted} Invalid option was given. Here are all the valid options:",
+                              title=f"{emotes.warning} Invalid option was given. Here are all the valid options:",
                               description=optionsmsg)
             #e.set_footer(text=f"© {self.bot.user}")
             return await ctx.send(embed=e)
@@ -362,7 +363,7 @@ class Managment(commands.Cog, name="Management"):
     @commands.has_permissions(administrator=True)
     async def disablecommand(self, ctx, command):
         """ Disable command in your server so others couldn't use it
-        Once you've disabled it, the command will be locked to guild owner only"""
+        Once you've disabled it, the command will be locked to server administrators only"""
         cant_disable = ["help", "jishaku", "disablecommand", "enablecommand"]
         cmd = self.bot.get_command(command)
 
@@ -371,7 +372,7 @@ class Managment(commands.Cog, name="Management"):
 
         data = await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id)
 
-        if cmd.name in cant_disable and not ctx.author.id == 345457928972533773:
+        if cmd.name in cant_disable and not await self.bot.is_owner(ctx.author):
             return await ctx.send(f"{emotes.red_mark} Unfortunately you cannot disable **{cmd.name}**")
 
         if data is None:

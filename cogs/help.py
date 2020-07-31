@@ -30,49 +30,20 @@ class HelpCommand(commands.HelpCommand):
 	    		'help': 'Shows help about bot and/or commands',
                 'brief': 'See cog/command help',
                 'usage': '[category / command]',
-                'cooldown': commands.Cooldown(1, 3, commands.BucketType.user)})
+                'cooldown': commands.Cooldown(1, 3, commands.BucketType.user),
+                'name': 'help'})
         self.verify_checks = True
         
 
         self.owner_cogs = ['Devishaku', 'Music', 'Owner', "Economy", "Music"]
         self.admin_cogs = ['Staff']
-        self.ignore_cogs = ["Help", "Events", "Cmds", "Logs", "dredd", 'DBL', 'BG', 'StatcordPost', "AutomodEvents"]
+        self.ignore_cogs = ["Help", "Events", "Cmds", "Logs", "dredd", 'DBL', 'BG', 'StatcordPost', "AutomodEvents", "Eventss"]
     
     def get_command_signature(self, command):
         if command.cog is None:
             return f"(None) / {command.qualified_name}"
         else:
             return f"({command.cog.qualified_name}) / {command.qualified_name}"
-    
-    def common_command_formatting(self, emb, command):
-        emb.title = self.get_command_signature(command)
-        try: # try to get as a grouped command, if error its not a group command
-            emb.description = f"{self.context.guild}{command.parent.name}"
-        except:
-            emb.description = self.context.guild
-        usage = self.context.guild
-        try:
-            if command.parent:
-                try:
-                    emb.description = f"{self.context.guild}{command.cog.qualified_name}"
-                except:
-                    emb.description = self.context.guild
-            else:
-                usg = self.context.guild
-            emb.add_field(name=usage, value=f"{self.context.prefix}{command.qualified_name} ")
-        except KeyError:
-            emb.add_field(name=usage, value=f"{self.context.prefix}{command.qualified_name}")
-        aliases = "`" + '`, `'.join(command.aliases) + "`"
-        if aliases == "``":
-            aliases = self.context.guild
-        emb.add_field(name=self.context.guild, value=aliases)
-        return emb
-
-    def format_doc(self, doc: str)->str:
-        if doc is None:
-            return None
-        doc = doc.format(ctx=self.context)
-        return doc
 
     async def command_callback(self, ctx, *, command=None):
         """|coro|
@@ -137,8 +108,8 @@ class HelpCommand(commands.HelpCommand):
 
         Moksej = self.context.bot.get_user(345457928972533773)        
 
-        support = await self.context.bot.db.fetchval("SELECT * FROM support")
-        invite = await self.context.bot.db.fetchval("SELECT * FROM invite")
+        support = self.context.bot.support
+        invite = self.context.bot.invite
         if self.context.guild is not None:
             p = await self.context.bot.db.fetchval("SELECT prefix FROM guilds WHERE guild_id = $1", self.context.guild.id)
             prefix = f"**Bot prefix in this server:** `{p}`"
@@ -152,44 +123,32 @@ class HelpCommand(commands.HelpCommand):
 
         def check(m):
             return m.author == self.context.author
-
-        # discmds = []
-        # for command in await self.context.bot.db.fetch("SELECT command FROM guilddisabled WHERE guild_id = $1", self.context.guild.id):
-        #     discmds.append(command)
         
         emb = discord.Embed(color=self.context.bot.embed_color)
-        emb.description = f"\n**This bot was made by:** {Moksej}\n{prefix}"
+        emb.description = f"\n**This bot was made by:** {Moksej}\n{prefix}\n"
 
-        # def key(c):
-        #     return c.cog_name or '\u200bUncategorized Commands'
 
-        # entries = await self.filter_commands(self.context.bot.commands, sort=True, key=key)
-        # for cg, cm in itertools.groupby(entries, key=key):
-        #     cats = []
-        #     cm = sorted(cm, key=lambda c: c.name)
-        #     cats.append(f'**{cg}**\n{"•".join([f"`{c.name}`" for c in cm])}\n')
-        #     emb.description += "\n".join(cats)
-        # return await self.context.send(embed=emb)
         cogs = ""
         for extension in self.context.bot.cogs.values():
             if extension.qualified_name in self.ignore_cogs:
                 continue
-            if extension.qualified_name == "Devishaku" and extension.jsk.hidden:
+            if extension.qualified_name == "Devishaku":
                 continue
             if extension.qualified_name in self.owner_cogs and not await self.context.bot.is_owner(self.context.author):
                 continue
             if extension.qualified_name in self.admin_cogs and not await self.context.bot.is_admin(self.context.author):
                 continue
-            c = f"`" + f"`, `".join([c.qualified_name for c in set(extension.get_commands())]) + '`'
+            #c = f"`" + f"`, `".join([c.qualified_name for c in set(extension.get_commands())]) + '`'
             # entries = await self.filter_commands(set(extension.get_commands()), sort=True)
             # return await self.context.send(entries)
-            emb.add_field(name=f"{extension.help_icon} **{extension.qualified_name}**", value=c, inline=False)
+            # emb.add_field(name=f"{extension.help_icon} **{extension.qualified_name}**", value=c, inline=False)
+            cogs += f"{extension.help_icon} **{extension.qualified_name}**\n"
         
         updates = await self.context.bot.db.fetchval('SELECT * FROM updates')
-        #emb.add_field(name="**Commands**", value=f"{cogs}")
-        #emb.add_field(name="\u200b", value="\u200b")
-        emb.add_field(name='📰 **Latest news**', value=f"{updates}", inline=False)
-        emb.add_field(name='**Useful links**', value=f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.dbl} {dbl} | {emotes.boats} {boats} | {emotes.discord_privacy} {privacy}")
+        emb.add_field(name="**Categories:**", value=f"{cogs}")
+        emb.add_field(name="\u200b", value="\u200b")
+        emb.add_field(name='📰 **Latest news**', value=f"{updates}", inline=True)
+        emb.add_field(name='**Useful links**', value=f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.dbl} {dbl} | {emotes.boats} {boats} | {emotes.discord_privacy} {privacy}", inline=False)
         emb.set_footer(text=f"- You can type {self.clean_prefix}help <command> to see that command help and {self.clean_prefix}help <category> to see that category commands")
 
         await self.context.send(embed=emb)
@@ -205,6 +164,12 @@ class HelpCommand(commands.HelpCommand):
         
         if command.cog_name in self.admin_cogs and not await self.context.bot.is_admin(self.context.author):
             return await self.send_error_message(self.command_not_found(command.name))
+
+        if self.context.guild and await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(command)) and self.context.author.guild_permissions.administrator == False and not await self.context.bot.is_owner(self.context.author):
+            return await self.send_error_message(f"{emotes.warning} Command is disabled in this server, which is why I can't show you the help of it.")
+        
+        if await self.context.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(command)) and not await self.context.bot.is_admin(self.context.author):
+            return await self.send_error_message(f"{emotes.warning} This command is temporarily disabled for maintenance.")
         
         if command.hidden == True:
             return await self.send_error_message(self.command_not_found(command.name))
@@ -224,11 +189,9 @@ class HelpCommand(commands.HelpCommand):
         emb.add_field(name="Usage:\n", value=f"{self.clean_prefix}{command.qualified_name} {command.signature}")
         emb.add_field(name="Aliases:\n", value=aliases)
         emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/679705242124025897/680397954699231259/dredd_em.png')
-
-            
+           
         await self.context.send(embed=emb)
-
-    
+  
     async def send_group_help(self, group):          
 
         if group.cog_name in self.ignore_cogs:
@@ -240,6 +203,8 @@ class HelpCommand(commands.HelpCommand):
 
         sub_cmd_list = ""
         for group_command in group.commands:
+            if self.context.guild and await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(group_command.root_parent)) and self.context.author.guild_permissions.administrator == False and not await self.context.bot.is_owner(self.context.author):
+                return await self.send_error_message(f"{emotes.warning} Command is disabled in this server, which is why I can't show you the help of it.")
             sub_cmd_list += '**' + group_command.name + f'**, '
             if group_command.root_parent == "jishaku":
                 cmdsignature = f"{group_command.root_parent} [subcommands]..."
@@ -257,9 +222,6 @@ class HelpCommand(commands.HelpCommand):
         
         emb = discord.Embed(color=self.context.bot.embed_color, description=f"{desc}")
         emb.title = self.get_command_signature(group_command.root_parent)
-        # if group_command.root_parent:
-        #     emb.add_field(name="Usage:\n", value=f"{self.context.prefix}{group_command.root_parent} <subcommand> ..")
-        # else:
         emb.add_field(name="Usage:\n", value=f"{self.clean_prefix}{cmdsignature}")
         emb.add_field(name="Aliases:\n", value=aliases)
         emb.add_field(name=f"Subcommands: ({len(group.commands)})", value=sub_cmd_list[:-2], inline=False)
@@ -267,7 +229,6 @@ class HelpCommand(commands.HelpCommand):
         
        
         await self.context.send(embed=emb)
-
 
     async def send_cog_help(self, cog):
         if cog.qualified_name in self.ignore_cogs:
@@ -278,25 +239,24 @@ class HelpCommand(commands.HelpCommand):
             return
 
         commands = []
+        c = 0
         for cmd in cog.get_commands():
             if cmd.hidden:
+                continue
+            if await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(cmd)):
                 continue
             if cmd.short_doc is None:
                 brief = 'No info'
             else:
                 brief = cmd.short_doc
+            
+            if not cmd.hidden or not await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(cmd)):
+                c += 1
+
             commands.append(f"`{cmd.qualified_name}` - {brief}\n")
-        
-        # footer_text = f" - You can type {self.context.prefix}help <command name> to see more details about command."
-        # e = discord.Embed(color=self.context.bot.embed_color, title=f"{cog.qualified_name.title()} ({len([c for c in set(cog.get_commands()) if not c.hidden])})")
-        # e.description = f"{commands}"
-        # e.set_thumbnail(url="https://cdn.discordapp.com/attachments/679705242124025897/680397954699231259/dredd_em.png")
-        # e.set_footer(text=footer_text)
-        # if cog.qualified_name != "Jishaku":
-        #     e.set_thumbnail(url=cog.big_icon)
 
         paginator = Pages(self.context,
-                          title=f"{cog.qualified_name.title()} ({len([c for c in set(cog.get_commands()) if not c.hidden])})",
+                          title=f"{cog.qualified_name.title()} ({c})",
                           thumbnail=cog.big_icon,
                           entries=commands,
                           per_page = 12,

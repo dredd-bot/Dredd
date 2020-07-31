@@ -57,14 +57,18 @@ class Background(commands.Cog, name="BG"):
     async def temp_mute(self):
         for guild, user, mod, reason, timed, roleid in self.bot.temp_timer:
             if timed and timed - time.time() <= 0:
-                g = self.bot.get_guild(guild)
-                m = g.get_member(user)
-                r = g.get_role(roleid)
-                mm = g.get_member(mod)
-                reasons = "Auto unmute"
                 try:
-                    await m.remove_roles(r, reason=reasons)
-                    await self.log_temp_unmute(guild=g, mod=mm, member=m, reason=reasons)
+                    g = self.bot.get_guild(guild)
+                    m = g.get_member(user)
+                    r = g.get_role(roleid)
+                    mm = g.get_member(mod)
+                    reasons = "Auto unmute"
+                    try:
+                        await m.remove_roles(r, reason=reasons)
+                        await self.log_temp_unmute(guild=g, mod=mm, member=m, reason=reasons)
+                    except Exception as e:
+                        print(e)
+                        pass
                 except Exception as e:
                     print(e)
                     pass

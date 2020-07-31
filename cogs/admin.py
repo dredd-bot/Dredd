@@ -131,22 +131,6 @@ class admin(commands.Cog, name="Staff"):
 
 # ! Social 
 
-    @admin.command(brief="DM a user", description="Direct message a user. DO NOT ABUSE IT!")
-    @commands.cooldown(1, 120, commands.BucketType.user)
-    async def dm(self, ctx, user: discord.User, *, msg: str):
-        """ DM an user """
-        try:
-            await user.send(msg)
-            logchannel = self.bot.get_channel(674929832596865045)
-            logembed = discord.Embed(
-                title=f"I've DM'ed to {user}", description=msg, color=0x0DC405)
-            await logchannel.send(embed=logembed)
-            await ctx.message.delete()
-
-        except discord.errors.Forbidden:
-            await ctx.author.send("Couldn't send message to that user. Maybe he's not in the same server with me?")
-            await ctx.message.delete()
-
     @commands.command(aliases=['deny'], brief="Deny suggestion", description="Deny suggestion you think is not worth adding or already exists.")
     @commands.guild_only()
     async def suggestdeny(self, ctx, suggestion_id: int, *, note: str):

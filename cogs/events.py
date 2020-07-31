@@ -44,12 +44,17 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         except KeyError:
             return True
         
-        support = await self.bot.db.fetchval("SELECT * FROM support")
+        support = self.bot.support
 
         if self.bot.blacklisted_users[ctx.author.id]:
+            print(f"{ctx.author} attempted to use my commands, but was blocked because of the blacklist.\n[REASON] {reason}")
+            for u, g, t in self.bot.informed_times:
+                if u == ctx.author.id and g == ctx.guild.id:
+                    if t >= 1:
+                        return False 
             e = discord.Embed(color=self.bot.error_color, title=f"{emotes.blacklisted} Error occured!", description=f"Uh oh! Looks like you are blacklisted from me and cannot execute my commands!\n{reasons}\n[Join support server to learn more]({support})")
             await ctx.send(embed=e, delete_after=15)
-            print(f"{ctx.author} attempted to use my commands, but was blocked because of the blacklist.\n[REASON] {reason}")
+            self.bot.informed_times.append((ctx.author.id, ctx.guild.id, 1))
             return False
         return True
     
@@ -137,6 +142,10 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
     async def on_ready(self):
         print('Logged in as:')
         print('Name: {0}\nID: {0.id}\n--------'.format(self.bot.user))
+        await self.bot.change_presence(
+                activity=discord.Activity(type=discord.ActivityType.watching,
+                                          name="-help")
+            )
         for g in self.bot.blacklisted_guilds:
             d = self.bot.get_guild(g)
             try:
@@ -151,9 +160,8 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
     async def on_guild_join(self, guild):
         
         # Check if guild is blacklisted before continuing
-        blacklist_check = await self.bot.db.fetchval("SELECT guild_id FROM blockedguilds WHERE guild_id = $1", guild.id)
         reason = await self.bot.db.fetchval("SELECT reason FROM blockedguilds WHERE guild_id = $1", guild.id)
-        support = await self.bot.db.fetchval("SELECT * FROM support")
+        support = self.bot.support
 
         # If it is blacklisted, log it.
         try:
@@ -183,10 +191,11 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         # Insert guild's data to the database
         prefix = '-'
         await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix, raidmode) VALUES ($1, $2, $3)", guild.id, prefix, False)
+        self.bot.prefixes[guild.id] = prefix
         
         Zenpa = self.bot.get_user(373863656607318018)
         Moksej = self.bot.get_user(345457928972533773)
-        support = await self.bot.db.fetchval("SELECT link FROM support")
+        support = self.bot.support
         try:
             to_send = sorted([chan for chan in guild.channels if chan.permissions_for(
                 guild.me).send_messages and isinstance(chan, discord.TextChannel)], key=lambda x: x.position)[0]
@@ -227,6 +236,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         # Delete guild data from the database
         # await self.bot.db.execute("DELETE FROM automods WHERE guild_id = $1", guild.id)
         await self.bot.db.execute("DELETE FROM guilds WHERE guild_id = $1", guild.id)
+        self.bot.prefixes.pop(guild.id)
 
         # Log the leave
         members = len(guild.members)
@@ -253,8 +263,11 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         # Something happened in DM's
         if message.guild is None:
             blacklist = await self.bot.db.fetchval("SELECT * FROM blacklist WHERE user_id = $1", message.author.id)
-
+            dm_blacklist = await self.bot.db.fetchval("SELECT * FROM dm_black WHERE user_id = $1", message.author.id)
             if blacklist:
+                return
+            
+            if dm_blacklist:
                 return
 
             if message.content.lower().startswith("-"):
@@ -360,9 +373,8 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             await self.blacklist_checking(member=member)
         else:
             return
-            
 
-
+                
 
 def setup(bot):
     bot.add_cog(Events(bot))

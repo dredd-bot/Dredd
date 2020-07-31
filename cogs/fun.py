@@ -36,6 +36,7 @@ class fun(commands.Cog, name="Fun"):
         self._last_result = None
         self.help_icon = "<:funn:695710705932042244>"
         self.big_icon = "https://cdn.discordapp.com/emojis/695710705932042244.png?v=1"
+        self.blacklisted_words = ['nigger', 'niger', 'niga', 'n1ga', 'n1gg3r', 'n1g3r', 'retard', 'r3tard', 'r3tard3d', 'retarded']
 
     async def api_img_creator(self, ctx, url, filename, content=None):
         async with ctx.channel.typing():
@@ -222,10 +223,15 @@ class fun(commands.Cog, name="Fun"):
         """ !poow ,ffuts esreveR
         Everything you type after reverse will of course, be reversed
         """
-
-        t_rev = text[::-1].replace("@", "@\u200B").replace("&", "&\u200B")
+        for word in self.blacklisted_words:
+            if word in text:
+                return await ctx.channel.send('You cannot use blacklisted words!')
+            t_rev = text[::-1].replace("@", "@\u200B").replace("&", "&\u200B")
+            if word in t_rev:
+                return await ctx.channel.send('You cannot use blacklisted words!')
+        
         embed = discord.Embed(color=self.bot.embed_color, title='Text was reversed!',
-                              description=f"**Input:** {text}\n**Output:** {t_rev}")
+                        description=f"**Input:** {text}\n**Output:** {t_rev}")
         await ctx.send(embed=embed)
 
     @commands.command(brief="Choose between multiple choices", description="For when you wanna settle the score some other way")
@@ -278,6 +284,7 @@ class fun(commands.Cog, name="Fun"):
     async def hot(self, ctx, *, user: discord.Member = None):
         """ I wonder how hot are you 🤔 """
 
+        user = user or ctx.author
         owner = self.bot.get_user(345457928972533773)
         if user == owner:
             return await ctx.send("My hot calculator has melted down, because of him.")
@@ -300,10 +307,7 @@ class fun(commands.Cog, name="Fun"):
             emoji = "\U00002764"
         if hot > 75:
             emoji = "\U0001f49e"
-
-        embed = discord.Embed(color=self.bot.embed_color,
-                              description=f"**{user}** is **{hot:.2f}%** hot. {emoji}")
-        await ctx.send(embed=embed)
+        await ctx.send(f"**{user}** is **{hot:.2f}%** hot. {emoji}")
 
     @commands.command(brief="Random dad joke", description="Read random dad joke")
     @commands.cooldown(1, 15, commands.BucketType.user)

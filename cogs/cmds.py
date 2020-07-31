@@ -106,7 +106,7 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
             embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.red_mark} You're missing an argument - **{(exc.param.name)}**")
             return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **{(exc.param.name)}**", delete_after=20)
         
-        support = await self.bot.db.fetchval("SELECT * FROM support")
+        support = self.bot.support
 
         if ctx.guild is None:
             guild = "DM"

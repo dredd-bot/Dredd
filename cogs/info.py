@@ -54,7 +54,7 @@ class info(commands.Cog, name="Info"):
             return True
         
         if data is not None:
-            await ctx.send(f"{emotes.blacklisted} | `{ctx.command}` is temporarily disabled for maintenance")
+            await ctx.send(f"{emotes.warning} | `{ctx.command}` is temporarily disabled for maintenance")
             return False
 
         if data is None:
@@ -426,7 +426,7 @@ class info(commands.Cog, name="Info"):
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
 
-    @nicknames.command(name='history',brief='Check someone\'s latest nicknames')
+    @nicknames.command(name='history', brief='Check someone\'s latest nicknames', aliases=['hist', 'h'])
     @commands.guild_only()
     @commands.cooldown(1, 15, commands.BucketType.user)
     async def nicknames_history(self, ctx, member: discord.Member = None):
@@ -517,8 +517,7 @@ class info(commands.Cog, name="Info"):
             return await ctx.send("You are in the support server, dummy.")
 
         else:
-            support = await self.bot.db.fetchval("SELECT * FROM support")
-            embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.social_discord} Join my support server [here]({support})")
+            embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.social_discord} Join my support server [here]({self.bot.support})")
             await ctx.send(embed=embed)
 
     @commands.command(description="Invite of the bot", brief="Invite bot")
@@ -526,8 +525,7 @@ class info(commands.Cog, name="Info"):
     async def invite(self, ctx):
         """ Invite bot to your server """
 
-        invite = await self.bot.db.fetchval("SELECT * FROM invite")
-        embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.pfp_normal} You can invite me by clicking [here]({invite})")
+        embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.pfp_normal} You can invite me by clicking [here]({self.bot.invite})")
         await ctx.send(embed=embed)
     
     @commands.command(brief='Vote for the bot')

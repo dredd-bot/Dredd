@@ -79,11 +79,12 @@ class moderation(commands.Cog, name="Moderation"):
         elif check is not None:
             channel = await self.bot.db.fetchval("SELECT channel_id FROM msgdelete WHERE guild_id = $1", ctx.guild.id)
             chan = self.bot.get_channel(channel)
-            
+            message_history = await chan.send(content='You can either download the logs, or view it in the message below', file=data)
+            data = f"<https://txt.discord.website/?txt={chan.id}/{message_history.attachments[0].id}/{ctx.message.id}>"
             #e = discord.Embed(color=self.bot.logging_color, description=f"{messages} messages were deleted by **{ctx.author}**. [View File]({data})")
-            text = f"**{messages}** Message(s) were deleted by **{ctx.author}**."
-            file=data
-            await chan.send(text, file=file)
+            text = f"**{messages}** Message(s) were deleted by **{ctx.author}**. You can view those messages here as well: **(BETA)** "
+            text += data
+            await message_history.edit(content=text)
 
     async def do_removal(self, ctx, limit, predicate, *, before=None, after=None):
         if limit > 2000:
@@ -100,15 +101,12 @@ class moderation(commands.Cog, name="Moderation"):
         msgs = []
         for message in await ctx.channel.history(limit=limit).flatten():
             msgs.append(f"[{message.created_at}] {message.author} - {message.content}\n")
-
         msgs.reverse()
         msghis = "".join(msgs)
 
-        data = BytesIO(msghis.encode('utf-8'))
-
         try:
             deleted = await ctx.channel.purge(limit=limit, before=before, after=after, check=predicate)
-            await self.log_delete(ctx, data=discord.File(data, filename=f"{timetext(f'{ctx.channel}-Messages')}"), messages=len(deleted))
+            await self.log_delete(ctx, data=discord.File(BytesIO(("".join(msgs)).encode("utf-8")), filename=f"{ctx.message.id}.txt"), messages=len(deleted))
         except discord.Forbidden as e:
             return await ctx.send("No permissions")
         except discord.HTTPException as e:
@@ -138,13 +136,14 @@ class moderation(commands.Cog, name="Moderation"):
             return
         elif check is not None:
             channel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", ctx.guild.id)
-            case = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
             chan = self.bot.get_channel(channel)
 
-            if case is None:
-                await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", ctx.guild.id, 1)
+            try:
+                case = self.bot.case_num[ctx.guild.id]
+            except KeyError:
+                self.bot.case_num[ctx.guild.id] = 1
 
-            casenum = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
+            casenum = self.bot.case_num[ctx.guild.id]
 
             e = discord.Embed(color=self.bot.logging_color, description=f"{emotes.log_memberedit} **{member}** muted `[#{casenum}]`")
             e.add_field(name="Moderator:", value=f"{ctx.author} ({ctx.author.id})", inline=False)
@@ -155,6 +154,7 @@ class moderation(commands.Cog, name="Moderation"):
             e.set_footer(text=f"Member ID: {member.id}")
 
             await chan.send(embed=e)
+            self.bot.case_num[ctx.guild.id] += 1
             await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", ctx.guild.id)
     
     async def log_unmute(self, ctx, member=None, reason=None):
@@ -164,13 +164,14 @@ class moderation(commands.Cog, name="Moderation"):
             return
         elif check is not None:
             channel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", ctx.guild.id)
-            case = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
             chan = self.bot.get_channel(channel)
 
-            if case is None:
-                await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", ctx.guild.id, 1)
+            try:
+                case = self.bot.case_num[ctx.guild.id]
+            except KeyError:
+                self.bot.case_num[ctx.guild.id] = 1
 
-            casenum = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", ctx.guild.id)
+            casenum = self.bot.case_num[ctx.guild.id]
 
             e = discord.Embed(color=self.bot.logging_color, description=f"{emotes.log_memberedit} **{member}** unmuted `[#{casenum}]`")
             e.add_field(name="Moderator:", value=f"{ctx.author} ({ctx.author.id})", inline=False)
@@ -179,6 +180,7 @@ class moderation(commands.Cog, name="Moderation"):
             e.set_footer(text=f"Member ID: {member.id}")
 
             await chan.send(embed=e)
+            self.bot.case_num[ctx.guild.id] += 1
             await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", ctx.guild.id)
 
     async def cog_check(self, ctx):
@@ -1096,9 +1098,11 @@ class moderation(commands.Cog, name="Moderation"):
         lock = 0
         for channel in ctx.guild.channels:
             if channel.overwrites_for(ctx.guild.default_role).read_messages == False:
+                await self.bot.db.execute("INSERT INTO lockdown(guild_id, channel_id) values ($1, $2)", ctx.guild.id, channel.id)
                 continue
             if channel.overwrites_for(ctx.guild.default_role).send_messages == False:
-                await self.bot.db.execute("INSERT INTO lockdown(guild_id, channel_id) values ($1, $2)", ctx.guild.id, channel.id)
+                if not await self.bot.db.fetchval("SELECT * FROM lockdown WHERE channel_id = $1 AND guild_id = $2", channel.id, ctx.guild.id):
+                    await self.bot.db.execute("INSERT INTO lockdown(guild_id, channel_id) values ($1, $2)", ctx.guild.id, channel.id)
                 continue
             if isinstance(channel, discord.CategoryChannel):
                 continue

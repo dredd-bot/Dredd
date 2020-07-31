@@ -47,7 +47,8 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if check is None:
             await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES($1, $2)", guildid, case)
         elif check is not None:
-            await self.bot.db.execute("UPDATE modlog SET case_num = $1 WHERE guild_id = $2", case, guildid)
+            cs = case + 1
+            await self.bot.db.execute("UPDATE modlog SET case_num = $1 WHERE guild_id = $2", cs, guildid)
     
     async def event_error(self, error=None, event=None, guild=None):
         channel = self.bot.get_guild(671078170874740756).get_channel(703627099180630068)
@@ -239,6 +240,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         await self.bot.db.execute("DELETE FROM warnings WHERE user_id = $1 AND guild_id = $2", member.id, member.guild.id)
         await self.bot.db.execute("DELETE FROM autowarns WHERE user_id = $1 AND guild_id = $2", member.id, member.guild.id)
+        await self.bot.db.execute("DELETE FROM useractivity WHERE user_id = $1", member.id)
 
         db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM leavemsg WHERE guild_id = $1", member.guild.id)
         leavelog = await self.bot.db.fetchval("SELECT channel_id FROM leavemsg WHERE guild_id = $1", member.guild.id)

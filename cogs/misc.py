@@ -21,9 +21,10 @@ import math
 
 from discord.ext import commands
 from discord.utils import escape_markdown
-from utils.checks import has_voted, is_guild
+from utils.checks import has_voted, is_guild, test_command
 from utils.paginator import Pages
 from utils.Nullify import clean
+from utils import btime
 from datetime import datetime
 from db import emotes
 
@@ -72,7 +73,7 @@ class misc(commands.Cog, name="Misc"):
                 definition = definition.rsplit(' ', 1)[0]
                 definition += '...'
 
-        embed = discord.Embed(colour=self.bot.embed_color,
+        embed = discord.Embed(color=self.bot.embed_color,
                               description=f"**Search:** {result['word']} | **by:** {result['author']}")
         embed.add_field(
             name="Votes:", value=f"\U0001f44d **{result['thumbs_up']}** | \U0001f44e **{result['thumbs_down']}**", inline=False)
@@ -264,16 +265,25 @@ class misc(commands.Cog, name="Misc"):
             react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30)    
             
             if str(react) == f"{emotes.white_mark}":
-                await checkmsg.clear_reactions()
+                try:
+                    await checkmsg.clear_reactions()
+                except:
+                    pass
                 await checkmsg.edit(content=f"{emotes.white_mark} Deleted {len(todos)} todos from your todo list", delete_after=15)
                 await self.bot.db.execute("DELETE FROM todolist WHERE user_id = $1", ctx.author.id)
                 
             if str(react) == f"{emotes.red_mark}":
-                await checkmsg.clear_reactions()
+                try:
+                    await checkmsg.clear_reactions()
+                except:
+                    pass
                 await checkmsg.edit(content=f"{emotes.white_mark} I'm not deleting any todos from your todo list.", delete_after=15)
 
         except asyncio.TimeoutError:
-            await checkmsg.clear_reactions()
+            try:
+                await checkmsg.clear_reactions()
+            except:
+                pass
             await checkmsg.edit(content="Cancelling...", delete_after=15)
         
     @todo.command(aliases=['e'])
@@ -310,12 +320,14 @@ class misc(commands.Cog, name="Misc"):
     # @commands.group(brief='Presence monitoring', invoked_without_command=True)
     # @commands.guild_only()
     # @commands.cooldown(1, 15, commands.BucketType.user)
+    # @test_command()
     # async def presence(self, ctx):
     #     """ When enabled, bot will be logging what you're playing, which later on you'll be able to see. """
     #     if ctx.invoked_subcommand is None:
     #         await ctx.send_help(ctx.command)
 
     # @presence.command()
+    # @test_command()
     # @commands.cooldown(1, 15, commands.BucketType.user)
     # async def enable(self, ctx):
     #     """ Enable this so bot could start logging your presences. """
@@ -330,6 +342,7 @@ class misc(commands.Cog, name="Misc"):
     #         return await ctx.send(f"{emotes.red_mark} I'm already logging your presences")
         
     # @presence.command()
+    # @test_command()
     # @commands.cooldown(1, 15, commands.BucketType.user)
     # async def disable(self, ctx):
     #     """ Disable this so bot wouldn't log your presences. All your previous data will be deleted. """
@@ -345,6 +358,7 @@ class misc(commands.Cog, name="Misc"):
     #         return await ctx.send(f"{emotes.red_mark} I'm not logging your presences")
 
     # @presence.command(name="logs")
+    # @test_command()
     # @commands.cooldown(1, 30, commands.BucketType.user)
     # async def _logs(self, ctx):
 
@@ -365,6 +379,77 @@ class misc(commands.Cog, name="Misc"):
         
     #     if not check:
     #         return await ctx.send(f"{emotes.red_mark} I'm not logging your presences..")
+
+    @commands.command(brief='Tells you user status')
+    async def status(self, ctx, member: discord.Member = None):
+        """ Check how long have you/others have been online/idle/dnd/offline for.
+        You need to be opted in first."""
+        member = member or ctx.author
+
+        if member.bot:
+            return await ctx.send(f'{emotes.warning} I don\'t log bot statuses')
+
+        black = await self.bot.db.fetchval("SELECT * FROM status_op_out WHERE user_id = $1", member.id)
+        if black is None:
+            return await ctx.send(f"**{member.name}** is not opted in. {f'Do `{ctx.prefix}status-opt` to opt in.' if member == ctx.author else ''}")
+        
+        status = await self.bot.db.fetchval("SELECT time FROM useractivity WHERE user_id = $1", member.id)
+        name = await self.bot.db.fetchval("SELECT activity_title FROM useractivity WHERE user_id = $1", member.id)
+
+        if status and name:
+            await ctx.send(f"**{member.name}** has been **{name}** for {btime.human_timedelta(status, suffix=None)}.")
+        else:
+            return await ctx.send('I have nothing logged yet')
+    
+    @commands.command(name='status-opt', aliases=['statusopt', 'sopt'], brief="Opt out/in from/to your status being logged")
+    async def status_opt(self, ctx):
+        """ Opt in yourself so I would log your statuses. You can also opt in"""
+        nicks_opout = await self.bot.db.fetchval("SELECT user_id FROM status_op_out WHERE user_id = $1", ctx.author.id)
+        if nicks_opout is not None:
+            def check(r, u):
+                return u.id == ctx.author.id and r.message.id == checkmsg.id
+            try:
+                checkmsg = await ctx.send(f"Are you sure you want to opt-out? Once you'll opt-out I won't be logging your statuses anymore and all the data that I have stored in my database will also be deleted.")
+                await checkmsg.add_reaction(f'{emotes.white_mark}')
+                await checkmsg.add_reaction(f'{emotes.red_mark}')
+                react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
+
+                if str(react) == f"{emotes.white_mark}": 
+                    await self.bot.db.execute('DELETE FROM status_op_out WHERE user_id = $1', ctx.author.id)
+                    await self.bot.db.execute("DELETE FROM useractivity WHERE user_id = $1", ctx.author.id)
+                    await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your statuses once again.")
+                    await checkmsg.delete()
+
+
+                if str(react) == f"{emotes.red_mark}":      
+                    await checkmsg.delete()
+                    await ctx.channel.send("Alright. Not opting you out")
+            except Exception as e:
+                print(e)
+                return
+            
+        elif nicks_opout is None:
+            def check(r, u):
+                return u.id == ctx.author.id and r.message.id == checkmsg.id
+            try:
+                checkmsg = await ctx.send(f"Are you sure you want to opt-in? I'll be logging your activity status and you will opt in.")
+                await checkmsg.add_reaction(f'{emotes.white_mark}')
+                await checkmsg.add_reaction(f'{emotes.red_mark}')
+                react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
+
+                if str(react) == f"{emotes.white_mark}": 
+                    await self.bot.db.execute('INSERT INTO status_op_out(user_id) VALUES($1)', ctx.author.id)
+                    await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your statuses from now on!")
+                    await checkmsg.delete()
+
+
+                if str(react) == f"{emotes.red_mark}":      
+                    await checkmsg.delete()
+                    await ctx.channel.send("Alright. Not opting you in")
+            except Exception as e:
+                print(e)
+                return
+
 
     @is_guild(568567800910839811)
     @commands.command(brief="Ice's lmao count", hidden=True)
