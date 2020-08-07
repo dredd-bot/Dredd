@@ -31,7 +31,7 @@
 
 ### 4. Why does it store the data?
 #### It stores server IDs for settings and data because:
-##### • Without those most of the bot wouldn't be functional. The loggs would break or wouldn't be customisable, you couldn't invoke any of the commands bot has.
+##### • Without those most of the bot wouldn't be functional. The logs would break or wouldn't be customizable, you couldn't invoke any of the commands bot has.
 #### It stores user IDs for nickname changes, todo lists, warnings, temporary mutes, suggestions because:
 ##### • Bot needs to find the user that has the data stored in the database as - todo lists, nickname changes and return that data to them
 ##### • Bot needs to find the user that has data stored in database as - suggestions to know who was the owner of the suggestion and inform them when the suggestion was approved/denied. Also the users that followed that suggestion.
