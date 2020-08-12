@@ -48,7 +48,6 @@ class misc(commands.Cog, name="Misc"):
 
                 
     @commands.command(brief="Urban dictionary anything")
-    @commands.cooldown(1, 15, commands.BucketType.user)
     @commands.guild_only()
     @commands.is_nsfw()
     async def urban(self, ctx, *, urban: str):
@@ -86,7 +85,6 @@ class misc(commands.Cog, name="Misc"):
             return await ctx.send(embed=embed)
 
     @commands.command(category="Basic", brief="Suggest anything", aliases=['idea'])
-    @commands.cooldown(1, 30, commands.BucketType.user)
     async def suggest(self, ctx, *, suggestion: commands.clean_content):
         """ Suggest anything you want to see in the server/bot!
         Suggestion will be sent to support server for people to vote."""
@@ -111,7 +109,6 @@ class misc(commands.Cog, name="Misc"):
             await ctx.send(f"{emotes.white_mark} Your suggestion was sent successfully with id: **{len(ids) + 1}**! You can also follow this suggestion to know if it was approved or not by typing `{ctx.prefix}follow suggestion {len(ids) + 1}`")
 
     @commands.group(brief='Follow suggestions or bugs')
-    @commands.cooldown(1, 15, commands.BucketType.user)
     async def follow(self, ctx):
         """ You can follow suggestions 
         When they'll get approved or denied you'll get a dm from bot with a result """
@@ -128,7 +125,7 @@ class misc(commands.Cog, name="Misc"):
             await ctx.send(f"{emotes.warning} Looks like suggestion with id {suggestionid} doesn't exist.")
         elif check == False and tracks is None:
             await self.bot.db.execute("INSERT INTO track_suggest(user_id, suggestion_id) VALUES($1, $2)", ctx.author.id, suggestionid)
-            await ctx.send(f"{emotes.white_mark} Started following bug with id: **{suggestionid}**, you'll get notified if the suggestion was approved or not.")
+            await ctx.send(f"{emotes.white_mark} Started following suggestion with id: **{suggestionid}**, you'll get notified if the suggestion was approved or not.")
         elif check == True:
             await ctx.send(f"{emotes.warning} That suggestion is already approved/denied, you cannot follow it.")
         elif tracks:
@@ -144,10 +141,10 @@ class misc(commands.Cog, name="Misc"):
         db_check = await self.bot.db.fetchval("SELECT * FROM userafk WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, ctx.author.id)
         if message is None:
             msgs = "I'm AFK :)"
-        elif message and len(message) < 64:
+        elif message and len(message) < 128:
             msgs = message
         else:
-            return await ctx.send(f"{emotes.red_mark} Your message is too long! You can have max 64 characters.")
+            return await ctx.send(f"{emotes.red_mark} Your message is too long! You can have max 128 characters and you have {len(message)}.")
         if db_check is None:
             await self.bot.db.execute("INSERT INTO userafk(user_id, guild_id, message, time) VALUES ($1, $2, $3, $4)", ctx.author.id, ctx.guild.id, msgs, datetime.now())
             self.bot.afk_users.append((ctx.author.id, ctx.guild.id, msgs, datetime.now()))
@@ -168,7 +165,6 @@ class misc(commands.Cog, name="Misc"):
             await ctx.send_help(ctx.command)
         
     @todo.command(aliases=['a'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
     async def add(self, ctx, *, todo: commands.clean_content):
         """ Add something to your todo list 
         Time is in UTC """
@@ -180,12 +176,11 @@ class misc(commands.Cog, name="Misc"):
 
         if todocheck:
             return await ctx.send(f"{emotes.red_mark} You already have `{todo}` in your todo list")
-        await self.bot.db.execute("INSERT INTO todolist(user_id, guild_id, todo, time) VALUES ($1, $2, $3, $4)", ctx.author.id, ctx.guild.id, todo, datetime.utcnow())
+        await self.bot.db.execute("INSERT INTO todolist(user_id, guild_id, todo, time, jump_to) VALUES ($1, $2, $3, $4, $5)", ctx.author.id, ctx.guild.id, todo, datetime.now(), ctx.message.jump_url)
 
         await ctx.send(f"{emotes.white_mark} Added `{todo}` to your todo list")
     
     @todo.command(name='list', aliases=['l'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
     async def _list(self, ctx):
         """ Check your todo list """
         todos = []
@@ -215,7 +210,6 @@ class misc(commands.Cog, name="Misc"):
             await paginators.paginate()
     
     @todo.command(aliases=['r'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
     async def remove(self, ctx, *, todoid: str):
         """ Remove todo from your todo list """
     
@@ -243,11 +237,10 @@ class misc(commands.Cog, name="Misc"):
         entries = [(todos[todo_id]['user_id'], todos[todo_id]['time']) for todo_id in todos_to_remove]
         await self.bot.db.executemany(query, entries)
 
-        contents = '\n• '.join([f'`{escape_markdown(todos[todo_id]["todo"], as_needed=True)}`' for todo_id in todos_to_remove])
-        return await ctx.send(f"{emotes.white_mark} Removed `{len(todo_ids)}` todo from your todo list:\n• {contents}")
+        contents = '\n• '.join([f'{escape_markdown(todos[todo_id]["todo"], as_needed=True)}' for todo_id in todos_to_remove])
+        return await ctx.send(f"{emotes.white_mark} Removed **{len(todo_ids)}** todo from your todo list:\n• {contents}")
 
     @todo.command(aliases=['c'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
     async def clear(self, ctx):
         """ Clear your todo list """
 
@@ -286,8 +279,36 @@ class misc(commands.Cog, name="Misc"):
                 pass
             await checkmsg.edit(content="Cancelling...", delete_after=15)
         
+    @todo.command(aliases=['i'])
+    async def info(self, ctx, todoid: str):
+        """ Get more information on your todo """
+        
+        todos = await self.bot.db.fetch('SELECT * FROM todolist WHERE user_id = $1 ORDER BY time', ctx.author.id)
+        if not todos:
+            return await ctx.send(f'{emotes.red_mark} You don not have any todos.')
+
+
+        todos = {f'{index + 1}': todo for index, todo in enumerate(todos)}
+
+        if not todoid.isdigit():
+            return await ctx.send(f'{emotes.red_mark} You\'ve provided wrong id')
+        if todoid not in todos.keys():
+            return await ctx.send(f'{emotes.red_mark} I can\'t find todo with id `{todoid}` in your todo list list.')
+
+        todo = todos[todoid]
+
+        e = discord.Embed(color=self.bot.embed_color, title=f'Information on your todo with id: {todoid}')
+        e.description = f"""
+**Todo content:** {todo['todo']}
+
+**Added to the todo list:** {btime.human_timedelta(todo['time'])}
+{f"[Jump to original message]({todo['jump_to']})" if todo['jump_to'] is not None else "Unable to locate the message"}"""
+        # e.add_field(name="Added to todo list:", value=btime.human_timedelta(todo['time']))
+        # e.add_field(name=f"Jump to:", value=f"[Jump to original message]({todo['jump_to']})" if todo['jump_to'] is not None else "Unable to locate the message", inline=False)
+        await ctx.send(embed=e)
+
+        
     @todo.command(aliases=['e'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
     async def edit(self, ctx, todoid: str, *, content: commands.clean_content):
         """ Edit todo in your todo list """
 
@@ -312,73 +333,11 @@ class misc(commands.Cog, name="Misc"):
         if todocheck:
             return await ctx.send(f"{emotes.red_mark} You already have `{clean(content)}` in your todo list")
 
-        query = 'UPDATE todolist SET todo = $1 WHERE user_id = $2 and time = $3'
-        await self.bot.db.execute(query, content, todo_to_edit['user_id'], todo_to_edit['time'])
+        query = 'UPDATE todolist SET todo = $1, jump_to = $2 WHERE user_id = $3 and time = $4'
+        await self.bot.db.execute(query, content, ctx.message.jump_url, todo_to_edit['user_id'], todo_to_edit['time'])
 
         return await ctx.send(f"{emotes.white_mark} Changed `{clean(todo_to_edit['todo'])}` to `{clean(content)}` in your todo list")
 
-    # @commands.group(brief='Presence monitoring', invoked_without_command=True)
-    # @commands.guild_only()
-    # @commands.cooldown(1, 15, commands.BucketType.user)
-    # @test_command()
-    # async def presence(self, ctx):
-    #     """ When enabled, bot will be logging what you're playing, which later on you'll be able to see. """
-    #     if ctx.invoked_subcommand is None:
-    #         await ctx.send_help(ctx.command)
-
-    # @presence.command()
-    # @test_command()
-    # @commands.cooldown(1, 15, commands.BucketType.user)
-    # async def enable(self, ctx):
-    #     """ Enable this so bot could start logging your presences. """
-
-    #     check = await self.bot.db.fetchval("SELECT * FROM presence_check WHERE user_id = $1", ctx.author.id)
-
-    #     if not check:
-    #         await self.bot.db.execute("INSERT INTO presence_check(user_id) VALUES ($1)", ctx.author.id)
-    #         return await ctx.send(f"{emotes.white_mark} I will start logging your presences!")
-        
-    #     if check:
-    #         return await ctx.send(f"{emotes.red_mark} I'm already logging your presences")
-        
-    # @presence.command()
-    # @test_command()
-    # @commands.cooldown(1, 15, commands.BucketType.user)
-    # async def disable(self, ctx):
-    #     """ Disable this so bot wouldn't log your presences. All your previous data will be deleted. """
-
-    #     check = await self.bot.db.fetchval("SELECT * FROM presence_check WHERE user_id = $1", ctx.author.id)
-
-    #     if check:
-    #         await self.bot.db.execute("DELETE FROM presence_check WHERE user_id = $1", ctx.author.id)
-    #         await self.bot.db.execute("DELETE FROM presence WHERE user_id = $1", ctx.author.id)
-    #         return await ctx.send(f"{emotes.white_mark} I will stop logging your presences! Deleted your previous data as well!")
-        
-    #     if not check:
-    #         return await ctx.send(f"{emotes.red_mark} I'm not logging your presences")
-
-    # @presence.command(name="logs")
-    # @test_command()
-    # @commands.cooldown(1, 30, commands.BucketType.user)
-    # async def _logs(self, ctx):
-
-    #     check = await self.bot.db.fetchval("SELECT * FROM presence_check WHERE user_id = $1", ctx.author.id)
-
-    #     if check:
-    #         status = []
-    #         for presence in await self.bot.db.fetch("SELECT * FROM presence WHERE user_id = $1 ORDER BY time DESC", ctx.author.id):
-    #             status.append(f"**[{presence['activity_name']}]** - {presence['time']}")
-
-    #         state = ''
-    #         for num, states in enumerate(status[:5], start=0):
-    #             state += f"`[{num + 1}]` {status}"
-            
-    #         e = discord.Embed(color=self.bot.embed_color, title=f'{ctx.author}\'s activities.')
-    #         e.description = state
-    #         await ctx.send(embed=e)
-        
-    #     if not check:
-    #         return await ctx.send(f"{emotes.red_mark} I'm not logging your presences..")
 
     @commands.command(brief='Tells you user status')
     async def status(self, ctx, member: discord.Member = None):
@@ -390,8 +349,13 @@ class misc(commands.Cog, name="Misc"):
             return await ctx.send(f'{emotes.warning} I don\'t log bot statuses')
 
         black = await self.bot.db.fetchval("SELECT * FROM status_op_out WHERE user_id = $1", member.id)
+        author_black = await self.bot.db.fetchval('SELECT * FROM status_op_out WHERE user_id = $1', ctx.author.id)
         if black is None:
             return await ctx.send(f"**{member.name}** is not opted in. {f'Do `{ctx.prefix}status-opt` to opt in.' if member == ctx.author else ''}")
+
+        elif author_black is None:
+            return await ctx.send(f"{emotes.warning} You need to be opted in before checking someone's status. You can opt-in by invoking `{ctx.prefix}status-opt`")
+        
         
         status = await self.bot.db.fetchval("SELECT time FROM useractivity WHERE user_id = $1", member.id)
         name = await self.bot.db.fetchval("SELECT activity_title FROM useractivity WHERE user_id = $1", member.id)
@@ -416,7 +380,6 @@ class misc(commands.Cog, name="Misc"):
 
                 if str(react) == f"{emotes.white_mark}": 
                     await self.bot.db.execute('DELETE FROM status_op_out WHERE user_id = $1', ctx.author.id)
-                    await self.bot.db.execute("DELETE FROM useractivity WHERE user_id = $1", ctx.author.id)
                     await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your statuses once again.")
                     await checkmsg.delete()
 
@@ -439,6 +402,7 @@ class misc(commands.Cog, name="Misc"):
 
                 if str(react) == f"{emotes.white_mark}": 
                     await self.bot.db.execute('INSERT INTO status_op_out(user_id) VALUES($1)', ctx.author.id)
+                    await self.bot.db.execute("DELETE FROM useractivity WHERE user_id = $1", ctx.author.id)
                     await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your statuses from now on!")
                     await checkmsg.delete()
 
@@ -449,6 +413,88 @@ class misc(commands.Cog, name="Misc"):
             except Exception as e:
                 print(e)
                 return
+    
+    @commands.group(name='snipe', brief='Gets the most recent deleted message', invoke_without_command=True)
+    @commands.guild_only()
+    async def snipe(self, ctx, channel: discord.TextChannel = None):
+        """ Get the most recent deleted message
+        You can pass in the channel mention/name/id so it'd fetch message in that channel """
+        channel = channel or ctx.channel
+
+        author = await self.bot.db.fetchval("SELECT user_id FROM snipe WHERE guild_id = $1 AND channel_id = $2 ORDER BY time desc", ctx.guild.id, channel.id)
+        content = await self.bot.db.fetchval("SELECT message FROM snipe WHERE guild_id = $1 AND channel_id = $2 AND user_id = $3 LIMIT 1", ctx.guild.id, channel.id, author)
+        time = await self.bot.db.fetchval("SELECT time FROM snipe WHERE guild_id = $1 AND channel_id = $2 AND user_id = $3 LIMIT 1", ctx.guild.id, channel.id, author)
+        if author is None:
+            return await ctx.send(f"{emotes.red_mark} Haven't logged anything yet")
+        
+        if len(content) > 2000:
+            content = content[:2000]
+            content += '...'
+        
+        content = content or "*[Content unavailable]*"
+        e = discord.Embed(color=self.bot.embed_color)
+        a = ctx.guild.get_member(author)
+        if a is None:
+            return await ctx.send(f"{emotes.warning} Couldn't get that member.")
+        e.set_author(name=f"Deleted by {a}", icon_url=a.avatar_url)
+        e.description = f"{content}"
+        e.set_footer(text=f"Deleted {btime.human_timedelta(time)} in {channel.name}")
+
+        await ctx.send(embed=e)
+    
+    @snipe.command(name='op-out', brief='Opts you out so it wouldn\'t log your messages')
+    @commands.guild_only()
+    async def snipe_opt_out(self, ctx):
+        """ Opts you out or in from logging your messages"""
+
+        
+        msgs_opout = await self.bot.db.fetchval("SELECT user_id FROM snipe_op_out WHERE user_id = $1", ctx.author.id)
+        if msgs_opout is None:
+            def check(r, u):
+                return u.id == ctx.author.id and r.message.id == checkmsg.id
+            try:
+                checkmsg = await ctx.send(f"Are you sure you want to opt-out? Once you'll opt-out I won't be logging your deleted anymore and all the data that I have stored in my database will also be deleted.")
+                await checkmsg.add_reaction(f'{emotes.white_mark}')
+                await checkmsg.add_reaction(f'{emotes.red_mark}')
+                react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
+
+                if str(react) == f"{emotes.white_mark}": 
+                    await self.bot.db.execute('INSERT INTO snipe_op_out(user_id) VALUES($1)', ctx.author.id)
+                    await self.bot.db.execute("DELETE FROM snipe WHERE user_id = $1", ctx.author.id)
+                    await ctx.channel.send(f"{emotes.white_mark} You're now opted-out! I won't be logging your deleted messages anymore")
+                    await checkmsg.delete()
+
+
+                if str(react) == f"{emotes.red_mark}":      
+                    await checkmsg.delete()
+                    await ctx.channel.send("Alright. Not opting you out")
+            except Exception as e:
+                print(e)
+                return
+            
+        elif msgs_opout is not None:
+            def check(r, u):
+                return u.id == ctx.author.id and r.message.id == checkmsg.id
+            try:
+                checkmsg = await ctx.send(f"Are you sure you want to opt-in? I'll be logging your activity status and you will opt in.")
+                await checkmsg.add_reaction(f'{emotes.white_mark}')
+                await checkmsg.add_reaction(f'{emotes.red_mark}')
+                react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
+
+                if str(react) == f"{emotes.white_mark}": 
+                    await self.bot.db.execute("DELETE FROM snipe_op_out WHERE user_id = $1", ctx.author.id)
+                    await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your deleted messages once again")
+                    await checkmsg.delete()
+
+
+                if str(react) == f"{emotes.red_mark}":      
+                    await checkmsg.delete()
+                    await ctx.channel.send("Alright. Not opting you in")
+            except Exception as e:
+                print(e)
+                return
+
+    
 
 
     @is_guild(568567800910839811)

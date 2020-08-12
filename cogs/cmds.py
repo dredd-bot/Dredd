@@ -28,13 +28,16 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
 
     @commands.Cog.listener()
     async def on_command(self, ctx):
-        if ctx.guild is not None:
-            try:
-                print(f"{ctx.guild.name} | {ctx.author} > {ctx.message.clean_content}")
-            except:
-                print(f"{ctx.guild.id} | {ctx.author.id} > {ctx.message.clean_content}")
-        else:
-            print(f"DM channel | {ctx.author} > {ctx.message.content}")
+        try:
+            if ctx.guild is not None:
+                try:
+                    print(f"{ctx.guild.name} | {ctx.author} > {ctx.message.clean_content}")
+                except:
+                    print(f"{ctx.guild.id} | {ctx.author.id} > {ctx.message.clean_content}")
+            else:
+                print(f"DM channel | {ctx.author} > {ctx.message.content}")
+        except:
+            pass
     
     @commands.Cog.listener()
     async def on_command_completion(self, ctx):
@@ -61,6 +64,9 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
 
     @commands.Cog.listener()
     async def on_command_error(self, ctx, exc):
+
+        if hasattr(ctx.command, 'on_error'):
+            return
 
         if isinstance(exc, commands.NSFWChannelRequired):
             file = discord.File("img/nsfwerror.png", filename="nsfwerror.png")
@@ -90,9 +96,12 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
             if isinstance(ctx.command, commands.Group):
                 return
         if isinstance(exc, commands.CommandOnCooldown):
-            if await self.bot.is_owner(ctx.author):
+            if await self.bot.is_admin(ctx.author):
                 ctx.command.reset_cooldown(ctx)
-                return await ctx.reinvoke()                
+                return await ctx.reinvoke()     
+            if await self.bot.is_booster(ctx.author):
+                ctx.command.reset_cooldown(ctx)
+                return await ctx.reinvoke()              
             log = self.bot.get_channel(691654772360740924)
             embed = discord.Embed(colour=self.bot.logembed_color)
             embed.title = "**User is on cooldown**"

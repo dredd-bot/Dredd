@@ -20,7 +20,7 @@ import json
 import traceback
 from discord.ext import commands
 from discord.utils import escape_markdown
-from utils import default
+from utils import default, btime
 from utils.default import timeago
 from datetime import datetime
 from db import emotes
@@ -57,91 +57,13 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             self.bot.informed_times.append((ctx.author.id, ctx.guild.id, 1))
             return False
         return True
-    
-    async def blacklist_checking(self, member):
-        with open('db/badges.json', 'r') as f:
-            data = json.load(f)
-        try:
-            blacklist = self.bot.blacklisted_users[member.id]
-            roled = member.guild.get_role(674929900674875413)
-            for role in member.roles:
-                try:
-                    await member.remove_roles(role)
-                except Exception as e:
-                    print(e)
-                    pass
-            role = member.guild.get_role(734537587116736597)
-            await member.add_roles(role, reason='User is blacklisted')
-            overwrites = {
-                member.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                member: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                roled: discord.PermissionOverwrite(read_messages=True, send_messages=True)
-            }
-            for channel in member.guild.channels:
-                if channel.name == f"{member.id}-blacklist":
-                    return await channel.set_permissions(member, read_messages=True, send_messages=True)
-            owner = self.bot.get_user(345457928972533773)
-            category = member.guild.get_channel(734539183703588954)
-            channel = await member.guild.create_text_channel(name=f'{member.id}-blacklist', overwrites=overwrites, category=category, reason=f"User was blacklisted")
-            await channel.send(f"{member.mention} Hello! Since you're blacklisted, I'll be locking your access to all the channels. If you wish to appeal, feel free to do so in here.", allowed_mentions=discord.AllowedMentions(users=True))
-            try:
-                data['Users'][f'{member.id}']["Badges"] = [f'{emotes.blacklisted}']
-            except KeyError:
-                data['Users'][f'{member.id}'] = {"Badges": [f'{emotes.blacklisted}']}
-            
-            with open('db/badges.json', 'w') as f:
-                data = json.dump(data, f, indent=4)
-            return
-        except KeyError:
-            pass
-        
-    async def sync_member_roles(self, member):
-        with open('db/badges.json', 'r') as f:
-            data = json.load(f)
-        try:
-            badges = data['Users'][f"{member.id}"]['Badges']
-            early = member.guild.get_role(679642623107137549)
-            partner = member.guild.get_role(683288670467653739)
-            booster = member.guild.get_role(686259869874913287)
-            verified = member.guild.get_role(733817083330297959)
-            bugs = member.guild.get_role(679643117510459432)
-            for badge in badges:
-                if badge == emotes.bot_early_supporter:
-                    await member.add_roles(early)
-                elif badge == emotes.bot_partner:
-                    await member.add_roles(partner)
-                elif badge == emotes.bot_booster:
-                    await member.add_roles(booster)
-                elif badge == emotes.bot_verified:
-                    await member.add_roles(verified)
-                elif badge == emotes.discord_bug1:
-                    await member.add_roles(bugs)
-        except KeyError:
-            pass
-        except Exception as error:
-            tb = traceback.format_exception(type(error), error, error.__traceback__) 
-            tbe = "".join(tb) + ""
-            print(tbe)
-            pass
-    
-    async def gain_early(self, member):
-        with open('db/badges.json', 'r') as f:
-            data = json.load(f)
-        try:
-            if emotes.bot_early_supporter not in data['Users'][f'{member.id}']['Badges']:
-                data['Users'][f"{member.id}"]['Badges'] += [emotes.bot_early_supporter]
-            else:
-                return
-        except KeyError:
-            data['Users'][f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
-        
-        with open('db/badges.json', 'w') as f:
-            data = json.dump(data, f, indent=4)
 
     @commands.Cog.listener()
     async def on_ready(self):
-        print('Logged in as:')
-        print('Name: {0}\nID: {0.id}\n--------'.format(self.bot.user))
+        m = "Logged in as:"
+        m += "\nName: {0} ({0.id})".format(self.bot.user)
+        m += f"\nTime taken to boot: {btime.human_timedelta(self.bot.uptime, suffix=None)}"
+        print(m)
         await self.bot.change_presence(
                 activity=discord.Activity(type=discord.ActivityType.watching,
                                           name="-help")
@@ -190,7 +112,8 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         # Guild is not blacklisted!
         # Insert guild's data to the database
         prefix = '-'
-        await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix, raidmode) VALUES ($1, $2, $3)", guild.id, prefix, False)
+        await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix) VALUES ($1, $2)", guild.id, prefix)
+        await self.bot.db.execute("INSERT INTO raidmode(guild_id, raidmode, dm) VALUES ($1, $2, $3)", guild.id, False, True)
         self.bot.prefixes[guild.id] = prefix
         
         Zenpa = self.bot.get_user(373863656607318018)
@@ -319,10 +242,10 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 time = time
                 afkuser = message.guild.get_member(user)
                 try:
-                    await message.channel.send(f'{message.author.mention}, **{escape_markdown(afkuser.name, as_needed=True)}** went AFK **{timeago(time)}**, but he left you a note: **{escape_markdown(note, as_needed=True)}**', delete_after=30, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False, users=True))
+                    await message.channel.send(f'{message.author.mention}, **{escape_markdown(afkuser.display_name, as_needed=True)}** went AFK **{timeago(time)}**, but he left you a note: **{escape_markdown(note, as_needed=True)}**', delete_after=30, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False, users=True))
                 except discord.HTTPException:
                     try:
-                        await message.author.send(f"Yo, **{escape_markdown(afkuser.name, as_needed=True)}** went AFK **{timeago(time)}**, but he left you a note: **{escape_markdown(note, as_needed=True)}**")
+                        await message.author.send(f"Yo, **{escape_markdown(afkuser.display_name, as_needed=True)}** went AFK **{timeago(time)}**, but he left you a note: **{escape_markdown(note, as_needed=True)}**")
                     except discord.Forbidden:
                         return
     
@@ -362,18 +285,6 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             elif before.nick:
                 nick = before.nick
             await self.bot.db.execute("INSERT INTO nicknames(user_id, guild_id, nickname, time) VALUES ($1, $2, $3, $4)", before.id, before.guild.id, nick, datetime.utcnow())
-    
-    @commands.Cog.listener('on_member_join')
-    async def roles_sync(self, member):
-        if member.guild.id != 671078170874740756:
-            return
-        elif member.guild.id == 671078170874740756:
-            await self.gain_early(member=member)
-            await self.sync_member_roles(member=member)
-            await self.blacklist_checking(member=member)
-        else:
-            return
-
                 
 
 def setup(bot):

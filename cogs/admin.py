@@ -22,13 +22,14 @@ import json
 
 from discord.ext import commands
 from db import emotes
+from datetime import datetime
 
 class admin(commands.Cog, name="Staff"):
 
     def __init__(self, bot):
         self.bot = bot
-        self.help_icon = "<:staff:691667204550295592>"
-        self.big_icon = "https://cdn.discordapp.com/emojis/691667204550295592.png?v=1"
+        self.help_icon = "<:staff:706190137058525235>"
+        self.big_icon = "https://cdn.discordapp.com/emojis/706190137058525235.png?v=1"
         self._last_result = None
 
     async def cog_check(self, ctx: commands.Context):
@@ -52,7 +53,6 @@ class admin(commands.Cog, name="Staff"):
 # ! Blacklist
 
     @admin.command(brief="Blacklist a guild", aliases=['guildban'])
-    @commands.cooldown(1, 60, commands.BucketType.user)
     async def guildblock(self, ctx, guild: int, *, reason: str = None):
         """ Blacklist bot from specific guild """
 
@@ -78,7 +78,6 @@ class admin(commands.Cog, name="Staff"):
             pass
 
     @admin.command(brief="Unblacklist a guild", aliases=['guildunban'])
-    @commands.cooldown(1, 60, commands.BucketType.user)
     async def guildunblock(self, ctx, guild: int):
         """ Unblacklist bot from blacklisted guild """
 
@@ -93,7 +92,6 @@ class admin(commands.Cog, name="Staff"):
         await ctx.send(f"I've successfully removed **{guild}** guild from my blacklist", delete_after=10)
 
     @admin.command(brief="Bot block user", aliases=['botban'])
-    @commands.cooldown(1, 60, commands.BucketType.user)
     async def botblock(self, ctx, user: discord.User, *, reason: str = None):
         """ Blacklist someone from bot commands """
 
@@ -114,7 +112,6 @@ class admin(commands.Cog, name="Staff"):
         await ctx.send(f"I've successfully added **{user}** to my blacklist", delete_after=10)
 
     @admin.command(brief="Bot unblock user", aliases=['botunban'])
-    @commands.cooldown(1, 60, commands.BucketType.user)
     async def botunblock(self, ctx, user: discord.User):
         """ Unblacklist someone from bot commands """
 
@@ -217,6 +214,7 @@ class admin(commands.Cog, name="Staff"):
         suggestion_owner = self.bot.get_user(suggestion_ownerid)
         suggestion_info = await self.bot.db.fetchval("SELECT suggestion_info FROM suggestions WHERE suggestion_id = $1", suggestion_id)
         trackers = await self.bot.db.fetch("SELECT user_id FROM track_suggest WHERE suggestion_id = $1", suggestion_id)
+        await self.bot.db.execute("INSERT INTO todolist(user_id, guild_id, todo, time, jump_to) VALUES($1, $2, $3, $4, $5)", 345457928972533773, 671078170874740756, suggestion_info, datetime.now(), message.jump_url)
         to_send = []
         for user in trackers:
             to_send.append(user['user_id'])
@@ -235,29 +233,32 @@ class admin(commands.Cog, name="Staff"):
 # ! Command managment
 
     @admin.command(brief="Disable enabled cmd")
-    async def disablecmd(self, ctx, command):
+    async def disablecmd(self, ctx, *, command):
         """Disable the given command. A few important main commands have been blocked from disabling for obvious reasons"""
         cant_disable = ["help", "jishaku", "dev", "disablecmd", "enablecmd", 'admin']
         cmd = self.bot.get_command(command)
-
         if cmd is None:
             embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
             return await ctx.send(embed=embed)
-
-        data = await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name))
 
         if cmd.name in cant_disable:
             embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Why are you trying to disable **{cmd.name}** you dum dum.")
             return await ctx.send(embed=embed)
 
-        if data is None:
-            await self.bot.db.execute("INSERT INTO cmds(command) VALUES ($1)", str(cmd.name))
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.white_mark} Okay. **{cmd.name}** was disabled.")
-            return await ctx.send(embed=embed)
-
-        elif data is not None:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} **{cmd.name}** is already disabled")
-            return await ctx.send(embed=embed)
+        if cmd.parent and str(cmd.parent) not in cant_disable:
+            if await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}")) is None:
+                await self.bot.db.execute("INSERT INTO cmds(command) VALUES ($1)", str(f"{cmd.parent} {cmd.name}"))
+                return await ctx.send(f"{emotes.white_mark} Okay. **{cmd.parent} {cmd.name}** was disabled.")
+            elif await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}")):
+                return await ctx.send(f"{emotes.warning} | `{cmd.parent} {cmd.name}` is already disabled")
+        elif cmd.parent and str(cmd.parent) in cant_disable:
+            return await ctx.send(f"{emotes.red_mark} You can't do that, sorry!")
+        elif not cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name)) is None:
+                await self.bot.db.execute("INSERT INTO cmds(command) VALUES ($1)", str(cmd.name))
+                return await ctx.send(f"{emotes.white_mark} Okay. **{cmd.name}** was disabled.")
+            elif await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name)):
+                return await ctx.send(f"{emotes.warning} | `{cmd.name}` is already disabled")
 
 
     @admin.command(brief="Enable disabled cmd")
@@ -269,16 +270,19 @@ class admin(commands.Cog, name="Staff"):
             embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
             return await ctx.send(embed=embed)
 
-        data = await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name))
-
-        if data is None:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} **{cmd.name}** is already enabled")
-            return await ctx.send(embed=embed)
-
-        await self.bot.db.execute("DELETE FROM cmds WHERE command = $1", str(cmd.name))
-
-        embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.white_mark} Okay. **{cmd.name}** was enabled back on.")
-        await ctx.send(embed=embed)
+        if cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}")) is None:
+                return await ctx.send(f"{emotes.warning} | `{cmd.parent} {cmd.name}` is not disabled!")
+            elif await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}")):
+                await self.bot.db.execute("DELETE FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}"))
+                return await ctx.send(f"{emotes.white_mark} | `{cmd.parent} {cmd.name}` is now enabled!")
+        elif not cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name)) is None:
+                return await ctx.send(f"{emotes.warning} | `{cmd.name}` is not disabled!")
+            elif await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name)):
+                await self.bot.db.execute("DELETE FROM cmds WHERE command = $1", str(cmd.name))
+                return await ctx.send(f"{emotes.white_mark} | `{cmd.name}` is now enabled!")
+            
 
 # ! System information
     
@@ -303,7 +307,6 @@ class admin(commands.Cog, name="Staff"):
             await ctx.send("Looks like there's no system information")
     
     @admin.command(brief='Clear user nicknames')
-    @commands.cooldown(1, 120, commands.BucketType.user)
     async def clearnicks(self, ctx, user: discord.User, guild: int = None):
 
         db_check = await self.bot.db.fetch("SELECT * FROM nicknames WHERE user_id = $1", user.id)
@@ -358,7 +361,6 @@ class admin(commands.Cog, name="Staff"):
                 return
     
     @admin.command(name="add-badge", aliases=['addbadge', 'abadge'])
-    @commands.cooldown(1, 30, commands.BucketType.user)
     async def add_badge(self, ctx, user: discord.User, badge):
         with open('db/badges.json', 'r') as f:
             data = json.load(f)
@@ -392,7 +394,6 @@ class admin(commands.Cog, name="Staff"):
         await ctx.send(f"{emotes.white_mark} Added {badge} to {user}.")
 
     @admin.command(name="remove-badge", aliases=['removebadge', 'rbadge'])
-    @commands.cooldown(1, 30, commands.BucketType.user)
     async def remove_badge(self, ctx, user: discord.User, badge):
         with open('db/badges.json', 'r') as f:
             data = json.load(f)

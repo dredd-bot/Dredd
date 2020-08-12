@@ -29,6 +29,7 @@ class Eventss(commands.Cog, name="Eventss", command_attrs=dict(hidden=True)):
 
     @commands.Cog.listener('on_member_update')
     async def status_log(self, before, after):
+        await self.bot.wait_until_ready()
 
         if before.status == after.status:
             return
@@ -104,6 +105,20 @@ class Eventss(commands.Cog, name="Eventss", command_attrs=dict(hidden=True)):
     #                 await self.bot.db.execute('INSERT INTO presence(user_id, activity_name, time) VALUES($1, $2, $3)', after.id, before.activity.name, btime.human_timedelta(time, suffix=None))
     #             elif check:
     #                 return
+
+    @commands.Cog.listener('on_message_delete')
+    async def snipe_messages(self, message):
+        await self.bot.wait_until_ready()
+
+        op_out_check = await self.bot.db.fetchval("SELECT * FROM snipe_op_out WHERE user_id = $1", message.author.id)
+        check = await self.bot.db.fetchval("SELECT * FROM snipe WHERE guild_id = $1 AND user_id = $2 AND channel_id = $3", message.guild.id, message.author.id, message.channel.id)
+
+        if op_out_check:
+            return
+        if check is None:
+            await self.bot.db.execute("INSERT INTO snipe(message, user_id, guild_id, channel_id, time) VALUES($1, $2, $3, $4, $5)", message.content, message.author.id, message.guild.id, message.channel.id, datetime.now())
+        else:
+            await self.bot.db.execute("UPDATE snipe SET message = $1, time = $2, channel_id = $3 WHERE guild_id = $4 AND user_id = $5", message.content, datetime.now(), message.channel.id, message.guild.id, message.author.id)
 
 def setup(bot):
     bot.add_cog(Eventss(bot))

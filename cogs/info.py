@@ -47,18 +47,23 @@ class info(commands.Cog, name="Info"):
 
     async def bot_check(self, ctx):
 
-        cmd = self.bot.get_command(ctx.command.name)
-        data = await self.bot.db.fetchval("select * from cmds where command = $1", str(cmd))
-
+        # cmd = self.bot.get_command(ctx.command.name)
+        # data = await self.bot.db.fetchval("select * from cmds where command = $1", str(cmd))
         if await self.bot.is_admin(ctx.author):
             return True
-        
-        if data is not None:
-            await ctx.send(f"{emotes.warning} | `{ctx.command}` is temporarily disabled for maintenance")
-            return False
 
-        if data is None:
-            return True
+        if ctx.command.parent:
+            if await self.bot.db.fetchval("select * from cmds where command = $1", str(ctx.command.parent)):
+                await ctx.send(f"{emotes.warning} | `{ctx.command.parent}` and it's corresponing subcommands are temporarily disabled for maintenance")
+                return False
+            elif await self.bot.db.fetchval("select * from cmds where command = $1", str(f"{ctx.command.parent} {ctx.command.name}")):
+                await ctx.send(f"{emotes.warning} | `{ctx.command.parent} {ctx.command.name}` is temporarily disabled for maintenance")
+                return False
+        else:
+            if await self.bot.db.fetchval("select * from cmds where command = $1", str(ctx.command.name)):
+                await ctx.send(f"{emotes.warning} | `{ctx.command.name}` is temporarily disabled for maintenance")
+                return False
+        return True
 
     @commands.command(brief="Pongerino")
     async def ping(self, ctx):
@@ -94,7 +99,7 @@ class info(commands.Cog, name="Info"):
         Moksej = self.bot.get_user(345457928972533773)
 
         embed = discord.Embed(color=self.bot.embed_color)
-        embed.add_field(name="__**General Information:**__", value=f"**Developer:** {escape_markdown(str(Moksej), as_needed=True)}\n**Library:**\n{emotes.other_python} [Discord.py](https://github.com/Rapptz/discord.py)\n**Version:** {discord.__version__}\n**Last boot:** {default.timeago(datetime.utcnow() - self.bot.uptime)}\n**Bot version:** {version}", inline=True)
+        embed.add_field(name="__**General Information:**__", value=f"**Developer:** {escape_markdown(str(Moksej), as_needed=True)}\n**Library:**\n{emotes.other_python} [Discord.py](https://github.com/Rapptz/discord.py)\n**Version:** {discord.__version__}\n**Last boot:** {default.timeago(datetime.now() - self.bot.uptime)}\n**Bot version:** {version}", inline=True)
         embed.add_field(name="__**Other Information:**__", value=f"**Created:** {default.date(self.bot.user.created_at)}\n({default.timeago(datetime.utcnow() - self.bot.user.created_at)})\n**Total:**\nCommands: **{totcmd:,}**\nMembers: **{mems:,}**\nServers: **{len(self.bot.guilds):,}**\nChannels: {emotes.other_unlocked} **{text:,}** | {emotes.other_vcunlock} **{voice:,}**\n", inline=True)
 
         embed.set_image(
@@ -233,7 +238,7 @@ class info(commands.Cog, name="Info"):
             'PARTNERED': 'Partnered',
             'VERIFIED': 'Verified',
             'DISCOVERABLE': 'Server Discovery',
-            'PUBLIC': 'Public server',
+            'COMMUNITY': 'Community server',
             'INVITE_SPLASH': 'Invite Splash',
             'VIP_REGIONS': 'VIP Voice Servers',
             'VANITY_URL': 'Vanity Invite',
@@ -242,7 +247,8 @@ class info(commands.Cog, name="Info"):
             'LURKABLE': 'Lurkable',
             'NEWS': 'News Channels',
             'ANIMATED_ICON': 'Animated Icon',
-            'BANNER': 'Banner'
+            'BANNER': 'Banner',
+            'WELCOME_SCREEN_ENABLED': "Welcome screen"
         }
 
         for feature, label in all_features.items():
@@ -264,7 +270,6 @@ class info(commands.Cog, name="Info"):
 
     @commands.command(brief="Get user information", aliases=['user', 'ui'])
     @commands.guild_only()
-    @commands.cooldown(1, 15, commands.BucketType.user)
     async def userinfo(self, ctx, *, user: discord.User = None):
         """ Overview about the information of an user """
 
@@ -307,6 +312,27 @@ class info(commands.Cog, name="Info"):
             discord_badges = '\n**Discord badges:** ' + ' '.join(badge_list)
         elif not badge_list:
             discord_badges = ''
+        medias = ""
+        for media in await self.bot.db.fetch("SELECT * FROM media WHERE user_id = $1", user.id):
+            if media['media_type'] == "twitch":
+                medias += f"{emotes.social_twitch} "
+            elif media['media_type'] == "youtube":
+                medias += f"{emotes.social_youtube} "
+            elif media['media_type'] == "reddit":
+                medias += f"{emotes.social_reddit} "
+            elif media['media_type'] == "twitter":
+                medias += f"{emotes.social_twitter} "
+            elif media['media_type'] == "github":
+                medias += f"{emotes.social_github} "
+            elif media['media_type'] == "steam":
+                medias += f"{emotes.social_steam} "
+            elif media['media_type'] == "snapchat":
+                medias += f"{emotes.social_snapchat} "
+            medias += f"[{media['media_type'].capitalize()}]({media['media_link']}) \n"
+        
+        if len(medias) > 1024:
+            medias = medias[1020]
+            medias += '...'
 
         usercheck = ctx.guild.get_member(user.id)
         if usercheck:
@@ -376,6 +402,8 @@ class info(commands.Cog, name="Info"):
                 emb.set_thumbnail(url=user.avatar_url_as(format='gif'))
             else:
                 emb.set_thumbnail(url=user.avatar_url)
+            if medias:
+                emb.add_field(name="Linked medias:", value=medias[:-2])
                 
             await ctx.send(embed=emb)
 
@@ -391,6 +419,8 @@ class info(commands.Cog, name="Info"):
                 emb.set_thumbnail(url=user.avatar_url_as(format='gif'))
             else:
                 emb.set_thumbnail(url=user.avatar_url)
+            if medias:
+                emb.add_field(name="Linked medias:", value=medias[:-2])
             await ctx.send(embed=emb)
 
     @commands.command(aliases=['source'], brief="View the bot source code")
@@ -418,19 +448,10 @@ class info(commands.Cog, name="Info"):
             # embed.set_footer(text=f'© {self.bot.user}')
             await ctx.send(embed=embed)
         
-    @commands.group(brief="Nicknames management", aliases=['nicks'])
+    @commands.group(brief="Nicknames management", aliases=['nicks'], invoke_without_command=True)
     @commands.guild_only()
-    @commands.cooldown(1, 15, commands.BucketType.user)
-    async def nicknames(self, ctx):
+    async def nicknames(self, ctx, member: discord.Member = None):
         """ Check someones nicknames or opt out """
-        if ctx.invoked_subcommand is None:
-            await ctx.send_help(ctx.command)
-
-    @nicknames.command(name='history', brief='Check someone\'s latest nicknames', aliases=['hist', 'h'])
-    @commands.guild_only()
-    @commands.cooldown(1, 15, commands.BucketType.user)
-    async def nicknames_history(self, ctx, member: discord.Member = None):
-        
         member = member or ctx.author
         nicks_opout = await self.bot.db.fetchval("SELECT user_id FROM nicks_op_out WHERE user_id = $1", member.id)
         if nicks_opout is not None:
@@ -455,8 +476,7 @@ class info(commands.Cog, name="Info"):
 
         await ctx.send(embed=e)
 
-    @nicknames.command(name='opt-out', brief="Opt out so the bot wouldn't store your nicknames anymore!", aliases=['optout'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @nicknames.command(name='opt', brief="Opt out/in from/to nickname logging!", aliases=['optout', 'optin'])
     async def nicknames_optout(self, ctx):
         """ Opt out if you want the bot to stop logging your nicknames. You can also opt in by invoking this command.
         By opting out I'll stop logging your nicknames in any server we share. """
@@ -509,7 +529,6 @@ class info(commands.Cog, name="Info"):
                 return
             
     @commands.command(brief="Support server invite")
-    @commands.cooldown(1, 20, commands.BucketType.user)
     async def support(self, ctx):
         """ A link to this bot's support server """
 
@@ -521,7 +540,6 @@ class info(commands.Cog, name="Info"):
             await ctx.send(embed=embed)
 
     @commands.command(description="Invite of the bot", brief="Invite bot")
-    @commands.cooldown(1, 20, commands.BucketType.user)
     async def invite(self, ctx):
         """ Invite bot to your server """
 
@@ -536,7 +554,6 @@ class info(commands.Cog, name="Info"):
         await ctx.send(embed=e)
     
     @commands.command(brief="Credits to people helped", description="All the people who helped with creating this bot are credited")
-    @commands.cooldown(1, 60, commands.BucketType.user)
     async def credits(self, ctx):
         """ Credits for all the people that worked with this bot """
         # return await ctx.send("test")
@@ -558,7 +575,6 @@ class info(commands.Cog, name="Info"):
     
     @commands.command(brief="Get server emotes", aliases=['se', 'emotes'])
     @commands.guild_only()
-    @commands.cooldown(1, 15, commands.BucketType.guild)
     async def serveremotes(self, ctx):
         """ Get a list of emotes in the server """
 
@@ -610,7 +626,6 @@ class info(commands.Cog, name="Info"):
     
     @commands.command(brief='User permissions in the guild', aliases=['perms'])
     @commands.guild_only()
-    @commands.cooldown(1, 15, commands.BucketType.user)
     async def permissions(self, ctx, member: discord.Member = None):
         """ See what permissions member has in the guild. """
 
@@ -640,15 +655,14 @@ class info(commands.Cog, name="Info"):
         await paginator.paginate()
 
 
-    @commands.command(brief='Change log for each version', aliases=['changes'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
-    async def changelog(self, ctx):
-        e = discord.Embed(color=self.bot.logging_color)
-        e.add_field(name=f"Most recent changes for v{self.bot.version}:", value=f"{self.bot.most_recent_change}\n─────────────────────", inline=False)
-        for ver, change in [v for v in reversed([tuple(v) for v in self.bot.changelog.items()])][:3]:
-            e.add_field(name=ver, value=change, inline=False)
+    # @commands.command(brief='Change log for each version', aliases=['changes'])
+    # async def changelog(self, ctx):
+    #     e = discord.Embed(color=self.bot.logging_color)
+    #     e.add_field(name=f"Most recent changes for v{self.bot.version}:", value=f"{self.bot.most_recent_change}\n─────────────────────", inline=False)
+    #     for ver, change in [v for v in reversed([tuple(v) for v in self.bot.changelog.items()])][:3]:
+    #         e.add_field(name=ver, value=change, inline=False)
 
-        await ctx.send(embed=e)
+    #     await ctx.send(embed=e)
 
 
 

@@ -27,24 +27,27 @@ class Managment(commands.Cog, name="Management"):
 
     
     async def bot_check(self, ctx):
-        cmd = self.bot.get_command(ctx.command.name)
-        try:
-            data = await self.bot.db.fetchval("select * from guilddisabled where command = $1 and guild_id = $2", str(cmd), ctx.guild.id)
-        except:
-            pass
         
         if await self.bot.is_admin(ctx.author):
+            return True
+        
+        if not ctx.guild:
             return True
 
         if ctx.guild and ctx.author.guild_permissions.administrator:
             return True
 
-        if ctx.guild and data is not None:
-            await ctx.send(f"{emotes.warning} | `{cmd}` command is disabled in this server", delete_after=20)
-            return False
-        
-        elif ctx.guild and data is None:
-            return True
+        if ctx.command.parent:
+            if await self.bot.db.fetchval("select * from guilddisabled where command = $1 AND guild_id = $2", str(ctx.command.parent), ctx.guild.id):
+                await ctx.send(f"{emotes.warning} | `{ctx.command.parent}` and it's corresponding subcommands are disabled in this server")
+                return False
+            elif await self.bot.db.fetchval("select * from guilddisabled where command = $1 AND guild_id = $2", str(f"{ctx.command.parent} {ctx.command.name}"), ctx.guild.id):
+                await ctx.send(f"{emotes.warning} | `{ctx.command.parent} {ctx.command.name}` is disabled in this server.")
+                return False
+        else:
+            if await self.bot.db.fetchval("select * from guilddisabled where command = $1 AND guild_id = $2", str(ctx.command.name), ctx.guild.id):
+                await ctx.send(f"{emotes.warning} | `{ctx.command.name}` is disabled in this server.")
+                return False
         return True
 
     def cog_check(self, ctx):
@@ -56,7 +59,7 @@ class Managment(commands.Cog, name="Management"):
     @commands.command(brief="Change prefix", description="Change my prefix in the server")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    @commands.cooldown(1, 20, commands.BucketType.guild)
+    @commands.cooldown(1, 5, commands.BucketType.guild)
     async def prefix(self, ctx, prefix: str = None):
         """ Change bot's prefix in the server """
 
@@ -73,7 +76,7 @@ class Managment(commands.Cog, name="Management"):
 
     @commands.command(brief="Guild settings", aliases=['guildsettings', 'settings'])
     @commands.guild_only()
-    @commands.cooldown(1, 20, commands.BucketType.guild)
+    @commands.cooldown(1, 5, commands.BucketType.guild)
     async def serversettings(self, ctx):
         """ Show all guild settings whether they're enabled or disabled """
 
@@ -88,7 +91,7 @@ class Managment(commands.Cog, name="Management"):
         db_check10 = await self.bot.db.fetchval("SELECT guild_id FROM automodaction WHERE guild_id = $1", ctx.guild.id)
         joinmsg = await self.bot.db.fetchval("SELECT msg FROM joinmsg WHERE guild_id = $1", ctx.guild.id)
         leavemsg = await self.bot.db.fetchval("SELECT msg FROM leavemsg WHERE guild_id = $1", ctx.guild.id)
-        raidmode = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", ctx.guild.id)
+        # raidmode = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", ctx.guild.id)
 
         joinmsg = joinmsg or f"{emotes.joined} ::member.mention:: joined the server! There are ::server.members:: members in the server now."
         leavemsg = leavemsg or f"{emotes.left} ::member.mention:: left the server... There are ::server.members:: members left in the server."
@@ -103,7 +106,7 @@ class Managment(commands.Cog, name="Management"):
         settings = f"{f'{emotes.setting_no}' if db_check8 is None else f'{emotes.setting_yes}'} Role On Join\n"
         settings += f"{f'{emotes.setting_no}' if db_check7 is None else f'{emotes.setting_yes}'} Welcoming Messages\n"
         settings += f"{f'{emotes.setting_no}' if db_check9 is None else f'{emotes.setting_yes}'} Leaving Messages\n"
-        settings += f"{f'{emotes.setting_no}' if raidmode is False else f'{emotes.setting_yes}'} Raid mode"
+        # settings += f"{f'{emotes.setting_no}' if raidmode is False else f'{emotes.setting_yes}'} Raid mode"
 
         welcoming = f"**Join message:**\n{joinmsg}\n"
         welcoming += f"**Leave message:**\n{leavemsg}"
@@ -358,52 +361,78 @@ class Managment(commands.Cog, name="Management"):
             await ctx.send(f"{emotes.white_mark} Role on join has been disabled. Use `{ctx.prefix}joinrole people/bots` to enable it back on", delete_after=30)
 
     @commands.command(brief='Disable command in your server', aliases=['disablecmd'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
-    async def disablecommand(self, ctx, command):
+    async def disablecommand(self, ctx, *, command):
         """ Disable command in your server so others couldn't use it
         Once you've disabled it, the command will be locked to server administrators only"""
-        cant_disable = ["help", "jishaku", "disablecommand", "enablecommand"]
+        cant_disable = ["help", "jishaku", "dev", "disablecmd", "enablecmd", 'admin']
         cmd = self.bot.get_command(command)
-
         if cmd is None:
-            return await ctx.send(f"{emotes.red_mark} Command **{command}** doesn't exist.")
+            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
+            return await ctx.send(embed=embed)
 
-        data = await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id)
+        if cmd.name in cant_disable:
+            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Why are you trying to disable **{cmd.name}** you dum dum.")
+            return await ctx.send(embed=embed)
 
-        if cmd.name in cant_disable and not await self.bot.is_owner(ctx.author):
-            return await ctx.send(f"{emotes.red_mark} Unfortunately you cannot disable **{cmd.name}**")
-
-        if data is None:
-            await self.bot.db.execute("INSERT INTO guilddisabled(guild_id, command) VALUES ($1, $2)", ctx.guild.id, str(cmd.name))
-            return await ctx.send(f"{emotes.white_mark} **{cmd.name}** was disabled in this guild.")
-
-        if data is not None:
-            return await ctx.send(f"{emotes.red_mark} **{cmd.name}** is already disabled")
+        if cmd.parent and str(cmd.parent) not in cant_disable:
+            if await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(f"{cmd.parent} {cmd.name}"), ctx.guild.id) is None:
+                await self.bot.db.execute("INSERT INTO guilddisabled(guild_id, command) VALUES ($1, $2)", ctx.guild.id, str(f"{cmd.parent} {cmd.name}"))
+                return await ctx.send(f"{emotes.white_mark} Okay. **{cmd.parent} {cmd.name}** was disabled.")
+            elif await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 and guild_id = $2", str(f"{cmd.parent} {cmd.name}"), ctx.guild.id):
+                return await ctx.send(f"{emotes.warning} | `{cmd.parent} {cmd.name}` is already disabled")
+        elif cmd.parent and str(cmd.parent) in cant_disable:
+            return await ctx.send(f"{emotes.red_mark} You can't do that, sorry!")
+        elif not cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id) is None:
+                await self.bot.db.execute("INSERT INTO guilddisabled(guild_id, command) VALUES ($1, $2)", ctx.guild.id, str(cmd.name))
+                return await ctx.send(f"{emotes.white_mark} Okay. **{cmd.name}** was disabled.")
+            elif await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id):
+                return await ctx.send(f"{emotes.warning} | `{cmd.name}` is already disabled")
 
     @commands.command(brief='Enable command in your server', aliases=['enablecmd'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.guild_only()
     @commands.has_permissions(administrator=True)
-    async def enablecommand(self, ctx, command):
+    async def enablecommand(self, ctx,*, command):
         """ Enable disabled command in your servers so others could use it """
         cmd = self.bot.get_command(command)
 
         if cmd is None:
             return await ctx.send(f"{emotes.red_mark} Command **{command}** doesn't exist.")
 
-        data = await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id)
+        if cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(f"{cmd.parent} {cmd.name}"), ctx.guild.id) is None:
+                return await ctx.send(f"{emotes.warning} | `{cmd.parent} {cmd.name}` is not disabled!")
+            elif await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(f"{cmd.parent} {cmd.name}"), ctx.guild.id):
+                await self.bot.db.execute("DELETE FROM guilddisabled WHERE command = $1 AND guild_id =$2", str(f"{cmd.parent} {cmd.name}"), ctx.guild.id)
+                return await ctx.send(f"{emotes.white_mark} | `{cmd.parent} {cmd.name}` is now enabled!")
+        elif not cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id) is None:
+                return await ctx.send(f"{emotes.warning} | `{cmd.name}` is not disabled!")
+            elif await self.bot.db.fetchval("SELECT * FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id):
+                await self.bot.db.execute("DELETE FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id)
+                return await ctx.send(f"{emotes.white_mark} | `{cmd.name}` is now enabled!")
+    
+    @commands.group(brief='Turn on/off server raid mode', invoke_without_command=True)
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    @commands.bot_has_permissions(kick_members=True)
+    async def raidmode(self, ctx):
+        """ Raid is happening in your server? Turn on anti-raider! It'll kick every new member that joins. 
+        It'll also inform them in DMs that server is currently in anti-raid mode and doesn't allow new members!
+        DMs can also be toggled"""
 
+        raid_check = await self.bot.db.fetchval("SELECT raidmode FROM raidmode WHERE guild_id = $1", ctx.guild.id)
 
-        if data is not None:
-            await self.bot.db.execute("DELETE FROM guilddisabled WHERE command = $1 AND guild_id = $2", str(cmd.name), ctx.guild.id)
-            return await ctx.send(f"{emotes.white_mark} **{cmd.name}** was enabled in this guild.")
-
-        if data is None:
-            return await ctx.send(f"{emotes.red_mark} **{cmd.name}** is not disabled")
-            
-            
+        if raid_check == False:
+            await self.bot.db.execute("UPDATE raidmode SET raidmode = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            await ctx.send(f"{emotes.white_mark} Raid mode was activated! New members will get kicked with a message in their DMs")
+        elif raid_check == True:
+            await self.bot.db.execute("UPDATE raidmode SET raidmode = $1, dm = $2 WHERE guild_id = $3", False, True, ctx.guild.id)
+            await ctx.send(f"{emotes.white_mark} Raid mode was deactivated! New members won't be kicked anymore.")
 
 def setup(bot):
     bot.add_cog(Managment(bot))

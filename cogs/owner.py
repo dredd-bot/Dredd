@@ -308,6 +308,26 @@ class owner(commands.Cog, name="Owner"):
             data['Users'][f'{user.id}']["Badges"] = [f'{emotes.blacklisted}']
         except KeyError:
             data['Users'][f'{user.id}'] = {"Badges": [f'{emotes.blacklisted}']}
+
+        g = self.bot.get_guild(671078170874740756)
+        member = g.get_member(user.id)
+        if member:
+            for role in member.roles:
+                try:
+                    await member.remove_roles(role, reason='User was blacklisted')
+                except:
+                    pass
+        
+            role = member.guild.get_role(734537587116736597)
+            await member.add_roles(role, reason='User is blacklisted')
+            overwrites = {
+                member.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                member: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+                member.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+            }
+            category = member.guild.get_channel(734539183703588954)
+            channel = await member.guild.create_text_channel(name=f'{member.id}-blacklist', overwrites=overwrites, category=category, reason=f"User was blacklisted")
+            await channel.send(f"{member.mention} Hello! Since you're blacklisted, I'll be locking your access to all the channels. If you wish to appeal, feel free to do so in here. Leaving the server will get you banned immediately.\n\n**Blacklist reason:** {''.join(reason)}", allowed_mentions=discord.AllowedMentions(users=True))
         
         with open('db/badges.json', 'w') as f:
             data = json.dump(data, f, indent=4)
@@ -343,6 +363,29 @@ class owner(commands.Cog, name="Owner"):
             data['Users'].pop(f"{user.id}")
         except KeyError:
             pass
+        
+        g = self.bot.get_guild(671078170874740756)
+        member = g.get_member(user.id)
+
+        if member:
+            try:
+                if emotes.bot_early_supporter not in data['Users'][f'{member.id}']['Badges']:
+                    data['Users'][f"{member.id}"]['Badges'] += [emotes.bot_early_supporter]
+                else:
+                    return
+            except KeyError:
+                data['Users'][f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
+
+            role1 = member.guild.get_role(741749103280783380)
+            role2 = member.guild.get_role(741748979917652050)
+            role3 = member.guild.get_role(741748857888571502)
+            role4 = member.guild.get_role(674930044082192397)
+            role5 = member.guild.get_role(679642623107137549)
+            await member.add_roles(role1, role2, role3, role4, role5)
+            await member.remove_roles(discord.Object(id=734537587116736597))
+            for channel in member.guild.get_channel(734539183703588954).channels:
+                if channel.name == f'{member.id}-blacklist':
+                    await channel.delete()
         
         with open('db/badges.json', 'w') as f:
             data = json.dump(data, f, indent=4)
@@ -746,29 +789,26 @@ class owner(commands.Cog, name="Owner"):
 # ! Command managment
 
     @dev.command(brief="Disable enabled cmd")
-    async def disablecmd(self, ctx, command):
+    async def disablecmd(self, ctx, *, command):
         """Disable the given command. A few important main commands have been blocked from disabling for obvious reasons"""
-        cant_disable = ["help", "jishaku", "dev", "disablecmd", "enablecmd", 'admin']
         cmd = self.bot.get_command(command)
 
         if cmd is None:
             embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
             return await ctx.send(embed=embed)
 
-        data = await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name))
-
-        if cmd.name in cant_disable and not ctx.author.id == 345457928972533773:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Why are you trying to disable **{cmd.name}** you dum dum.")
-            return await ctx.send(embed=embed)
-
-        if data is None:
-            await self.bot.db.execute("INSERT INTO cmds(command) VALUES ($1)", str(cmd.name))
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.white_mark} Okay. **{cmd.name}** was disabled.")
-            return await ctx.send(embed=embed)
-
-        if data is not None:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} **{cmd.name}** is already disabled")
-            return await ctx.send(embed=embed)
+        if cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}")) is None:
+                await self.bot.db.execute("INSERT INTO cmds(command) VALUES ($1)", str(f"{cmd.parent} {cmd.name}"))
+                return await ctx.send(f"{emotes.white_mark} Okay. **{cmd.parent} {cmd.name}** was disabled.")
+            elif await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}")):
+                return await ctx.send(f"{emotes.warning} | `{cmd.parent} {cmd.name}` is already disabled")
+        elif not cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name)) is None:
+                await self.bot.db.execute("INSERT INTO cmds(command) VALUES ($1)", str(cmd.name))
+                return await ctx.send(f"{emotes.white_mark} Okay. **{cmd.name}** was disabled.")
+            elif await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name)):
+                return await ctx.send(f"{emotes.warning} | `{cmd.name}` is already disabled")
 
 
     @dev.command(brief="Enable disabled cmd")
@@ -780,16 +820,18 @@ class owner(commands.Cog, name="Owner"):
             embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
             return await ctx.send(embed=embed)
 
-        data = await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name))
-
-        if data is None:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} **{cmd.name}** is already enabled")
-            return await ctx.send(embed=embed)
-
-        await self.bot.db.execute("DELETE FROM cmds WHERE command = $1", str(cmd.name))
-
-        embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.white_mark} Okay. **{cmd.name}** was enabled back on.")
-        await ctx.send(embed=embed)
+        if cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}")) is None:
+                return await ctx.send(f"{emotes.warning} | `{cmd.parent} {cmd.name}` is not disabled!")
+            elif await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}")):
+                await self.bot.db.execute("DELETE FROM cmds WHERE command = $1", str(f"{cmd.parent} {cmd.name}"))
+                return await ctx.send(f"{emotes.white_mark} | `{cmd.parent} {cmd.name}` is now enabled!")
+        elif not cmd.parent:
+            if await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name)) is None:
+                return await ctx.send(f"{emotes.warning} | `{cmd.name}` is not disabled!")
+            elif await self.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd.name)):
+                await self.bot.db.execute("DELETE FROM cmds WHERE command = $1", str(cmd.name))
+                return await ctx.send(f"{emotes.white_mark} | `{cmd.name}` is now enabled!")
     
     @dev.command(brief="Disabled commands list")
     async def disabledcmds(self, ctx):
@@ -899,6 +941,7 @@ class owner(commands.Cog, name="Owner"):
 
         if owner is None:
             await self.bot.db.execute("INSERT INTO admins(user_id) VALUES ($1)", user.id)
+            self.bot.admins.append(user.id)
             await ctx.send(f"Done! Added **{user}** to my admins list")
 
         if owner is not None:
@@ -911,6 +954,7 @@ class owner(commands.Cog, name="Owner"):
 
         if owner is not None:
             await self.bot.db.execute("DELETE FROM admins WHERE user_id = $1", user.id)
+            self.bot.admins.remove(user.id)
             await ctx.send(f"Done! Removed **{user}** from my admins list")
 
         if owner is None:
@@ -1112,6 +1156,66 @@ class owner(commands.Cog, name="Owner"):
             await ctx.send(f"{emotes.white_mark} Removed {badge} from {guild}.")
         except AttributeError:
             return await ctx.send(f"{emotes.warning} Can't seem to find that guild, are you sure the ID is correct?")
+
+    @dev.command(brief='Add booster', name='add-booster', aliases=['addbooster', 'aboost'])
+    async def add_booster(self, ctx, user: discord.User):
+        check = await self.bot.db.fetchval("SELECT * FROM vip WHERE user_id = $1", user.id)
+
+        if check:
+            return await ctx.send(f"{emotes.warning} {user} is already a booster!")
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+        badge = emotes.bot_booster
+        try:
+            if badge not in data['Users'][f'{user.id}']["Badges"]:
+                data['Users'][f'{user.id}']["Badges"] += [badge]
+        except KeyError:
+            data['Users'][f"{user.id}"] = {"Badges": [badge]}
+
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
+        await self.bot.db.execute("INSERT INTO vip(user_id, prefix) VALUES($1, $2)", user.id, '-')
+        self.bot.vip_prefixes[user.id] = '-'
+        self.bot.boosters.append(user.id)
+        g = self.bot.get_guild(671078170874740756)
+        role = g.get_role(686259869874913287)
+        m = g.get_member(user.id)
+        try:
+            await m.add_roles(role)
+        except:
+            pass
+
+        await ctx.send(f"{emotes.white_mark} Added {user.mention} ({user} ({user.id})) to boosters list!")
+    
+    @dev.command(brief='Remove booster', name='remove-booster', aliases=['removebooster', 'rboost'])
+    async def remove_booster(self, ctx, user: discord.User):
+        check = await self.bot.db.fetchval("SELECT * FROM vip WHERE user_id = $1", user.id)
+
+        if not check:
+            return await ctx.send(f"{emotes.warning} {user} is not a booster!")
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+        badge = emotes.bot_booster
+        try:
+            if badge in data['Users'][f'{user.id}']["Badges"]:
+                data['Users'][f'{user.id}']["Badges"].remove(badge)
+        except KeyError:
+            pass
+
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
+        await self.bot.db.execute("DELETE FROM vip WHERE user_id = $1", user.id)
+        self.bot.vip_prefixes.pop(user.id)
+        self.bot.boosters.remove(user.id)
+        g = self.bot.get_guild(671078170874740756)
+        role = g.get_role(686259869874913287)
+        m = g.get_member(user.id)
+        try:
+            await m.remove_roles(role)
+        except:
+            pass
+
+        await ctx.send(f"{emotes.white_mark} Removed {user.mention} ({user} ({user.id})) from boosters list!")
 
 
 def setup(bot):

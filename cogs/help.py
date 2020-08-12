@@ -37,6 +37,7 @@ class HelpCommand(commands.HelpCommand):
 
         self.owner_cogs = ['Devishaku', 'Music', 'Owner', "Economy", "Music"]
         self.admin_cogs = ['Staff']
+        self.vip_cogs = ['Booster']
         self.ignore_cogs = ["Help", "Events", "Cmds", "Logs", "dredd", 'DBL', 'BG', 'StatcordPost', "AutomodEvents", "Eventss"]
     
     def get_command_signature(self, command):
@@ -112,9 +113,9 @@ class HelpCommand(commands.HelpCommand):
         invite = self.context.bot.invite
         if self.context.guild is not None:
             p = await self.context.bot.db.fetchval("SELECT prefix FROM guilds WHERE guild_id = $1", self.context.guild.id)
-            prefix = f"**Bot prefix in this server:** `{p}`"
+            prefix = f"**Prefix:** `{p}`"
         elif self.context.guild is None:
-            prefix = "**Bot prefix in DM's:** `!`"
+            prefix = "**Prefix:** `!`"
         s = "Support"
         i = "Bot invite"
         dbl = "[top.gg](https://top.gg/bot/667117267405766696/vote)"
@@ -125,10 +126,10 @@ class HelpCommand(commands.HelpCommand):
             return m.author == self.context.author
         
         emb = discord.Embed(color=self.context.bot.embed_color)
-        emb.description = f"\n**This bot was made by:** {Moksej}\n{prefix}\n"
+        emb.description = f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.boats} {boats} | {emotes.discord_privacy} {privacy}\n\n**Made by:** {Moksej}\n{prefix}\n"
 
 
-        cogs = ""
+        exts = []
         for extension in self.context.bot.cogs.values():
             if extension.qualified_name in self.ignore_cogs:
                 continue
@@ -138,17 +139,25 @@ class HelpCommand(commands.HelpCommand):
                 continue
             if extension.qualified_name in self.admin_cogs and not await self.context.bot.is_admin(self.context.author):
                 continue
-            #c = f"`" + f"`, `".join([c.qualified_name for c in set(extension.get_commands())]) + '`'
-            # entries = await self.filter_commands(set(extension.get_commands()), sort=True)
-            # return await self.context.send(entries)
-            # emb.add_field(name=f"{extension.help_icon} **{extension.qualified_name}**", value=c, inline=False)
-            cogs += f"{extension.help_icon} **{extension.qualified_name}**\n"
-        
+            if extension.qualified_name in self.vip_cogs and not await self.context.bot.is_booster(self.context.author):
+                continue
+            exts.append(f"{extension.help_icon} **{extension.qualified_name}**")
+
+        # emb.description += f'\n{exts}'
+        #emb.set_author(name=self.context.bot.user, icon_url=self.context.bot.user.avatar_url)
+        emb.title = f"{self.context.bot.user}"
+        emb.set_thumbnail(url=self.context.bot.user.avatar_url)
         updates = await self.context.bot.db.fetchval('SELECT * FROM updates')
-        emb.add_field(name="**Categories:**", value=f"{cogs}")
-        emb.add_field(name="\u200b", value="\u200b")
-        emb.add_field(name='📰 **Latest news**', value=f"{updates}", inline=True)
-        emb.add_field(name='**Useful links**', value=f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.dbl} {dbl} | {emotes.boats} {boats} | {emotes.discord_privacy} {privacy}", inline=False)
+        num = int(len(exts) / 2)
+        emb.add_field(name="\u200b", value="\n".join(exts[:4]))
+        if not await self.context.bot.is_admin(self.context.author):
+            num = 2
+        if await self.context.bot.is_booster(self.context.author):
+            num = 3
+        emb.add_field(name="\u200b", value="\n".join(exts[-num:]))
+        # emb.add_field(name="\u200b", value="\u200b", inline=False)
+        emb.add_field(name='📰 **Latest news**', value=f"{updates}", inline=False)
+        
         emb.set_footer(text=f"- You can type {self.clean_prefix}help <command> to see that command help and {self.clean_prefix}help <category> to see that category commands")
 
         await self.context.send(embed=emb)
@@ -164,8 +173,14 @@ class HelpCommand(commands.HelpCommand):
         
         if command.cog_name in self.admin_cogs and not await self.context.bot.is_admin(self.context.author):
             return await self.send_error_message(self.command_not_found(command.name))
+        
+        if command.cog_name in self.vip_cogs and not await self.context.bot.is_booster(self.context.author):
+            return await self.send_error_message(self.command_not_found(command.name))
 
         if self.context.guild and await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(command)) and self.context.author.guild_permissions.administrator == False and not await self.context.bot.is_owner(self.context.author):
+            return await self.send_error_message(f"{emotes.warning} Command is disabled in this server, which is why I can't show you the help of it.")
+        
+        if self.context.guild and await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(f"{command.parent} {command.name}")) and self.context.author.guild_permissions.administrator == False and not await self.context.bot.is_owner(self.context.author):
             return await self.send_error_message(f"{emotes.warning} Command is disabled in this server, which is why I can't show you the help of it.")
         
         if await self.context.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(command)) and not await self.context.bot.is_admin(self.context.author):
@@ -174,8 +189,8 @@ class HelpCommand(commands.HelpCommand):
         if command.hidden == True:
             return await self.send_error_message(self.command_not_found(command.name))
 
-        aliases = "`" + '`, `'.join(command.aliases) + "`"
-        if aliases == "``":
+        aliases = "" + '`, `'.join(command.aliases) + "`"
+        if aliases == "``" or '`':
             aliases = "No aliases were found"
         
         if command.help:
@@ -200,11 +215,15 @@ class HelpCommand(commands.HelpCommand):
             return await self.send_error_message(self.command_not_found(group.name))
         if group.cog_name in self.admin_cogs and not await self.context.bot.is_admin(self.context.author):
             return await self.send_error_message(self.command_not_found(group.name))
+        
+        if group.cog_name in self.vip_cogs and not await self.context.bot.is_booster(self.context.author):
+            return await self.send_error_message(self.command_not_found(group.name))
 
         sub_cmd_list = ""
         for group_command in group.commands:
             if self.context.guild and await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(group_command.root_parent)) and self.context.author.guild_permissions.administrator == False and not await self.context.bot.is_owner(self.context.author):
                 return await self.send_error_message(f"{emotes.warning} Command is disabled in this server, which is why I can't show you the help of it.")
+            
             sub_cmd_list += '**' + group_command.name + f'**, '
             if group_command.root_parent == "jishaku":
                 cmdsignature = f"{group_command.root_parent} [subcommands]..."
@@ -232,11 +251,13 @@ class HelpCommand(commands.HelpCommand):
 
     async def send_cog_help(self, cog):
         if cog.qualified_name in self.ignore_cogs:
-            return
+            return await self.send_error_message(self.command_not_found(cog.qualified_name.lower()))
         if cog.qualified_name in self.owner_cogs and not await self.context.bot.is_owner(self.context.author):
-            return
+            return await self.send_error_message(self.command_not_found(cog.qualified_name.lower()))
         if cog.qualified_name in self.admin_cogs and not await self.context.bot.is_admin(self.context.author):
-            return
+            return await self.send_error_message(self.command_not_found(cog.qualified_name.lower()))
+        if cog.qualified_name in self.vip_cogs and not await self.context.bot.is_booster(self.context.author):
+            return await self.send_error_message(self.command_not_found(cog.qualified_name.lower()))
 
         commands = []
         c = 0

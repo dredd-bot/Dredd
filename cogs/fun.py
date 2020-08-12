@@ -70,7 +70,7 @@ class fun(commands.Cog, name="Fun"):
 
 
     @commands.command(brief="Tweet as someone", description='You can tweet as someone else to troll others')
-    @commands.cooldown(1, 30, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     # @commands.check(is_it_me)
     async def tweet(self, ctx, username: commands.clean_content(fix_channel_mentions=True), *, text: commands.clean_content(fix_channel_mentions=True)):
         """ Tweet as someone else. """
@@ -89,40 +89,9 @@ class fun(commands.Cog, name="Fun"):
         embed.set_image(url=res["message"])
         await ctx.send(embed=embed)
 
-    @commands.command(brief="Trap someone", description="You can trap anyone with this card")
-    @commands.cooldown(1, 30, commands.BucketType.user)
-    async def trap(self, ctx, user: commands.clean_content = None):
-        """ Trap anyone with trap card """
-
-        owner = self.bot.get_user(345457928972533773)
-        bot = self.bot.get_user(667117267405766696)
-        if user == bot:
-            return await ctx.send("Don't you dare trapping me")
-        elif user == owner:
-            return await ctx.send("Why are you trying to trap my owner? Don't do that :(")
-        elif user is None:
-            return await ctx.send(f"Please add a user!")
-        
-
-        try:
-            await ctx.trigger_typing()
-            img = await self.__get_image(ctx, user)
-            if not isinstance(img, str):
-                return img
-            author = ctx.author.name
-            async with aiohttp.ClientSession() as cs:
-                async with cs.get(f"https://nekobot.xyz/api/imagegen?type=trap&author={author}&name={user}&image={img}") as r:
-                    res = await r.json()
-                        
-            embed = discord.Embed(color=self.bot.embed_color)
-            embed.set_image(url=res["message"])
-            await ctx.send(embed=embed)
-        except Exception as e:
-            print(e)
-            await ctx.send("Couldn't trap that user")
 
     @commands.command(brief="Rate any thing", description="Rate anything you want")
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     # @commands.check(is_it_me)
     async def rate(self, ctx, *, thing):
         """ Rates what you desire """
@@ -138,7 +107,7 @@ class fun(commands.Cog, name="Fun"):
 
 
     @commands.command(brief="Make clyde say something", description="Make clyde tell you something")
-    @commands.cooldown(1, 30, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def clyde(self, ctx, *, text: commands.clean_content):
         """Make clyde say something"""
 
@@ -164,7 +133,7 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(f"**{ctx.author.name}** has paid their respect {reason}{random.choice(hearts)}")
     
     @commands.command(brief="Ship someone")
-    @commands.cooldown(1, 30, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def ship(self, ctx, user1: discord.User, user2: discord.User):
         """ Ship two users together """
 
@@ -185,7 +154,7 @@ class fun(commands.Cog, name="Fun"):
     
     
     @commands.command(brief="Change my mind", description="Make someone change your mind", aliases=["cmm"])
-    @commands.cooldown(1, 30, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def changemymind(self, ctx, *, text: commands.clean_content):
         """ Change my mind """
 
@@ -203,7 +172,7 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(embed=embed)
 
     @commands.command(description='Do you have a question? Ask the almighty 8ball what you should do', aliases=['8ball'], brief="Ask the 8ball")
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def eightball(self, ctx, *, question):
         """ Ask the mighty 8ball """
         await ctx.trigger_typing()
@@ -218,7 +187,7 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(embed=embed)
 
     @commands.command(description='Reverse any text you want', brief="Reverse any text")
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def reverse(self, ctx, *, text: str):
         """ !poow ,ffuts esreveR
         Everything you type after reverse will of course, be reversed
@@ -235,7 +204,7 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(embed=embed)
 
     @commands.command(brief="Choose between multiple choices", description="For when you wanna settle the score some other way")
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def choose(self, ctx, *choices: str):
         """ Choose between multiple choices. """
 
@@ -249,7 +218,7 @@ class fun(commands.Cog, name="Fun"):
             await ctx.send(f"{emotes.red_mark} Can't choose from empty choices")
 
     @commands.command(brief="Fight someone", description="Fight someone! Wanna fight with yourself? Leave [user2] empty.\nRequires NSFW marked channel")
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.is_nsfw()
     @commands.guild_only()
     async def fight(self, ctx, user1: discord.Member, user2: discord.Member = None):
@@ -280,7 +249,7 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(f'{random.choice(responses)}')
 
     @commands.command(aliases=['howhot'], brief="See how hot someone is", description="I wonder how hot are you UwU")
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def hot(self, ctx, *, user: discord.Member = None):
         """ I wonder how hot are you 🤔 """
 
@@ -310,7 +279,7 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(f"**{user}** is **{hot:.2f}%** hot. {emoji}")
 
     @commands.command(brief="Random dad joke", description="Read random dad joke")
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def dadjoke(self, ctx):
         """ Dad Jokes """
         async with aiohttp.ClientSession() as session:
@@ -320,7 +289,7 @@ class fun(commands.Cog, name="Fun"):
     @commands.command(brief="Roast someone", description="Roast anyone you want\nRequires NSFW marked channel")
     @commands.is_nsfw()
     @commands.guild_only()
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def roast(self, ctx, member: discord.Member = None):
         """ Roast someone in the server.
         Requires NSFW channel."""
@@ -344,7 +313,7 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(f"{member.name}, {random.choice(roasts)}")
 
     @commands.command(brief="Random memes", description=f"Want to see some bad bad random memes? This is the place where you can see them.")
-    @commands.cooldown(1, 15)
+    @commands.cooldown(1, 5)
     async def meme(self, ctx):
         """ Make your life a little bit funnier with memes """
 
@@ -359,7 +328,7 @@ class fun(commands.Cog, name="Fun"):
     @commands.command(brief="Spank someone", description="Spank those naughty users")
     @commands.guild_only()
     @commands.is_nsfw()
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @checks.has_voted()
     async def spank(self, ctx, member: discord.Member):
         """ Spank those naughty users """
@@ -378,7 +347,7 @@ class fun(commands.Cog, name="Fun"):
 
 
     @commands.command(brief="Cuddle someone", description="Cuddle someone")
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def cuddle(self, ctx, member: discord.Member):
         """ Cuddle someone you want """
         bot = self.bot.get_user(667117267405766696)
@@ -393,7 +362,7 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(embed=discord.Embed(color=self.bot.embed_color, description=f"**{ctx.author}** cuddled **{member}**").set_image(url=r['url']))
 
     @commands.command(brief="Hug someone", description="Give someone a hug")
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def hug(self, ctx, member: discord.Member):
         """ Give someone a hug """
         bot = self.bot.get_user(667117267405766696)
@@ -409,7 +378,7 @@ class fun(commands.Cog, name="Fun"):
 
     @commands.command(brief="Wallpaper", description="Get yourself a wallpaper")
     @commands.guild_only()
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.is_nsfw()
     async def wallpaper(self, ctx):
         """ Get yourself a (cool?) wallpaper """
@@ -451,7 +420,7 @@ class fun(commands.Cog, name="Fun"):
 
     @commands.command(brief="Pussy images")
     @commands.guild_only()
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.is_nsfw()
     @checks.has_voted()
     async def pussy(self, ctx):

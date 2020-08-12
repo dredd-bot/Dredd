@@ -372,7 +372,7 @@ class automod(commands.Cog, name="Automod"):
         await paginator.paginate()
 
     @commands.command(brief='Automod warnings')
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.has_permissions(manage_guild=True)
     async def autowarns(self, ctx, member: discord.Member):
         """ Check how many times automod punished a member """
@@ -400,7 +400,7 @@ class automod(commands.Cog, name="Automod"):
 
     @commands.command(brief='Clear member\'s automod warnings')
     @commands.has_permissions(manage_guild=True)
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def clearautowarns(self, ctx, member: discord.Member):
         ch = await self.bot.db.fetchval("SELECT * FROM autowarns WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, member.id)
 
@@ -434,7 +434,7 @@ class automod(commands.Cog, name="Automod"):
                 return
             
     @commands.command(brief="Automod settings in guild", aliases=['autosettings', 'autoinfo'])
-    @commands.cooldown(1, 15, commands.BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def automodsettings(self, ctx):
 
         db_check1 = await self.bot.db.fetchval("SELECT punishment FROM automods WHERE guild_id = $1", ctx.guild.id)

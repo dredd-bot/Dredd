@@ -9,6 +9,8 @@ class owner_only(commands.CommandError):
 
 def has_voted():
     async def predicate(ctx):
+        if await ctx.bot.is_booster(ctx.author):
+            return True
         async with aiohttp.ClientSession() as session:
             async with session.get(f'https://discord.boats/api/bot/667117267405766696/voted?id={ctx.author.id}') as r:
                 js = await r.json()
@@ -50,6 +52,14 @@ def is_guild(ID):
             elif not await ctx.bot.is_admin(ctx.author):
                 return False
             return False
+    return commands.check(predicate)
+
+def is_booster():
+    async def predicate(ctx):
+        if await ctx.bot.is_booster(ctx.author):
+            return True
+        await ctx.send(f"{emotes.bot_booster} This command is booster-locked")
+        return False
     return commands.check(predicate)
 
 def test_command():

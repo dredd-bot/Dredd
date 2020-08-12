@@ -38,13 +38,33 @@ async def run():
 
     bot = Bot(description=description, db=db)
     if not hasattr(bot, 'uptime'):
-        bot.uptime = datetime.datetime.utcnow()
+        bot.uptime = datetime.datetime.now()
     try:
+
+        owners = await bot.db.fetch("SELECT * FROM owners")
+        for res in owners:
+            bot.owners.append(res['user_id'])
+        print(f'[OWNERS] Owners loaded')
+
+        admins = await bot.db.fetch("SELECT * FROM admins")
+        for res in admins:
+            bot.admins.append(res['user_id'])
+        print(f'[ADMINS] Admins loaded')
+
+        boosters = await bot.db.fetch("SELECT * FROM vip")
+        for res in boosters:
+            bot.boosters.append(res['user_id'])
+        print(f'[BOOSTERS] Boosters loaded')
 
         prefixes = await bot.db.fetch("SELECT * FROM guilds")
         for res in prefixes:
             bot.prefixes[res['guild_id']] = res['prefix']
         print(f'[PREFIXES] Prefixes loaded')
+
+        vip_prefixes = await bot.db.fetch("SELECT * FROM vip")
+        for res in vip_prefixes:
+            bot.vip_prefixes[res['user_id']] = res['prefix']
+        print(f'[BOOSTER PREFIXES] Prefixes loaded')
 
         blacklist_user = await bot.db.fetch("SELECT * FROM blacklist")
         for user in blacklist_user:
@@ -90,17 +110,26 @@ async def run():
 
 async def get_prefix(bot, message):
     if not message.guild:
-        custom_prefix = ['!']
-        return custom_prefix
+        if await bot.is_booster(message.author):
+            cprefix = bot.vip_prefixes[message.author.id]
+            custom_prefix = [cprefix, '!']
+            return custom_prefix
+        else:
+            custom_prefix = ['!']
+            return custom_prefix
     elif message.guild:
         try:
             prefix = bot.prefixes[message.guild.id]
-            if not await bot.is_admin(message.author):
+            if not await bot.is_admin(message.author) and not await bot.is_booster(message.author):
                 custom_prefix = prefix
+                return commands.when_mentioned_or(custom_prefix)(bot, message)
             elif await bot.is_admin(message.author):
                 custom_prefix = ['d ', prefix]
                 return commands.when_mentioned_or(*custom_prefix)(bot, message)
-            return commands.when_mentioned_or(custom_prefix)(bot, message)
+            elif await bot.is_booster(message.author):
+                cprefix = bot.vip_prefixes[message.author.id]
+                custom_prefix = [cprefix, prefix]
+                return commands.when_mentioned_or(*custom_prefix)(bot, message)
         except TypeError:
             return
     else:
@@ -170,6 +199,7 @@ class Bot(commands.AutoShardedBot):
         self.config = config
         self.cmd_edits = {}
         self.prefixes = {}
+        self.vip_prefixes = {}
 
         self.loop = asyncio.get_event_loop()
         self.session = aiohttp.ClientSession(loop=self.loop)
@@ -181,6 +211,11 @@ class Bot(commands.AutoShardedBot):
 
         self.automod = {}
         self.case_num = {}
+        self.raidmode = []
+
+        self.owners = []
+        self.admins = []
+        self.boosters = []
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)
@@ -189,12 +224,21 @@ class Bot(commands.AutoShardedBot):
         return self.categories.get(name)
 
     async def is_owner(self, user):
-        return await self.db.fetchval("SELECT user_id FROM owners WHERE user_id = $1", user.id)
+        for owner in self.owners:
+            if owner == user.id:
+                return True
     
     async def is_admin(self, user):
         if await self.is_owner(user):
             return True
-        return await self.db.fetchval("SELECT user_id FROM admins WHERE user_id = $1", user.id)
+        for admin in self.admins:
+            if admin == user.id:
+                return True
+    
+    async def is_booster(self, user):
+        for booster in self.boosters:
+            if booster == user.id:
+                return True
 
     async def close(self):
         await self.session.close()

@@ -74,9 +74,7 @@ class moderation(commands.Cog, name="Moderation"):
     async def log_delete(self, ctx, data, messages=None):
         check = await self.bot.db.fetchval("SELECT * FROM msgdelete WHERE guild_id = $1", ctx.guild.id)
 
-        if check is None:
-            return
-        elif check is not None:
+        if check is not None:
             channel = await self.bot.db.fetchval("SELECT channel_id FROM msgdelete WHERE guild_id = $1", ctx.guild.id)
             chan = self.bot.get_channel(channel)
             message_history = await chan.send(content='You can either download the logs, or view it in the message below', file=data)
@@ -85,6 +83,8 @@ class moderation(commands.Cog, name="Moderation"):
             text = f"**{messages}** Message(s) were deleted by **{ctx.author}**. You can view those messages here as well: **(BETA)** "
             text += data
             await message_history.edit(content=text)
+        else:
+            pass
 
     async def do_removal(self, ctx, limit, predicate, *, before=None, after=None):
         if limit > 2000:
@@ -219,7 +219,6 @@ class moderation(commands.Cog, name="Moderation"):
 
     @commands.command(brief="Kick members", description="Kick someone from the server")
     @commands.guild_only()
-    @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True, manage_messages=True)
     async def kick(self, ctx, members: commands.Greedy[discord.Member], *, reason: str = None):
@@ -260,7 +259,6 @@ class moderation(commands.Cog, name="Moderation"):
 
     @commands.command(brief="Ban members", description="Ban someone from the server")
     @commands.guild_only()
-    @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True, manage_messages=True)
     async def ban(self, ctx, members: commands.Greedy[discord.Member], *, reason: str = None):
@@ -302,7 +300,6 @@ class moderation(commands.Cog, name="Moderation"):
 
     @commands.command(brief='Ban members that are not in the server')
     @commands.guild_only()
-    @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     async def hackban(self, ctx, user: MemberID, *, reason: str = None):
@@ -324,7 +321,6 @@ class moderation(commands.Cog, name="Moderation"):
 
     @commands.command(brief="Unban members", description="Unban someone from the server")
     @commands.guild_only()
-    @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True, manage_messages=True)
     async def unban(self, ctx, user: BannedMember, *, reason: str=None):
@@ -341,7 +337,6 @@ class moderation(commands.Cog, name="Moderation"):
     
     @commands.command(brief="Unban all members", description="Unban everyone from the server.")
     @commands.guild_only()
-    @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True, use_external_emojis=True, manage_messages=True)
     async def unbanall(self, ctx, *, reason: str=None):
@@ -419,7 +414,6 @@ class moderation(commands.Cog, name="Moderation"):
 
     @commands.command(brief="Softban members", description="Softbans member from the server")
     @commands.guild_only()
-    @commands.cooldown(1, 30, commands.BucketType.user)
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True, manage_messages=True)
     async def softban(self, ctx, user: discord.Member, reason: str = None):
@@ -681,26 +675,53 @@ class moderation(commands.Cog, name="Moderation"):
     async def dehoist(self, ctx, *, nick: str):
         """ Dehoist members with non alphabetic letters """        
         nickname_only = False
-
-        try:           
+        try:
             hoisters = []
-            for member in ctx.guild.members:
+            changed = 0
+            failed = 0
+            error = ""
+            await ctx.send(f'{emotes.loading2} Started dehoisting process...')
+            for hoister in ctx.guild.members:
                 if nickname_only:
-                    if not member.nick: return
-                    name = member.nick
+                    if not hoister.nick: return
+                    name = hoister.nick
                 else:
-                    name = member.display_name
+                    name = hoister.display_name
                 if not name[0].isalnum():
-                    await member.edit(nick=nick)
-                    hoisters.append(f" {member} --> {member.mention} ({member.id})\n")
-            if not hoisters:
-                return await ctx.send("I was unable to find any hosters")
-            text = '**Removed these hoisters:**'
-            for num, hoister in enumerate(hoisters, start=0):
-                text += f"`[{num + 1}]` {hoister}"
-            await ctx.send(text)
+                    try:
+                        await hoister.edit(nick=nick, reason=responsible(ctx.author, 'member was dehoisted.'))
+                        changed += 1
+                        hoisters.append(f"{hoister.mention} ({hoister.id}) - {hoister} ")
+                    except Exception as e:
+                        failed += 1
+                        error += f"• {hoister.mention} ({hoister.id}) - {e}\n"
+                        pass
+            if not hoisters and failed == 0:
+                return await ctx.send(f"{emotes.warning} | No hoisters were found.")
+            
+            if changed == 0 and failed != 0:
+                msg = f"\n\n**I failed to dehoist {failed} member(s):**\n{error}"
+                return await ctx.send(msg[:1980])
+            
+            if len(hoisters) > 20:
+                hoisters = hoisters[:20]
+            msg = f"**Following member(s) were dehoisted: `(Total: {changed})`**"
+            for num, hoist in enumerate(hoisters, start=0):
+                msg += f"\n`[{num+1}]` {hoist}"
+            
+            if changed > 20:
+                msg += "\nSorry, that caps out at 20."
+
+            if failed != 0:
+                msg += f"\n\n**However I failed to dehoist {failed} member(s):**\n{error}"
+            
+            if len(msg) >= 1980:
+                msg = msg[:1980]
+                msg += "... Limit :("
+            await ctx.send(msg)
+                        
         except Exception as e:
-            await ctx.send(f"```diff\n- {e}```")
+            return await ctx.send(e)
     
     @commands.command(brief="Clone text channel", description="Clone text channel in this server")
     @commands.guild_only()
@@ -945,8 +966,14 @@ class moderation(commands.Cog, name="Moderation"):
                 
             if warns_check is not None:
                 user = []
-                for reason, id, time in await self.bot.db.fetch("SELECT reason, id, time FROM warnings WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, member.id):
-                    user.append('**ID:** ' + str(id) + "\n" + '**Reason:** ' + reason + "\n**Warned:** " + str(date(time)) + "\n**────────────────────────**")
+                for reason, id, mod, time in await self.bot.db.fetch("SELECT reason, id, mod_id, time FROM warnings WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, member.id):
+                    mod = ctx.guild.get_member(mod)
+
+                    if mod is not None:
+                        mod = mod
+                    elif mod is None:
+                        mod = 'Unable to track'
+                    user.append('**ID:** ' + str(id) + "\n" + '**Reason:** ' + reason + "\n**Warned:** " + str(date(time)) + "\n**Warned by:** " + str(mod) + "\n**────────────────────────**")
                 
                 members = []
                 for reason in user:
@@ -966,7 +993,8 @@ class moderation(commands.Cog, name="Moderation"):
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
     async def warn(self, ctx, member: discord.Member, *, reason: str = None):
-        """ Warn a member for something """
+        """ Warn a member for something
+        Time will be logged in UTC """
 
         if reason is None:
             reason = "No reason."
@@ -980,7 +1008,7 @@ class moderation(commands.Cog, name="Moderation"):
 
         random_id = random.randint(1111, 99999)
         
-        await self.bot.db.execute("INSERT INTO warnings(user_id, guild_id, id, reason, time) VALUES ($1, $2, $3, $4, $5)", member.id, ctx.guild.id, random_id, reason, datetime.utcnow())
+        await self.bot.db.execute("INSERT INTO warnings(user_id, guild_id, id, reason, time, mod_id) VALUES ($1, $2, $3, $4, $5, $6)", member.id, ctx.guild.id, random_id, reason, datetime.utcnow(), ctx.author.id)
 
         e = discord.Embed(color=self.bot.embed_color, description=f"Successfully warned **{member}** for: **{reason}** with ID: **{random_id}**", delete_after=15)
 
@@ -1089,6 +1117,7 @@ class moderation(commands.Cog, name="Moderation"):
 
     @commands.command(brief='Lockdown the server', hidden=True)
     @commands.guild_only()
+    @commands.is_owner()
     @commands.cooldown(1, 300, commands.BucketType.guild)
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
@@ -1107,8 +1136,8 @@ class moderation(commands.Cog, name="Moderation"):
             if isinstance(channel, discord.CategoryChannel):
                 continue
             try:
-                await channel.set_permissions(ctx.guild.default_role, read_messages = True, send_messages=False, connect=False, reason=responsible(ctx.author, reason))
                 await channel.set_permissions(ctx.guild.me, send_messages=True, reason=responsible(ctx.author, reason))
+                await channel.set_permissions(ctx.guild.default_role, send_messages=False, connect=False, reason=responsible(ctx.author, reason))
                 if isinstance(channel, discord.TextChannel):
                     await channel.send(f"{emotes.locked} **Channel locked for:** {reason}")
                 lock += 1
@@ -1118,8 +1147,9 @@ class moderation(commands.Cog, name="Moderation"):
         
         await ctx.send(f"{emotes.white_mark} Locked {lock} channels")
     
-    @commands.command(brief='Unlockdown the server')
+    @commands.command(brief='Unlockdown the server', hidden=True)
     @commands.guild_only()
+    @commands.is_owner()
     @commands.cooldown(1, 300, commands.BucketType.guild)
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
@@ -1150,7 +1180,7 @@ class moderation(commands.Cog, name="Moderation"):
                         if isinstance(channel, discord.CategoryChannel):
                             continue
                         try:
-                            await channel.set_permissions(ctx.guild.default_role, read_messages = True, send_messages=True, connect=True, reason=responsible(ctx.author, reason))
+                            await channel.set_permissions(ctx.guild.default_role, overwrite=None, reason=responsible(ctx.author, reason))
                             await channel.send(f"{emotes.unlocked} **Channel unlocked for:** {reason}")
                             unlocked += 1
                         except Exception as e:
@@ -1190,24 +1220,6 @@ class moderation(commands.Cog, name="Moderation"):
 
         await ctx.send(f"{emotes.white_mark} Unlocked {unlocked} channels")
         await self.bot.db.execute("DELETE FROM lockdown WHERE guild_id = $1", ctx.guild.id)
-    
-
-    @commands.command(brief='Turn on/off server raid mode')
-    @commands.guild_only()
-    @commands.has_permissions(manage_guild=True)
-    @commands.bot_has_permissions(kick_members=True)
-    async def raidmode(self, ctx):
-        """ Raid is happening in your server? Turn on anti-raider! It'll kick every new member that joins. 
-        It'll also inform them in DMs that server is currently in anti-raid mode and doesn't allow new members! """
-
-        raid_check = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", ctx.guild.id)
-
-        if raid_check == False:
-            await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", True, ctx.guild.id)
-            await ctx.send(f"{emotes.white_mark} Raid mode was activated! New members will get kicked with a message in their DMs")
-        elif raid_check == True:
-            await self.bot.db.execute("UPDATE guilds SET raidmode = $1 WHERE guild_id = $2", False, ctx.guild.id)
-            await ctx.send(f"{emotes.white_mark} Raid mode was deactivated! New members won't be kicked anymore.")
         
             
     
