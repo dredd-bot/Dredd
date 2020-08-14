@@ -17,3 +17,5 @@ Requirements:
 #### Keep in mind you'll need to update discord.py to 1.4.0 to run the bot using `pip3 install -U git+https://github.com/Rapptz/discord.py` (You need to have github installed otherwise it won't work)
 
 [Join my discord server](https://discord.gg/f3MaASW)
+
+[![time tracker](https://wakatime.com/badge/github/TheMoksej/Dredd.svg)](https://wakatime.com/badge/github/TheMoksej/Dredd)
