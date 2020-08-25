@@ -15,7 +15,7 @@ class Booster(commands.Cog):
     async def customprefix(self, ctx, prefix: str):
         """ Set a custom prefix you'll be able to use in any guild """
         await self.bot.db.execute("UPDATE vip SET prefix = $1 WHERE user_id = $2", prefix, ctx.author.id)
-        self.bot.vip_prefixes[ctx.author.id] = prefix
+        self.bot.boosters[ctx.author.id]['custom_prefix'] = prefix
         await ctx.send(f"{emotes.white_mark} Set your new custom prefix to {prefix}")
 
     @commands.group(brief='Manage your media', invoke_without_command=True)

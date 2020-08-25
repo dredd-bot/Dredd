@@ -73,3 +73,35 @@ def test_command():
         return False
     return commands.check(predicate)
 
+class BannedMember(commands.Converter):
+    async def convert(self, ctx, argument):
+        if argument.isdigit():
+            member_id = int(argument, base=10)
+            try:
+                return await ctx.guild.fetch_ban(discord.Object(id=member_id))
+            except discord.NotFound:
+                raise commands.BadArgument('This member has not been banned before.') from None
+
+        elif not argument.isdigit():
+            ban_list = await ctx.guild.bans()
+            entity = discord.utils.find(lambda u: str(u.user.name) == argument, ban_list)
+            if entity is None:
+                raise commands.BadArgument('This member has not been banned before.')
+            return entity
+
+class MemberNotFound(Exception):
+    pass
+
+class MemberID(commands.Converter):
+    async def convert(self, ctx, argument):
+        if not argument.isdigit():
+            raise commands.BadArgument("User needs to be an ID")
+        elif argument.isdigit():
+            member_id = int(argument, base=10)
+            try:
+                ban_check = await ctx.guild.fetch_ban(discord.Object(id=member_id))
+                if ban_check:
+                    raise commands.BadArgument('This user is already banned.') from None
+            except discord.NotFound:
+                return type('_Hackban', (), {'id': argument, '__str__': lambda s: s.id})()
+

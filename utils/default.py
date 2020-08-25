@@ -34,6 +34,8 @@ def traceback_maker(err, advance: bool = True):
     error = ('```py\n{1}{0}: {2}\n```').format(type(err).__name__, _traceback, err)
     return error if advance else f"{type(err).__name__}: {err}"
 
+# def error_send(err)
+
 def next_level(ctx):
     if str(ctx.guild.premium_tier) == "0":
         count = int(2 - ctx.guild.premium_subscription_count)

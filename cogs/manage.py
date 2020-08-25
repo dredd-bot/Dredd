@@ -91,10 +91,22 @@ class Managment(commands.Cog, name="Management"):
         db_check10 = await self.bot.db.fetchval("SELECT guild_id FROM automodaction WHERE guild_id = $1", ctx.guild.id)
         joinmsg = await self.bot.db.fetchval("SELECT msg FROM joinmsg WHERE guild_id = $1", ctx.guild.id)
         leavemsg = await self.bot.db.fetchval("SELECT msg FROM leavemsg WHERE guild_id = $1", ctx.guild.id)
-        # raidmode = await self.bot.db.fetchval("SELECT raidmode FROM guilds WHERE guild_id = $1", ctx.guild.id)
+        raidmode = await self.bot.db.fetchval("SELECT raidmode FROM raidmode WHERE guild_id = $1", ctx.guild.id)
+        raidmodedm = await self.bot.db.fetchval("SELECT dm FROM raidmode WHERE guild_id = $1", ctx.guild.id)
 
-        joinmsg = joinmsg or f"{emotes.joined} ::member.mention:: joined the server! There are ::server.members:: members in the server now."
-        leavemsg = leavemsg or f"{emotes.left} ::member.mention:: left the server... There are ::server.members:: members left in the server."
+        mention = '{{member.mention}}'
+        members = '{{server.members}}'
+        if db_check7:
+            msg = "{0} {1} joined the server! There are {2} members in the server now.".format(emotes.joined, mention, members)
+        elif not db_check7:
+            msg = 'Welcoming messages are disabled'
+        
+        if db_check9:
+            msg1 = "{0} {1} left the server... There are {2} members left in the server.".format(emotes.left, mention, members)
+        elif not db_check9:
+            msg1 = 'Leaving messages are disabled'
+        joinmsg = joinmsg or msg
+        leavemsg = leavemsg or msg1
 
         logs  = f"{f'{emotes.setting_no}' if db_check3 is None else f'{emotes.setting_yes}'} Edited messages\n"
         logs += f"{f'{emotes.setting_no}' if db_check1 is None else f'{emotes.setting_yes}'} Deleted messages\n"
@@ -106,7 +118,9 @@ class Managment(commands.Cog, name="Management"):
         settings = f"{f'{emotes.setting_no}' if db_check8 is None else f'{emotes.setting_yes}'} Role On Join\n"
         settings += f"{f'{emotes.setting_no}' if db_check7 is None else f'{emotes.setting_yes}'} Welcoming Messages\n"
         settings += f"{f'{emotes.setting_no}' if db_check9 is None else f'{emotes.setting_yes}'} Leaving Messages\n"
-        # settings += f"{f'{emotes.setting_no}' if raidmode is False else f'{emotes.setting_yes}'} Raid mode"
+        settings += f"{f'{emotes.setting_no}' if raidmode is False else f'{emotes.setting_yes}'} Raid mode\n"
+        if raidmode is True:
+            settings += f"{f'{emotes.setting_no}' if raidmodedm is False else f'{emotes.setting_yes}'} Raid mode DM"
 
         welcoming = f"**Join message:**\n{joinmsg}\n"
         welcoming += f"**Leave message:**\n{leavemsg}"
@@ -121,7 +135,6 @@ class Managment(commands.Cog, name="Management"):
     
     @commands.command(brief="Log channels", description="Enable logging in your server.")
     @commands.has_permissions(manage_guild=True)
-    @commands.bot_has_permissions(manage_channels=True)
     async def togglelog(self, ctx, option = None, *, channel: discord.TextChannel = None):
         """ Toggle log for the given option.  
         Leaving channel empty will disable the log. 
@@ -129,8 +142,6 @@ class Managment(commands.Cog, name="Management"):
 
         options = ["msgdelete", "msgedit", "moderation", "joinlog", "joinmsg", "leavemsg", "memberupdate"]
         optionsmsg = f'`joinlog`, `memberupdate`, `msgedit`, `msgdelete`, `moderation`, `joinmsg`, `leavemsg`'
-
-
 
         if option is None or option.lower() not in options:
             e = discord.Embed(color=self.bot.embed_color,
@@ -143,7 +154,6 @@ class Managment(commands.Cog, name="Management"):
         db_check = await self.bot.db.fetchval(f"SELECT guild_id FROM {option} WHERE guild_id = $1", ctx.guild.id)           
 
             
-        
         if channel is None:
             await self.bot.db.execute(f"DELETE FROM {option} WHERE guild_id = $1", ctx.guild.id)
             if option.lower() == 'msgedit':
@@ -176,48 +186,51 @@ class Managment(commands.Cog, name="Management"):
                 await ctx.send(f"{emotes.white_mark} Member update logs have been disabled in this server", delete_after=20)
 
         elif channel is not None:
-            if db_check is None:
-                await self.bot.db.execute(f"INSERT INTO {option}(guild_id, channel_id) VALUES ($1, $2)", ctx.guild.id, channel.id)
-            if db_check is not None:
-                await self.bot.db.execute(f"UPDATE {option} SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
-            if option.lower() == 'msgedit':
+            if channel.permissions_for(ctx.guild.me).send_messages == False:
+                return await ctx.send(f"{emotes.warning} I can't let you do that! I don't have permissions to talk in {channel.mention}")
+            elif channel.permissions_for(ctx.guild.me).send_messages:
+                if db_check is None:
+                    await self.bot.db.execute(f"INSERT INTO {option}(guild_id, channel_id) VALUES ($1, $2)", ctx.guild.id, channel.id)
                 if db_check is not None:
-                    return await ctx.send(f"{emotes.white_mark} Message edit logs will be sent to {channel.mention} from now on!", delete_after=20)
-                await ctx.send(f"{emotes.white_mark} Message edit logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
-            elif option.lower() == 'msgdelete':
-                if db_check is not None:
-                    return await ctx.send(f"{emotes.white_mark} Message delete logs will be sent to {channel.mention} from now on!", delete_after=20)
-                await ctx.send(f"{emotes.white_mark} Message delete logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
-            elif option.lower() == 'moderation':
-                if db_check is not None:
-                    return await ctx.send(f"{emotes.white_mark} Moderation logs will be sent to {channel.mention} from now on!", delete_after=20)
-                await ctx.send(f"{emotes.white_mark} Moderation logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
-            elif option.lower() == 'joinlog':
-                if db_check is not None:
-                    return await ctx.send(f"{emotes.white_mark} Join logs will be sent to {channel.mention} from now on!", delete_after=20)
-                await ctx.send(f"{emotes.white_mark} Join logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
-            elif option.lower() == 'joinmsg':
-                if db_check is not None:
-                    return await ctx.send(f"{emotes.white_mark} Welcoming messages will be sent to {channel.mention} from now on!", delete_after=20)
-                await ctx.send(f"{emotes.white_mark} Welcoming messages have been enabled in this server and will be sent to {channel.mention}! You can change the welcoming message by typing `{ctx.prefix}togglemsg welcoming [message]`", delete_after=20)
-            elif option.lower() == 'leavemsg':
-                if db_check is not None:
-                    return await ctx.send(f"{emotes.white_mark} Leaving messages will be sent to {channel.mention} from now on!", delete_after=20)
-                await ctx.send(f"{emotes.white_mark} Leaving messages have been enabled in this server and will be sent to {channel.mention}! You can change the leaving message by typing `{ctx.prefix}togglemsg leaving [message]`", delete_after=20)
-            elif option.lower() == 'memberupdate':
-                if db_check is not None:
-                    return await ctx.send(f"{emotes.white_mark} Member update logs will be sent to {channel.mention} from now on!", delete_after=20)
-                await ctx.send(f"{emotes.white_mark} Member update logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
+                    await self.bot.db.execute(f"UPDATE {option} SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
+                if option.lower() == 'msgedit':
+                    if db_check is not None:
+                        return await ctx.send(f"{emotes.white_mark} Message edit logs will be sent to {channel.mention} from now on!", delete_after=20)
+                    await ctx.send(f"{emotes.white_mark} Message edit logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
+                elif option.lower() == 'msgdelete':
+                    if db_check is not None:
+                        return await ctx.send(f"{emotes.white_mark} Message delete logs will be sent to {channel.mention} from now on!", delete_after=20)
+                    await ctx.send(f"{emotes.white_mark} Message delete logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
+                elif option.lower() == 'moderation':
+                    if db_check is not None:
+                        return await ctx.send(f"{emotes.white_mark} Moderation logs will be sent to {channel.mention} from now on!", delete_after=20)
+                    await ctx.send(f"{emotes.white_mark} Moderation logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
+                elif option.lower() == 'joinlog':
+                    if db_check is not None:
+                        return await ctx.send(f"{emotes.white_mark} Join logs will be sent to {channel.mention} from now on!", delete_after=20)
+                    await ctx.send(f"{emotes.white_mark} Join logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
+                elif option.lower() == 'joinmsg':
+                    if db_check is not None:
+                        return await ctx.send(f"{emotes.white_mark} Welcoming messages will be sent to {channel.mention} from now on!", delete_after=20)
+                    await ctx.send(f"{emotes.white_mark} Welcoming messages have been enabled in this server and will be sent to {channel.mention}! You can change the welcoming message by typing `{ctx.prefix}togglemsg welcoming [message]`", delete_after=20)
+                elif option.lower() == 'leavemsg':
+                    if db_check is not None:
+                        return await ctx.send(f"{emotes.white_mark} Leaving messages will be sent to {channel.mention} from now on!", delete_after=20)
+                    await ctx.send(f"{emotes.white_mark} Leaving messages have been enabled in this server and will be sent to {channel.mention}! You can change the leaving message by typing `{ctx.prefix}togglemsg leaving [message]`", delete_after=20)
+                elif option.lower() == 'memberupdate':
+                    if db_check is not None:
+                        return await ctx.send(f"{emotes.white_mark} Member update logs will be sent to {channel.mention} from now on!", delete_after=20)
+                    await ctx.send(f"{emotes.white_mark} Member update logs have been enabled in this server and will be sent to {channel.mention}!", delete_after=20)
 
     @commands.group(brief="Change the welcoming and leaving messages")
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
     async def togglemsg(self, ctx):
         """ Setup welcoming and leaving messages in your server. 
-        `::member.mention::` - Mentions a member that joined/left
-        `::member.name::` - Displays name of member that joined/left
-        `::server.name::` - Displays server name
-        `::server.members::` - Displays how many members server has """
+        `{{member.mention}}` - Mentions a member that joined/left
+        `{{member.name}}` - Displays name of member that joined/left
+        `{{server.name}}` - Displays server name
+        `{{server.members}}` - Displays how many members server has """
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
 
@@ -423,16 +436,39 @@ class Managment(commands.Cog, name="Management"):
     async def raidmode(self, ctx):
         """ Raid is happening in your server? Turn on anti-raider! It'll kick every new member that joins. 
         It'll also inform them in DMs that server is currently in anti-raid mode and doesn't allow new members!
-        DMs can also be toggled"""
+        DMs can also be toggled on and off. They're always on by default"""
 
         raid_check = await self.bot.db.fetchval("SELECT raidmode FROM raidmode WHERE guild_id = $1", ctx.guild.id)
 
         if raid_check == False:
             await self.bot.db.execute("UPDATE raidmode SET raidmode = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            self.bot.raidmode[ctx.guild.id]['raidmode'] = True
             await ctx.send(f"{emotes.white_mark} Raid mode was activated! New members will get kicked with a message in their DMs")
         elif raid_check == True:
             await self.bot.db.execute("UPDATE raidmode SET raidmode = $1, dm = $2 WHERE guild_id = $3", False, True, ctx.guild.id)
+            self.bot.raidmode[ctx.guild.id]['raidmode'] = False
+            self.bot.raidmode[ctx.guild.id]['dm'] = True
             await ctx.send(f"{emotes.white_mark} Raid mode was deactivated! New members won't be kicked anymore.")
+        
+    @raidmode.command(name='toggledm', aliases=['dm'], brief='Toggle off/on the DM message')
+    @commands.guild_only()
+    @commands.has_permissions(manage_guild=True)
+    async def raidmode_toggledm(self, ctx):
+        """ Toggle DMs on or off if you want user to get informed about the anti raid mode being enabled
+        
+        Note: It's on by default!"""
+        dm_check = await self.bot.db.fetchval("SELECT dm FROM raidmode WHERE guild_id = $1", ctx.guild.id)
+
+        if dm_check == False:
+            await self.bot.db.execute("UPDATE raidmode SET dm = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            self.bot.raidmode[ctx.guild.id]['dm'] = True
+            return await ctx.send(f"{emotes.white_mark} DMs are now enabled! Users will get DMed anti-raid message")
+        elif dm_check == True:
+            await self.bot.db.execute("UPDATE raidmode SET dm = $1 WHERE guild_id = $2", False, ctx.guild.id)
+            self.bot.raidmode[ctx.guild.id]['dm'] = False
+            return await ctx.send(f"{emotes.white_mark} DMs are now disabled! Users won't get DMed anti-raid message")
+        else:
+            return
 
 def setup(bot):
     bot.add_cog(Managment(bot))

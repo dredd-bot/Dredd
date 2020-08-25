@@ -53,18 +53,13 @@ async def run():
 
         boosters = await bot.db.fetch("SELECT * FROM vip")
         for res in boosters:
-            bot.boosters.append(res['user_id'])
+            bot.boosters[res['user_id']] = {'custom_prefix': res['prefix']}
         print(f'[BOOSTERS] Boosters loaded')
 
         prefixes = await bot.db.fetch("SELECT * FROM guilds")
         for res in prefixes:
             bot.prefixes[res['guild_id']] = res['prefix']
         print(f'[PREFIXES] Prefixes loaded')
-
-        vip_prefixes = await bot.db.fetch("SELECT * FROM vip")
-        for res in vip_prefixes:
-            bot.vip_prefixes[res['user_id']] = res['prefix']
-        print(f'[BOOSTER PREFIXES] Prefixes loaded')
 
         blacklist_user = await bot.db.fetch("SELECT * FROM blacklist")
         for user in blacklist_user:
@@ -79,23 +74,28 @@ async def run():
 
 
         afk_user = await bot.db.fetch("SELECT * FROM userafk")
-        for user in afk_user:
-            #bot.afk_users[user['user_id'], user['guild_id']] = [user['message']]
-            bot.afk_users.append((user['user_id'], user['guild_id'], user['message'], user['time']))
+        for res in afk_user:
+            #bot.afk_users[res['user_id']] = {'time': res['time'], 'guild': res['guild_id'], 'message': res['message']}
+            bot.afk_users.append((res['user_id'], res['guild_id'], res['message'], res['time']))
         print(f'[AFK] AFK users loaded [{len(afk_user)}]')
 
 
-        temp_mutees = await bot.db.fetch("SELECT * FROM moddata")
-        for res in temp_mutees:
+        temp_mutes = await bot.db.fetch("SELECT * FROM moddata")
+        for res in temp_mutes:
             if res['time'] is None:
                 continue
             bot.temp_timer.append((res['guild_id'], res['user_id'], res['mod_id'], res['reason'], res['time'], res['role_id']))
-        print(f'[TEMP MUTE] Mutees loaded [{len(temp_mutees)}]')
+        print(f'[TEMP MUTE] Mutes loaded [{len(bot.temp_timer)}]')
 
         automod = await bot.db.fetch("SELECT * FROM automods")
         for res in automod:
             bot.automod[res['guild_id']] = res['punishment']
         print(f"[AUTOMOD] Automod settings loaded")
+
+        raid_mode = await bot.db.fetch("SELECT * FROM raidmode")
+        for res in raid_mode:
+            bot.raidmode[res['guild_id']] = {'raidmode': res['raidmode'], 'dm': res['dm']}
+        print(f'[RAID MODE] raid mode settings loaded')
 
         case = await bot.db.fetch("SELECT * FROM modlog")
         for res in case:
@@ -111,7 +111,7 @@ async def run():
 async def get_prefix(bot, message):
     if not message.guild:
         if await bot.is_booster(message.author):
-            cprefix = bot.vip_prefixes[message.author.id]
+            cprefix = bot.boosters[message.author.id]['custom_prefix']
             custom_prefix = [cprefix, '!']
             return custom_prefix
         else:
@@ -127,7 +127,7 @@ async def get_prefix(bot, message):
                 custom_prefix = ['d ', prefix]
                 return commands.when_mentioned_or(*custom_prefix)(bot, message)
             elif await bot.is_booster(message.author):
-                cprefix = bot.vip_prefixes[message.author.id]
+                cprefix = bot.boosters[message.author.id]['custom_prefix']
                 custom_prefix = [cprefix, prefix]
                 return commands.when_mentioned_or(*custom_prefix)(bot, message)
         except TypeError:
@@ -188,10 +188,10 @@ class Bot(commands.AutoShardedBot):
         self.automod_color = 0xb54907 #b54907
         self.logging_color = 0xE08C0B #E08C0B
         self.memberlog_color = 0x55d655 #55d655
-        self.join_color = 0xEE621B #EE621B
+        self.join_color = 0x0B145B #0B145B
 
         self.support = 'https://discord.gg/f3MaASW'
-        self.invite = '<https://discordapp.com/oauth2/authorize?client_id=667117267405766696&scope=bot&permissions=477588727>'
+        self.invite = '<https://discord.com/oauth2/authorize?client_id=667117267405766696&scope=bot&permissions=477588727&redirect_uri=https%3A%2F%2Fdiscord.gg%2Ff3MaASW&response_type=code>'
         self.privacy = '<https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md>'
         self.license = '<https://github.com/TheMoksej/Dredd/blob/master/LICENSE>'
         
@@ -201,6 +201,8 @@ class Bot(commands.AutoShardedBot):
         self.prefixes = {}
         self.vip_prefixes = {}
 
+        self.guilds_data = {}
+
         self.loop = asyncio.get_event_loop()
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.blacklisted_guilds = {}
@@ -208,14 +210,15 @@ class Bot(commands.AutoShardedBot):
         self.informed_times = []
         self.afk_users = []
         self.temp_timer = []
+        self.dm = {}
 
         self.automod = {}
         self.case_num = {}
-        self.raidmode = []
+        self.raidmode = {}
 
         self.owners = []
         self.admins = []
-        self.boosters = []
+        self.boosters = {}
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)
@@ -236,9 +239,11 @@ class Bot(commands.AutoShardedBot):
                 return True
     
     async def is_booster(self, user):
-        for booster in self.boosters:
-            if booster == user.id:
+        try:
+            if self.boosters[user.id]:
                 return True
+        except:
+            pass
 
     async def close(self):
         await self.session.close()
@@ -277,10 +282,34 @@ class Bot(commands.AutoShardedBot):
             except discord.NotFound:
                 return
 
-    async def temp_punishment(self, guild: int, user: int, mod: int, reason: str, time: int, role: int):
+    async def temp_punishment(self, guild: int, user: int, mod: int, reason: str, time, role: int):
         await self.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id) VALUES($1, $2, $3, $4, $5, $6)", guild, user, mod, reason, time, role)
 
         self.temp_timer.append((guild, user, mod, reason, time, role))
+    
+    async def log_temp_unmute(self, guild=None, mod=None, member=None, reason=None):
+        check = await self.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", guild.id)
+
+        if check is None:
+            return
+        elif check is not None:
+            channel = await self.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
+            case = await self.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", guild.id)
+            chan = self.get_channel(channel)
+
+            if case is None:
+                await self.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", guild.id, 1)
+
+            casenum = await self.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", guild.id)
+
+            e = discord.Embed(color=self.logging_color, description=f"{emotes.log_memberedit} **{member}** unmuted `[#{casenum}]`")
+            e.add_field(name="Previously muted by:", value=f"{mod} ({mod.id})", inline=False)
+            e.add_field(name="Reason:", value=f"{reason}", inline=False)
+            e.set_thumbnail(url=member.avatar_url_as(format='png'))
+            e.set_footer(text=f"Member ID: {member.id}")
+
+            await chan.send(embed=e)
+            await self.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", guild.id)
 
 
 

@@ -15,10 +15,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import discord
 import itertools
+import asyncio
 from discord.ext import commands
 from utils.paginator import Pages
 from db import emotes
-
+from utils.default import traceback_maker
 def setup(bot):
     bot.help_command = HelpCommand()
 
@@ -122,14 +123,16 @@ class HelpCommand(commands.HelpCommand):
         boats = "[discord.boats](https://discord.boats/bot/667117267405766696/vote)"
         privacy = "[Privacy Policy](https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md)"
 
-        def check(m):
-            return m.author == self.context.author
-        
+
         emb = discord.Embed(color=self.context.bot.embed_color)
         emb.description = f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.boats} {boats} | {emotes.discord_privacy} {privacy}\n\n**Made by:** {Moksej}\n{prefix}\n"
 
+        def check(r, u):
+            return u.id == self.context.author.id and r.message.id == msg.id
+
 
         exts = []
+        to_react = []
         for extension in self.context.bot.cogs.values():
             if extension.qualified_name in self.ignore_cogs:
                 continue
@@ -142,6 +145,7 @@ class HelpCommand(commands.HelpCommand):
             if extension.qualified_name in self.vip_cogs and not await self.context.bot.is_booster(self.context.author):
                 continue
             exts.append(f"{extension.help_icon} **{extension.qualified_name}**")
+            to_react.append(f"{extension.help_icon}")
 
         # emb.description += f'\n{exts}'
         #emb.set_author(name=self.context.bot.user, icon_url=self.context.bot.user.avatar_url)
@@ -159,8 +163,42 @@ class HelpCommand(commands.HelpCommand):
         emb.add_field(name='📰 **Latest news**', value=f"{updates}", inline=False)
         
         emb.set_footer(text=f"- You can type {self.clean_prefix}help <command> to see that command help and {self.clean_prefix}help <category> to see that category commands")
-
-        await self.context.send(embed=emb)
+        msg = await self.context.send(embed=emb)
+        try:
+            if self.context.guild:
+                for reaction in to_react:
+                    await msg.add_reaction(reaction)
+                cog_emojis = {
+                    "<:staff:706190137058525235>": 'Staff',
+                    "<:automod:701056320673153034>": 'Automod',
+                    "<:booster:686251890027266050>": 'Booster',
+                    "<:funn:747192603564441680>": 'Fun',
+                    "<:tag:686251889586864145>": 'Info',
+                    "<:settingss:695707235833085982>": 'Management',
+                    "<:etaa:747192603757248544>": 'Misc',
+                    "<:bann:747192603640070237>": 'Moderation',
+                    "<:owners:691667205082841229>": 'Owner'
+                }
+                react, user = await self.context.bot.wait_for('reaction_add', check=check, timeout=300.0)
+                # Thanks @Dutchy#6127 
+                try:
+                    if cog_emojis[str(react)]:
+                        pass
+                except:
+                    return
+                await msg.delete()
+                await self.context.send_help(self.context.bot.get_cog(cog_emojis[str(react)]))
+        except asyncio.TimeoutError:
+            try:
+                await msg.clear_reactions()
+            except:
+                return
+        except Exception as e:
+            try:
+                print(traceback_maker(e))
+            except:
+                pass
+            pass
 
     
     async def send_command_help(self, command):
@@ -186,11 +224,14 @@ class HelpCommand(commands.HelpCommand):
         if await self.context.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(command)) and not await self.context.bot.is_admin(self.context.author):
             return await self.send_error_message(f"{emotes.warning} This command is temporarily disabled for maintenance.")
         
+        if await self.context.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(f"{command.parent} {command.name}")) and not await self.context.bot.is_admin(self.context.author):
+            return await self.send_error_message(f"{emotes.warning} This command is temporarily disabled for maintenance.")
+        
         if command.hidden == True:
             return await self.send_error_message(self.command_not_found(command.name))
 
-        aliases = "" + '`, `'.join(command.aliases) + "`"
-        if aliases == "``" or '`':
+        aliases = '`' + '`, `'.join(command.aliases) + "`"
+        if aliases == "``" or aliases == '`':
             aliases = "No aliases were found"
         
         if command.help:
@@ -221,8 +262,11 @@ class HelpCommand(commands.HelpCommand):
 
         sub_cmd_list = ""
         for group_command in group.commands:
-            if self.context.guild and await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(group_command.root_parent)) and self.context.author.guild_permissions.administrator == False and not await self.context.bot.is_owner(self.context.author):
+            if self.context.guild and await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(group_command.root_parent)) and self.context.author.guild_permissions.administrator == False and not await self.context.bot.is_admin(self.context.author):
                 return await self.send_error_message(f"{emotes.warning} Command is disabled in this server, which is why I can't show you the help of it.")
+            
+            if await self.context.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(group_command.root_parent)) and not await self.context.bot.is_admin(self.context.author):
+                return await self.send_error_message(f"{emotes.warning} Command is temporarily disabled, which is why I can't show you the help of it.")
             
             sub_cmd_list += '**' + group_command.name + f'**, '
             if group_command.root_parent == "jishaku":
@@ -266,12 +310,14 @@ class HelpCommand(commands.HelpCommand):
                 continue
             if await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(cmd)):
                 continue
+            if await self.context.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd)):
+                continue
             if cmd.short_doc is None:
                 brief = 'No info'
             else:
                 brief = cmd.short_doc
             
-            if not cmd.hidden or not await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(cmd)):
+            if not cmd.hidden or not await self.context.bot.db.fetchval("SELECT * FROM guilddisabled WHERE guild_id = $1 AND command = $2", self.context.guild.id, str(cmd)) or not await self.context.bot.db.fetchval("SELECT * FROM cmds WHERE command = $1", str(cmd)):
                 c += 1
 
             commands.append(f"`{cmd.qualified_name}` - {brief}\n")

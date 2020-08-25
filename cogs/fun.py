@@ -34,8 +34,8 @@ class fun(commands.Cog, name="Fun"):
     def __init__(self, bot):
         self.bot = bot
         self._last_result = None
-        self.help_icon = "<:funn:695710705932042244>"
-        self.big_icon = "https://cdn.discordapp.com/emojis/695710705932042244.png?v=1"
+        self.help_icon = "<:funn:747192603564441680>"
+        self.big_icon = "https://cdn.discordapp.com/emojis/747192603564441680.png?v=1"
         self.blacklisted_words = ['nigger', 'niger', 'niga', 'n1ga', 'n1gg3r', 'n1g3r', 'retard', 'r3tard', 'r3tard3d', 'retarded']
 
     async def api_img_creator(self, ctx, url, filename, content=None):

@@ -18,6 +18,7 @@ import datetime
 import re
 import traceback
 import json
+import asyncio
 from discord.ext import commands
 from utils import default
 from datetime import datetime
@@ -202,10 +203,10 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 pass
             if message:
                 joinmessage = str(message)
-                joinmessage = joinmessage.replace("::member.mention::", member.mention)
-                joinmessage = joinmessage.replace("::member.name::", member.name)
-                joinmessage = joinmessage.replace("::server.name::", member.guild.name)
-                joinmessage = joinmessage.replace("::server.members::", str(member.guild.member_count))
+                joinmessage = joinmessage.replace("{{member.mention}}", member.mention)
+                joinmessage = joinmessage.replace("{{member.name}}", discord.utils.escape_markdown(member.name, as_needed=True))
+                joinmessage = joinmessage.replace("{{server.name}}", member.guild.name)
+                joinmessage = joinmessage.replace("{{server.members}}", str(member.guild.member_count))
             elif message is None:
                 joinmessage = f"{emotes.joined} {member.mention} joined the server! There are {member.guild.member_count} members in the server now."
             # Welcome msg
@@ -271,10 +272,10 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 pass
             if message:
                 leavemessage = str(message)
-                leavemessage = leavemessage.replace("::member.mention::", member.mention)
-                leavemessage = leavemessage.replace("::member.name::", member.name)
-                leavemessage = leavemessage.replace("::server.name::", member.guild.name)
-                leavemessage = leavemessage.replace("::server.members::", str(member.guild.member_count))
+                leavemessage = leavemessage.replace("{{member.mention}}", member.mention)
+                leavemessage = leavemessage.replace("{{member.name}}", discord.utils.escape_markdown(member.name, as_needed=True))
+                leavemessage = leavemessage.replace("{{server.name}}", member.guild.name)
+                leavemessage = leavemessage.replace("{{server.members}}", str(member.guild.member_count))
             elif message is None:
                 leavemessage = f"{emotes.left} {member.mention} left the server... There are {member.guild.member_count} members left in the server."
 
@@ -307,8 +308,8 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 deleted = ""
                 reason = ""
                 async for entry in member.guild.audit_logs(limit=1, action=discord.AuditLogAction.kick):
-                    deleted += f"{entry.user} ({entry.user.id})"
                     if entry.target == member:
+                        deleted += f"{entry.user} ({entry.user.id})"
                         reason += f"{entry.reason}"
                     #print(entry)
             except Exception as e:
@@ -435,6 +436,8 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
     @commands.Cog.listener()
     async def on_member_ban(self, guild, user):
 
+        await asyncio.sleep(2)
+
         db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM moderation WHERE guild_id = $1", guild.id)
         logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
         try:
@@ -451,10 +454,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         try:
             deleted = ""
             reason = ""
-            async for entry in guild.audit_logs(action=discord.AuditLogAction.ban, limit=1):
-                deleted += f"{entry.user} ({entry.user.id})"
+            async for entry in guild.audit_logs(action=discord.AuditLogAction.ban, limit=50):
                 if entry.target == user:
-                    reason += f"{entry.reason}"
+                    if (datetime.utcnow() - entry.created_at).total_seconds() < 10:
+                        deleted += f"{entry.user} ({entry.user.id})"
+                        reason += f"{entry.reason}"
         except Exception as e:
             print(e)
             pass
@@ -482,6 +486,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
     @commands.Cog.listener()
     async def on_member_unban(self, guild, user):
+        await asyncio.sleep(2)
 
         db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM moderation WHERE guild_id = $1", guild.id)
         logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
@@ -498,10 +503,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         try:
             deleted = ""
             reason = ""
-            async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=1):
-                deleted += f"{entry.user} ({entry.user.id})"
+            async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=50):
                 if entry.target == user:
-                    reason += f"{entry.reason}"
+                    if (datetime.utcnow() - entry.created_at).total_seconds() < 10:
+                        deleted += f"{entry.user} ({entry.user.id})"
+                        reason += f"{entry.reason}"
         except Exception as e:
             print(e)
             pass

@@ -227,8 +227,10 @@ class info(commands.Cog, name="Info"):
         embed.set_author(icon_url=ctx.guild.icon_url,
                          name=f"Server Information")
         if ranks:
-            embed.title = ' '.join(ranks)
-        embed.add_field(name="__**General Information**__", value=f"**Guild name:** {ctx.guild.name}\n**Guild ID:** {ctx.guild.id}\n**Guild Owner:** {ctx.guild.owner}\n**Guild Owner ID:** {ctx.guild.owner.id}\n**Created at:** {default.date(ctx.guild.created_at)}\n**Region:** {str(ctx.guild.region).title()}\n**MFA:** {mfa}\n**Verification level:** {str(ctx.guild.verification_level).capitalize()}", inline=True)
+            acknowledgements = '**Acknowledgements:** ' + ' '.join(ranks)
+        else:
+            acknowledgements = ''
+        embed.add_field(name="__**General Information**__", value=f"**Guild name:** {ctx.guild.name}\n**Guild ID:** {ctx.guild.id}\n**Guild Owner:** {ctx.guild.owner}\n**Guild Owner ID:** {ctx.guild.owner.id}\n**Created at:** {default.date(ctx.guild.created_at)}\n**Region:** {str(ctx.guild.region).title()}\n**MFA:** {mfa}\n**Verification level:** {str(ctx.guild.verification_level).capitalize()}\n{acknowledgements}", inline=True)
         embed.add_field(name="__**Other**__", value=f"**Members:**\n{emotes.online_status} **{unique_online:,}**\n{emotes.idle_status} **{unique_idle:,}**\n{emotes.dnd_status} **{unique_dnd:,}**\n{emotes.streaming_status} **{unique_streaming:,}**\n{emotes.offline_status} **{unique_offline:,}**\n**Total:** {tot_mem:,} ({humann:,} Humans/{botts:,} Bots)\n**Channels:** {emotes.other_unlocked} {len(ctx.guild.text_channels)}/{emotes.other_vcunlock} {len(ctx.guild.voice_channels)}\n**Roles:** {len(ctx.guild.roles)}", inline=True)
         embed.add_field(name='__**Server boost status**__',
                         value=nitromsg, inline=False)
@@ -257,8 +259,10 @@ class info(commands.Cog, name="Info"):
 
         if info:
             embed.add_field(name="__**Features**__", value=', '.join(info))
-        if ctx.guild.icon:
+        if not ctx.guild.is_icon_animated():
             embed.set_thumbnail(url=ctx.guild.icon_url_as(format="png"))
+        elif ctx.guild.is_icon_animated():
+            embed.set_thumbnail(url=ctx.guild.icon_url_as(format="gif"))
         if ctx.guild.banner:
             embed.set_image(url=ctx.guild.banner_url_as(format="png"))
 
@@ -309,7 +313,7 @@ class info(commands.Cog, name="Info"):
             bot = "No"
         
         if badge_list:
-            discord_badges = '\n**Discord badges:** ' + ' '.join(badge_list)
+            discord_badges = ' '.join(badge_list)
         elif not badge_list:
             discord_badges = ''
         medias = ""
@@ -328,7 +332,7 @@ class info(commands.Cog, name="Info"):
                 medias += f"{emotes.social_steam} "
             elif media['media_type'] == "snapchat":
                 medias += f"{emotes.social_snapchat} "
-            medias += f"[{media['media_type'].capitalize()}]({media['media_link']}) \n"
+            medias += f"[{media['media_type'].title()}]({media['media_link']}) \n"
         
         if len(medias) > 1024:
             medias = medias[1020]
@@ -391,9 +395,11 @@ class info(commands.Cog, name="Info"):
             
             emb = discord.Embed(color=self.bot.embed_color)
             if ranks:
-                emb.title = ''.join(ranks)
+                acknowledgements = '**Acknowledgements:** ' + ' '.join(ranks)
+            else:
+                acknowledgements = ''
             emb.set_author(icon_url=user.avatar_url, name=f"{user}'s information")
-            emb.add_field(name="__**General Info:**__", value=f"**Full name:** {user}\n**User ID:** {user.id}\n**Account created:** {user.created_at.__format__('%A %d %B %Y, %H:%M')}\n**Bot:** {bot}\n**Avatar URL:** [Click here]({user.avatar_url}){discord_badges}", inline=False)
+            emb.add_field(name="__**General Info:**__", value=f"**Full name:** {user} {discord_badges}\n**User ID:** {user.id}\n**Account created:** {user.created_at.__format__('%A %d %B %Y, %H:%M')}\n**Bot:** {bot}\n**Avatar URL:** [Click here]({user.avatar_url})\n{acknowledgements}", inline=False)
             emb.add_field(name="__**Activity Status:**__", value=f"**Status:** {ustatus}\n**Activity status:** {default.member_activity(usercheck)}", inline=False)
             emb.add_field(name="__**Server Info:**__", value=f"**Nickname:** {escape_markdown(nick, as_needed=True)}\n**Latest nicknames:** {escape_markdown(lnicks, as_needed=True)}\n**Joined at:** {default.date(usercheck.joined_at)}\n**Roles: ({len(usercheck.roles) - 1}) **" + ", ".join(uroles), inline=True)    
             if user.is_avatar_animated() == False:

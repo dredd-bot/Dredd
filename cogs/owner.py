@@ -32,6 +32,7 @@ from utils import default, btime
 from utils.paginator import Pages, TextPages
 from prettytable import PrettyTable
 from db import emotes
+from datetime import datetime
 
 class owner(commands.Cog, name="Owner"):
 
@@ -44,11 +45,12 @@ class owner(commands.Cog, name="Owner"):
         self.api.set_auth("discordextremelist.xyz", config.DEL_TOKEN)
         self.api.set_auth("discord.bots.gg",  config.DBGG_TOKEN)
         self.api.set_auth("discord.boats",  config.DBoats_TOKEN)
-        self.api.set_auth("wonderbotlist.com",  config.WONDER_TOKEN)
         self.api.set_auth("glennbotlist.xyz",  config.GLENN_TOKEN)
         self.api.set_auth("mythicalbots.xyz",  config.MYTH_TOKEN)
         self.api.set_auth("botsfordiscord.com", config.BFD_TOKEN)
         self.api.set_auth("botlist.space", config.BOTSPACE_TOKEN)
+        # self.api.set_auth("dblista.pl", config.DBLIST_TOKEN)
+        # self.api.set_auth("bots.discordbotlabs.org", config.DLABS_TOKEN)
         self.api.start_loop()
 
     async def cog_check(self, ctx: commands.Context):
@@ -155,7 +157,6 @@ class owner(commands.Cog, name="Owner"):
             if guild is not None:
                 def check(r, u):
                     return u.id == ctx.author.id and r.message.id == checkmsg.id
-                
                 db_checks = await self.bot.db.fetch("SELECT * FROM nicknames WHERE user_id = $1 and guild_id = $2", user.id, guild)
                     
                 g = self.bot.get_guild(guild)
@@ -853,6 +854,22 @@ class owner(commands.Cog, name="Owner"):
         
         except Exception as e:
             await ctx.send(e)
+    
+    @dev.command(brief='Put bot into maintenance mode')
+    async def maintenance(self, ctx):
+        with open('db/lockdown.json', 'r') as f:
+            data = json.load(f)
+        
+        if data['lockdown'] == 'True':
+            data['lockdown'] = 'False'
+            await ctx.send(f"{emotes.white_mark} Bot is out of maintenance mode now.")
+        elif data['lockdown'] == 'False':
+            data['lockdown'] = 'True'
+            await ctx.send(f"{emotes.white_mark} Bot is in maintenance mode now.")
+        
+        with open('db/lockdown.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
+
 
 # ! Cog managment
     @dev.group(brief="Cog managment", description="Manage cogs.")
@@ -989,7 +1006,7 @@ class owner(commands.Cog, name="Owner"):
             await ctx.send("Request failed: `{}`".format(e))
             return
 
-        
+        print(result['failure'])
         await ctx.send("Successfully manually posted server count ({:,}) to {:,} lists."
                        "\nFailed to post server count to {} lists.".format(self.api.server_count,
                                                                              len(result["success"].keys()),
@@ -1175,8 +1192,7 @@ class owner(commands.Cog, name="Owner"):
         with open('db/badges.json', 'w') as f:
             data = json.dump(data, f, indent=4)
         await self.bot.db.execute("INSERT INTO vip(user_id, prefix) VALUES($1, $2)", user.id, '-')
-        self.bot.vip_prefixes[user.id] = '-'
-        self.bot.boosters.append(user.id)
+        self.bot.boosters[user.id] = {'custom_prefix': '-'}
         g = self.bot.get_guild(671078170874740756)
         role = g.get_role(686259869874913287)
         m = g.get_member(user.id)
@@ -1205,8 +1221,7 @@ class owner(commands.Cog, name="Owner"):
         with open('db/badges.json', 'w') as f:
             data = json.dump(data, f, indent=4)
         await self.bot.db.execute("DELETE FROM vip WHERE user_id = $1", user.id)
-        self.bot.vip_prefixes.pop(user.id)
-        self.bot.boosters.remove(user.id)
+        self.bot.boosters.pop(user.id)
         g = self.bot.get_guild(671078170874740756)
         role = g.get_role(686259869874913287)
         m = g.get_member(user.id)
@@ -1216,6 +1231,123 @@ class owner(commands.Cog, name="Owner"):
             pass
 
         await ctx.send(f"{emotes.white_mark} Removed {user.mention} ({user} ({user.id})) from boosters list!")
+    
+    @commands.group(brief='Manage partners', invoke_without_command=True)
+    async def partner(self, ctx):
+        """ Manage partners """
+        await ctx.send_help(ctx.command)
+    
+    @partner.command(brief='Add a partner', name='add')
+    async def partner_add(self, ctx, partner: discord.User, ptype: str):
+
+        if partner.bot:
+            return await ctx.send(f"{emotes.red_mark} Can't let you do that! It's a bot!")
+        
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+        badge = emotes.bot_partner
+        try:
+            if badge in data['Users'][f'{partner.id}']["Badges"]:
+                return await ctx.send(f"{emotes.warning} User is already our partner!")
+        except KeyError:
+            pass
+        try:
+            def check(m):
+                return m.author == ctx.author and m.channel.id == ctx.channel.id
+            
+            def check2(r, u):
+                return u.id == ctx.author.id and r.message.id == msg.id
+            
+            support_server = self.bot.get_guild(671078170874740756)
+            partner_channel = support_server.get_channel(698903601933975625)
+            partner_remind_role = support_server.get_role(741749103280783380)
+            partner_role = support_server.get_role(683288670467653739)
+            partner_member = support_server.get_member(partner.id)
+
+            msg = await ctx.channel.send(f"{emotes.loading2} Waiting for partner message...")
+            message = await self.bot.wait_for('message', check=check)
+
+            e = discord.Embed(color=self.bot.embed_color, title='Are you sure?')
+            if message.content.lower() == "cancel":
+                await message.delete()
+                return await msg.edit(content=f"{emotes.white_mark} Cancelled..", delete_after=15)
+            else:
+                e.description = f"{message.content}"
+            
+            await msg.edit(content='', embed=e)
+            await msg.add_reaction(f"{emotes.white_mark}")
+            await msg.add_reaction(f"{emotes.red_mark}")
+            react, user = await self.bot.wait_for('reaction_add', check=check2)
+
+            if str(react) == f"{emotes.white_mark}":
+                with open('db/badges.json', 'r') as f:
+                    data = json.load(f)
+                badge = emotes.bot_partner
+                try:
+                    if badge not in data['Users'][f'{partner.id}']["Badges"]:
+                        data['Users'][f'{partner.id}']["Badges"] += [badge]
+                except KeyError:
+                    data['Users'][f"{partner.id}"] = {"Badges": [badge]}
+
+                with open('db/badges.json', 'w') as f:
+                    data = json.dump(data, f, indent=4)
+                
+                msgs = f"{partner_remind_role.mention}\n\n{message.content}"
+                try:
+                    await partner_member.add_roles(partner_role, reason='user is now a our partner!')
+                except Exception as e:
+                    print(default.traceback_maker(e, advance=True))
+                    pass
+                try:
+                    await partner.send(f"{emotes.bot_partner} Congratulations! You're now partnered with me!")
+                except:
+                    pass
+
+                await partner_channel.send(content=msgs, allowed_mentions=discord.AllowedMentions(roles=True))
+
+                try:
+                    await msg.clear_reactions()
+                except:
+                    pass
+                await self.bot.db.execute("INSERT INTO partners(user_id, partner_type, partner_message, partnered_since) VALUES($1, $2, $3, $4)", partner.id, ptype, msg, datetime.now())
+                return await msg.edit(content="OK!", embed=None)
+                
+            elif str(react) == f"{emotes.red_mark}":
+                try:
+                    await msg.clear_reactions()
+                except:
+                    pass
+                return await msg.edit(content='Sure, reinvoke this command then.', embed=None)
+        except Exception as e:
+            return await ctx.send(default.traceback_maker(e, advance=True))
+    
+    @partner.command(brief='Remove a partner', name='remove')
+    async def partner_remove(self, ctx, partner: discord.User):
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+        badge = emotes.bot_partner
+        try:
+            if badge not in data['Users'][f'{partner.id}']["Badges"]:
+                return await ctx.send(f"{emotes.warning} User is not our partner!")
+        except KeyError:
+            pass
+
+        support_server = self.bot.get_guild(671078170874740756)
+        partner_channel = support_server.get_channel(698903601933975625)
+        partner_role = support_server.get_role(683288670467653739)
+        partner_member = support_server.get_member(partner.id)
+
+        try:
+            data['Users'][f'{partner.id}']['Badges'].remove(badge)
+        except KeyError:
+            pass
+        with open('db/badges.json', 'w') as f:
+           data = json.dump(data, f, indent=4)
+        if partner_member:
+            await partner_member.remove_roles(partner_role, reason='user is not our partner no more')
+
+        await ctx.send(f"{emotes.white_mark} Removed {partner} from our partner list. Now go ahead and delete their partner message in {partner_channel.mention} if you haven't yet.")
+        await self.bot.db.execute("DELETE FROM partners WHERE user_id = $1", partner.id)
 
 
 def setup(bot):

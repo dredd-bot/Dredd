@@ -16,6 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import time
 from discord.ext import commands, tasks
+from datetime import datetime
 from db import emotes
 
 
@@ -38,10 +39,10 @@ class Background(commands.Cog, name="BG"):
 
             if case is None:
                 await self.bot.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", guild.id, 1)
+                self.bot.case_num[guild.id] = 1
 
-            casenum = await self.bot.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", guild.id)
-
-            e = discord.Embed(color=self.bot.logging_color, description=f"{emotes.log_memberedit} **{member}** unmuted `[#{casenum}]`")
+            casenum = self.bot.case_num[guild.id]
+            e = discord.Embed(color=self.bot.logging_color, description=f"{emotes.log_memberedit} **{member}** unmuted `[#{str(casenum)}]`")
             e.add_field(name="Previously muted by:", value=f"{mod} ({mod.id})", inline=False)
             e.add_field(name="Reason:", value=f"{reason}", inline=False)
             e.set_thumbnail(url=member.avatar_url_as(format='png'))
@@ -49,14 +50,18 @@ class Background(commands.Cog, name="BG"):
 
             await chan.send(embed=e)
             await self.bot.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", guild.id)
+            self.bot.case_num[guild.id] += 1
 
     def cog_unload(self):
         self.temp_mute.cancel()
 
+    # yes this is unprofessional way, but don't blame me ok. Thanks
     @tasks.loop(seconds=1)
     async def temp_mute(self):
         for guild, user, mod, reason, timed, roleid in self.bot.temp_timer:
-            if timed and timed - time.time() <= 0:
+            now = datetime.utcnow()
+            seconds = (timed - now).total_seconds()
+            if timed and seconds <= 0:
                 try:
                     g = self.bot.get_guild(guild)
                     m = g.get_member(user)

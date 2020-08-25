@@ -34,7 +34,6 @@ class automod(commands.Cog, name="Automod"):
     @commands.command(brief="Automod log channel")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
-    @commands.bot_has_permissions(manage_channels=True)
     async def logchannel(self, ctx, channel: discord.TextChannel = None):
         """ Choose where automod actions will be sent to. """
         
@@ -51,12 +50,15 @@ class automod(commands.Cog, name="Automod"):
             await ctx.send(f"{emotes.red_mark} You aren't logging automod actions.")
         
         if channel is not None:
-            if db_check is None:
-                await self.bot.db.execute(f"INSERT INTO automodaction(guild_id, channel_id) VALUES ($1, $2)", ctx.guild.id, channel.id)
-                await ctx.send(f"{emotes.white_mark} Automod actions will be sent to {channel.mention}", delete_after=15)
-            elif db_check is not None:
-                await self.bot.db.execute(f"UPDATE automodaction SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
-                await ctx.send(f"{emotes.white_mark} Automod actions will be sent to {channel.mention} from now on!", delete_after=15)
+            if channel.permissions_for(ctx.guild.me).send_messages == False:
+                return await ctx.send(f"{emotes.warning} I can't let you do that! I don't have permissions to talk in {channel.mention}")
+            elif channel.permissions_for(ctx.guild.me).send_messages:
+                if db_check is None:
+                    await self.bot.db.execute(f"INSERT INTO automodaction(guild_id, channel_id) VALUES ($1, $2)", ctx.guild.id, channel.id)
+                    await ctx.send(f"{emotes.white_mark} Automod actions will be sent to {channel.mention}", delete_after=15)
+                elif db_check is not None:
+                    await self.bot.db.execute(f"UPDATE automodaction SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
+                    await ctx.send(f"{emotes.white_mark} Automod actions will be sent to {channel.mention} from now on!", delete_after=15)
         
     @commands.command(brief="Toggle automod", description="Enable automod in your server")
     @commands.guild_only()
@@ -436,6 +438,7 @@ class automod(commands.Cog, name="Automod"):
     @commands.command(brief="Automod settings in guild", aliases=['autosettings', 'autoinfo'])
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def automodsettings(self, ctx):
+        """ Check automod settings in your server """
 
         db_check1 = await self.bot.db.fetchval("SELECT punishment FROM automods WHERE guild_id = $1", ctx.guild.id)
         db_check2 = await self.bot.db.fetchval('SELECT punishment FROM caps WHERE guild_id = $1', ctx.guild.id)

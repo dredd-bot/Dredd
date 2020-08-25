@@ -25,6 +25,8 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
     def __init__(self, bot):
         self.bot = bot
         self._last_result = None
+        self.help_icon = ''
+        self.big_icon = ''
 
     @commands.Cog.listener()
     async def on_command(self, ctx):
@@ -82,7 +84,6 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
             exc = exc.original
         if isinstance(exc, commands.BadArgument):
             cleaned = discord.utils.escape_mentions(str(exc))
-            clear = await commands.clean_content().convert(ctx, str(exc))
             return await ctx.send(f"{emotes.red_mark} | {cleaned}", delete_after=20)
         if isinstance(exc, commands.MissingPermissions):
             perms = "`" + '`, `'.join(exc.missing_perms) + "`" 

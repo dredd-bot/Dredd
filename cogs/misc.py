@@ -18,6 +18,8 @@ import asyncio
 import random
 import aiohttp
 import math
+import json
+import typing
 
 from discord.ext import commands
 from discord.utils import escape_markdown
@@ -33,11 +35,19 @@ class misc(commands.Cog, name="Misc"):
 
     def __init__(self, bot):
         self.bot = bot
-        self.help_icon = "<:eta:695710706028380211>"
-        self.big_icon = "https://cdn.discordapp.com/emojis/695710706028380211.png?v=1"
+        self.help_icon = "<:etaa:747192603757248544>"
+        self.big_icon = "https://cdn.discordapp.com/emojis/747192603757248544.png?v=1"
 
-    def is_it_me(ctx):
-        return ctx.author.id == 345457928972533773
+    async def bot_check(self, ctx):
+        with open('db/lockdown.json', 'r') as f:
+            data = json.load(f)
+        if await self.bot.is_owner(ctx.author):
+            return True
+
+        if data['lockdown'] == "True":
+            await ctx.send(f"{emotes.warning} | We're currently in maintenance mode, sorry for the inconvenience.")
+            return False
+        return True
 
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36"
 
@@ -453,7 +463,7 @@ class misc(commands.Cog, name="Misc"):
             def check(r, u):
                 return u.id == ctx.author.id and r.message.id == checkmsg.id
             try:
-                checkmsg = await ctx.send(f"Are you sure you want to opt-out? Once you'll opt-out I won't be logging your deleted anymore and all the data that I have stored in my database will also be deleted.")
+                checkmsg = await ctx.send(f"Are you sure you want to opt-out? Once you'll opt-out I won't be logging your deleted messages (snipes) anymore and all the data that I have stored in my database will also be deleted.")
                 await checkmsg.add_reaction(f'{emotes.white_mark}')
                 await checkmsg.add_reaction(f'{emotes.red_mark}')
                 react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
@@ -476,14 +486,14 @@ class misc(commands.Cog, name="Misc"):
             def check(r, u):
                 return u.id == ctx.author.id and r.message.id == checkmsg.id
             try:
-                checkmsg = await ctx.send(f"Are you sure you want to opt-in? I'll be logging your activity status and you will opt in.")
+                checkmsg = await ctx.send(f"Are you sure you want to opt-in? I'll be logging your deleted messages (snipes) and you will opt in.")
                 await checkmsg.add_reaction(f'{emotes.white_mark}')
                 await checkmsg.add_reaction(f'{emotes.red_mark}')
                 react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
 
                 if str(react) == f"{emotes.white_mark}": 
                     await self.bot.db.execute("DELETE FROM snipe_op_out WHERE user_id = $1", ctx.author.id)
-                    await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your deleted messages once again")
+                    await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your deleted messages (snipes) once again")
                     await checkmsg.delete()
 
 
@@ -494,7 +504,25 @@ class misc(commands.Cog, name="Misc"):
                 print(e)
                 return
 
-    
+    @commands.command(brief='Check all the bot partners', aliases=['partners', 'plist'])
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def partnerslist(self, ctx):
+        """ Displays a list of partners """
+        partners = await self.bot.db.fetch("SELECT * FROM partners")
+
+        partner = []
+        for res in partners:
+            user = await self.bot.fetch_user(res['user_id'])
+            partner.append(f"**Partner:** {user} ({user.id})" + f"\n**Partnered for:** {btime.human_timedelta(res['partnered_since'], suffix=None)}" + f"\n**Partner type:** {res['partner_type']}" + f"\n**Partnered message:**\n>>> {res['partner_message']}")
+        
+        paginator = Pages(ctx,
+                          title=None,
+                          entries=partner,
+                          thumbnail=None,
+                          per_page = 1,
+                          embed_color=ctx.bot.embed_color,
+                          show_entry_count=True)
+        await paginator.paginate()
 
 
     @is_guild(568567800910839811)
@@ -506,6 +534,7 @@ class misc(commands.Cog, name="Misc"):
 
         ice = self.bot.get_user(302604426781261824)
         await ctx.send(f"**{ice}** said `lmao` **{numla}** times, and `lmfao` **{numlf}** times.")
+    
 
 def setup(bot):
     bot.add_cog(misc(bot))

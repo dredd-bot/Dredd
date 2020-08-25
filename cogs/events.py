@@ -15,11 +15,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import discord
 import os
-import datetime
 import json
 import traceback
-from discord.ext import commands
-from discord.utils import escape_markdown
+import asyncio
+import random
+from discord.ext import commands, tasks
+from discord.utils import escape_markdown, sleep_until
 from utils import default, btime
 from utils.default import timeago
 from datetime import datetime
@@ -30,6 +31,11 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
     def __init__(self, bot):
         self.bot = bot
         self._last_result = None
+    #     self.current_timer = None
+    #     self._task = bot.loop.create_task(self.temp_mutes())
+
+    # def cog_unload(self):
+    #     self._task.cancel()
     
     async def bot_check(self, ctx):
         moks = self.bot.get_user(345457928972533773)
@@ -58,12 +64,14 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             return False
         return True
 
+
     @commands.Cog.listener()
     async def on_ready(self):
         m = "Logged in as:"
         m += "\nName: {0} ({0.id})".format(self.bot.user)
         m += f"\nTime taken to boot: {btime.human_timedelta(self.bot.uptime, suffix=None)}"
         print(m)
+        # await self.temp_mutes()
         await self.bot.change_presence(
                 activity=discord.Activity(type=discord.ActivityType.watching,
                                           name="-help")
@@ -115,6 +123,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix) VALUES ($1, $2)", guild.id, prefix)
         await self.bot.db.execute("INSERT INTO raidmode(guild_id, raidmode, dm) VALUES ($1, $2, $3)", guild.id, False, True)
         self.bot.prefixes[guild.id] = prefix
+        self.bot.raidmode[guild.id] = {'raidmode': False, 'dm': True}
         
         Zenpa = self.bot.get_user(373863656607318018)
         Moksej = self.bot.get_user(345457928972533773)
@@ -129,6 +138,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 e = discord.Embed(
                     color=self.bot.join_color, title="A cool bot has spawned in!")
                 e.description = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also [join support server]({support})\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
+                e.set_thumbnail(url='https://cdn.discordapp.com/attachments/667077166789558288/747132112099868773/normal_3.gif')
                 await to_send.send(embed=e)
             else:  # We were invited without embed perms...
                 msg = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also join support server: {support}\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
@@ -160,6 +170,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         # await self.bot.db.execute("DELETE FROM automods WHERE guild_id = $1", guild.id)
         await self.bot.db.execute("DELETE FROM guilds WHERE guild_id = $1", guild.id)
         self.bot.prefixes.pop(guild.id)
+        self.bot.raidmode.pop(guild.id)
 
         # Log the leave
         members = len(guild.members)
@@ -198,8 +209,9 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
 
             # They DM'ed the bot
             logchannel = self.bot.get_channel(674929832596865045)
+            
             msgembed = discord.Embed(
-                title="Received new Direct Message:", description=message.content, color=self.bot.log_color, timestamp=datetime.utcnow())
+                title=f"Received new Direct Message:", description=message.content, color=self.bot.log_color, timestamp=datetime.utcnow())
             msgembed.set_author(name=message.author,
                                 icon_url=message.author.avatar_url)
             # They've sent a image/gif/file
@@ -218,14 +230,13 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         if message.author.bot:
             return
         
-        guild_afk = []
         for user, guild, msg, time in self.bot.afk_users:
             afkmsg = ""
             if message.author.id == user and message.guild.id == guild:
                 ctx = await self.bot.get_context(message)
                 if ctx.valid:
                     return              
-                await message.channel.send(f"Welcome back {message.author.mention}! Removing your AFK state.", delete_after=20)
+                await message.channel.send(f"Welcome back {message.author.mention}! Removing your AFK state. You were AFK for {btime.human_timedelta(time, suffix=None)}.", delete_after=20, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False, users=True))
                 self.bot.afk_users.remove((user, guild, msg, time))
                 return await self.bot.db.execute("DELETE FROM userafk WHERE user_id = $1 AND guild_id = $2", message.author.id, message.guild.id)
                 
@@ -242,10 +253,10 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 time = time
                 afkuser = message.guild.get_member(user)
                 try:
-                    await message.channel.send(f'{message.author.mention}, **{escape_markdown(afkuser.display_name, as_needed=True)}** went AFK **{timeago(time)}**, but he left you a note: **{escape_markdown(note, as_needed=True)}**', delete_after=30, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False, users=True))
+                    await message.channel.send(f'{message.author.mention}, **{escape_markdown(afkuser.display_name, as_needed=True)}** went AFK **{btime.human_timedelta(time)}**, but he left you a note: **{escape_markdown(note, as_needed=True)}**', delete_after=30, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False, users=True))
                 except discord.HTTPException:
                     try:
-                        await message.author.send(f"Yo, **{escape_markdown(afkuser.display_name, as_needed=True)}** went AFK **{timeago(time)}**, but he left you a note: **{escape_markdown(note, as_needed=True)}**")
+                        await message.author.send(f"Yo, **{escape_markdown(afkuser.display_name, as_needed=True)}** went AFK **{btime.human_timedelta(time)}**, but he left you a note: **{escape_markdown(note, as_needed=True)}**")
                     except discord.Forbidden:
                         return
     
@@ -285,7 +296,57 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             elif before.nick:
                 nick = before.nick
             await self.bot.db.execute("INSERT INTO nicknames(user_id, guild_id, nickname, time) VALUES ($1, $2, $3, $4)", before.id, before.guild.id, nick, datetime.utcnow())
-                
+    
+    @commands.Cog.listener('on_member_join')
+    async def raid_check(self, member):
+        try:
+            data = self.bot.raidmode
+            if data[member.guild.id]:
+                if member.guild.me.guild_permissions.kick_members:
+                    if data[member.guild.id]['raidmode'] == True:
+                        if data[member.guild.id]['dm'] == True:
+                            try:
+                                await member.send(f"{emotes.warning} I'm sorry but **{member.guild.name}** is currently experiencing a raid and have raid-mode enabled. Try joining back later!")
+                            except:
+                                pass
+                            await member.guild.kick(member, reason='Anti-raid protection')
+                        elif data[member.guild.id]['dm'] == False:
+                            await member.guild.kick(member, reason='Anti-raid protection')
+                    elif data[member.guild.id]['raidmode'] == False:
+                        return
+            else:
+                return
+        except Exception as e:
+            print(e)
+            return
+    
+    @commands.Cog.listener('on_member_update')
+    async def nitro_booster(self, before, after):
+        guild = self.bot.get_guild(671078170874740756)
+        nitro_role = guild.get_role(745290115085107201)
+        if guild:
+            if nitro_role in after.roles:
+                check = await self.bot.db.fetchval("SELECT * FROM vip WHERE user_id = $1", after.id)
+                if check:
+                    return
+                with open('db/badges.json', 'r') as f:
+                    data = json.load(f)
+                badge = emotes.bot_booster
+                try:
+                    if badge not in data['Users'][f'{after.id}']["Badges"]:
+                        data['Users'][f'{after.id}']["Badges"] += [badge]
+                except KeyError:
+                    data['Users'][f"{after.id}"] = {"Badges": [badge]}
+
+                with open('db/badges.json', 'w') as f:
+                    data = json.dump(data, f, indent=4)
+                await self.bot.db.execute("INSERT INTO vip(user_id, prefix) VALUES($1, $2)", after.id, '-')
+                self.bot.boosters[after.id] = {'custom_prefix': '-'}
+            else:
+                return
+        else:
+            return
+            
 
 def setup(bot):
     bot.add_cog(Events(bot))
