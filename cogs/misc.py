@@ -209,7 +209,7 @@ class misc(commands.Cog, name="Misc"):
                           show_entry_count=True)
         try:
             await paginator.paginate()
-        except HTTPException:
+        except discord.HTTPException:
             paginators = Pages(ctx,
                           title=f"Your todo list:",
                           entries=todos,
