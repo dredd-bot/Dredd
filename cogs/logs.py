@@ -175,14 +175,14 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                     try:
                         await member.add_roles(role, reason='Autorole')
                     except Exception as e:
-                        await self.event_error(error=e, event='on_member_join (bot role)', guild=before.guild)
+                        await self.event_error(error=e, event='on_member_join (bot role)', guild=member.guild)
                         return
                 elif not member.bot and peoplerole is not None:
                     role = member.guild.get_role(peoplerole)
                     try:
                         await member.add_roles(role, reason='Autorole')
                     except Exception as e:
-                        await self.event_error(error=e, event='on_member_join (people role)', guild=before.guild)
+                        await self.event_error(error=e, event='on_member_join (people role)', guild=member.guild)
                         return
                 if temp_mute:
                     muterole = discord.utils.find(lambda r: r.name.lower() == "muted", member.guild.roles)

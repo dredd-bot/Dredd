@@ -609,10 +609,10 @@ class moderation(commands.Cog, name="Moderation"):
                 except discord.HTTPException as e:
                     failed += 1
                     failed_list += f"{member.mention} - {e}"
-                    await channel.send(e)
+                    await ctx.channel.send(e)
                 except discord.Forbidden as e:
                     failed += 1
-                    await channel.send(e)
+                    await ctx.channel.send(e)
                     failed_list += f"{member.mention} - {e}"
 
             if failed == 0:
