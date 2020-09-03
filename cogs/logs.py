@@ -23,6 +23,8 @@ from discord.ext import commands
 from utils import default
 from datetime import datetime
 from db import emotes
+from utils.default import color_picker
+from utils.caches import CacheManager as cm
 
 CAPS = re.compile(r"[ABCDEFGHIJKLMNOPQRSTUVWXYZ]")
 LINKS = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
@@ -33,6 +35,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
     def __init__(self, bot):
         self.bot = bot
         self._last_result = None
+        self.color = color_picker('colors')
 
     async def get_audit_logs(self, guild, limit=100, user=None, action=None):
         return await self.bot.get_guild(guild.id).audit_logs(limit=limit, user=user, action=action).flatten()
@@ -61,10 +64,19 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         elif len(tbe) > 2048:
             tbe = error
 
-        e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.error} Error occured on event {event}")
+        e = discord.Embed(color=self.color['logembed_color'], title=f"{emotes.error} Error occured on event {event}")
         e.description = f"```py\n{tbe}```"
         e.add_field(name='Guild:', value=f"{guild} ({guild.id})")
         await channel.send(embed=e)
+    
+    def placeholder_replacer(self, emb_dict, member):
+        for thing in emb_dict:
+            if isinstance(emb_dict[thing], str):
+                emb_dict[thing] = emb_dict[thing].replace("{{member.name}}", member.name)
+                emb_dict[thing] = emb_dict[thing].replace("{{member.mention}}", member.mention)
+                emb_dict[thing] = emb_dict[thing].replace("{{server.name}}", member.guild.name)
+                emb_dict[thing] = emb_dict[thing].replace("{{server.members}}", str(member.guild.member_count))
+        return emb_dict
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
@@ -75,8 +87,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if before.author.bot:
             return
 
-        db_check = await self.bot.db.fetchval("SELECT guild_id FROM msgedit WHERE guild_id = $1", before.guild.id)
-        lchannels = await self.bot.db.fetchval("SELECT channel_id FROM msgedit WHERE guild_id = $1", before.guild.id)
+        db_check = cm.get_cache(self.bot, before.guild.id, 'msgedit')
 
         if db_check is None:
             return
@@ -84,7 +95,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if before.content == after.content:
             return
 
-        embed = discord.Embed(color=self.bot.logging_color,
+        embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_msgedit} Message edited! [Jump to message]({before.jump_url})",
                               timestamp=datetime.utcnow())
         embed.set_author(icon_url=before.author.avatar_url, name=before.author)
@@ -93,7 +104,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         embed.add_field(name="Channel:",
                          value=f"{before.channel.mention}", inline=True)
 
-        lchannel = before.guild.get_channel(lchannels)
+        lchannel = before.guild.get_channel(db_check)
         try:
             await lchannel.send(embed=embed)
         except Exception as e:
@@ -111,18 +122,22 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if message.guild is None:
             return
         
-        db_check = await self.bot.db.fetchval("SELECT guild_id FROM msgdelete WHERE guild_id = $1", message.guild.id)
-        channels = await self.bot.db.fetchval("SELECT channel_id FROM msgdelete WHERE guild_id = $1", message.guild.id)
+        db_check = cm.get_cache(self.bot, message.guild.id, 'msgdelete')
 
         if db_check is None:
             return
 
-        channel = message.guild.get_channel(channels)
+        channel = message.guild.get_channel(db_check)
 
         embed = discord.Embed(
-            color=self.bot.logging_color, description=f"{emotes.log_msgdelete} Message deleted!", timestamp=datetime.utcnow())
+            color=self.color['logging_color'], description=f"{emotes.log_msgdelete} Message deleted!", timestamp=datetime.utcnow())
         embed.set_author(icon_url=message.author.avatar_url, name=message.author)
-        embed.add_field(name="Message:", value=message.content, inline=False)
+
+        if message.attachments:
+                attachment_url = message.attachments[0].url
+                embed.add_field(name="Message:", value=attachment_url, inline=False)
+        else:
+            embed.add_field(name="Message:", value=message.content, inline=False)
         embed.add_field(name="Channel:",
                         value=message.channel.mention)
         embed.set_footer(text=f"ID: {message.id}")
@@ -138,52 +153,34 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         #print(f'{member} has joined a server ({member.guild}).')
 
         # ! Join role (Role on join)
-        db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM joinrole WHERE guild_id = $1", member.guild.id)
-        peoplerole = await self.bot.db.fetchval("SELECT role_id FROM joinrole WHERE guild_id = $1", member.guild.id)
-        botrole = await self.bot.db.fetchval("SELECT bots FROM joinrole WHERE guild_id = $1", member.guild.id)
+        db_check1 = cm.get_cache(self.bot, member.guild.id, 'joinrole')
         # ! Join log (Member join log)
-        db_check2 = await self.bot.db.fetchval("SELECT guild_id FROM joinlog WHERE guild_id = $1", member.guild.id)
-        joinlog = await self.bot.db.fetchval("SELECT channel_id FROM joinlog WHERE guild_id = $1", member.guild.id)
+        db_check2 = cm.get_cache(self.bot, member.guild.id, 'joinlog')
         # ! Join message (Welcome msg)
-        db_check3 = await self.bot.db.fetchval("SELECT guild_id FROM joinmsg WHERE guild_id = $1", member.guild.id)
-        joinmsg = await self.bot.db.fetchval("SELECT channel_id FROM joinmsg WHERE guild_id = $1", member.guild.id)
-        message = await self.bot.db.fetchval("SELECT msg FROM joinmsg WHERE guild_id = $1", member.guild.id)
-        bots = await self.bot.db.fetchval("SELECT bot_join FROM joinmsg WHERE guild_id = $1", member.guild.id)
+        db_check3 = cm.get_cache(self.bot, member.guild.id, 'joinmsg')
         # ! Temp mute
         temp_mute = await self.bot.db.fetchval("SELECT user_id FROM moddata WHERE user_id = $1 AND guild_id = $2", member.id, member.guild.id)
 
-        with open('db/badges.json', 'r') as f:
-            data = json.load(f)
-        try:
-            badges = data['Users'][f"{member.id}"]['Badges']
-        except KeyError:
-            badges = ''
-            pass
-        except Exception as e:
-            badges = ''
-            print(e)
-            pass
-
-                   
+        badges = cm.get_cache(self.bot, f"{member.id}", 'user_badges')   
 
         if db_check1 is not None:
             if member.guild.me.guild_permissions.manage_roles:
                 # Role on join
-                if member.bot and botrole is not None:
-                    role = member.guild.get_role(botrole)
+                if member.bot and db_check1['bots'] is not None:
+                    role = member.guild.get_role(db_check1['bots'])
 
                     try:
                         await member.add_roles(role, reason='Autorole')
                     except Exception as e:
                         await self.event_error(error=e, event='on_member_join (bot role)', guild=member.guild)
-                        return
-                elif not member.bot and peoplerole is not None:
-                    role = member.guild.get_role(peoplerole)
+                        pass
+                elif not member.bot and db_check1['people'] is not None:
+                    role = member.guild.get_role(db_check1['people'])
                     try:
                         await member.add_roles(role, reason='Autorole')
                     except Exception as e:
                         await self.event_error(error=e, event='on_member_join (people role)', guild=member.guild)
-                        return
+                        pass
                 if temp_mute:
                     muterole = discord.utils.find(lambda r: r.name.lower() == "muted", member.guild.roles)
                     if muterole:
@@ -191,36 +188,14 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                             await member.add_roles(muterole, reason='User was muted before')
                         except Exception as e:
                             await self.event_error(error=e, event='on_member_join (anti evading mute)', guild=member.guild)
-                            return
+                            pass
                     else:
-                        return
-        if db_check3 is not None:
-            if member.bot and bots == False:
-                return
-            elif member.bot and bots == True:
-                pass
-            elif bots is None:
-                pass
-            if message:
-                joinmessage = str(message)
-                joinmessage = joinmessage.replace("{{member.mention}}", member.mention)
-                joinmessage = joinmessage.replace("{{member.name}}", discord.utils.escape_markdown(member.name, as_needed=True))
-                joinmessage = joinmessage.replace("{{server.name}}", member.guild.name)
-                joinmessage = joinmessage.replace("{{server.members}}", str(member.guild.member_count))
-            elif message is None:
-                joinmessage = f"{emotes.joined} {member.mention} joined the server! There are {member.guild.member_count} members in the server now."
-            # Welcome msg
-            welcomechannel = self.bot.get_channel(joinmsg)
-            try:
-                await welcomechannel.send(joinmessage, allowed_mentions=discord.AllowedMentions(users=True))
-            except Exception as e:
-                await self.event_error(error=e, event='on_member_join (welcome message)', guild=member.guild)
-                return
+                        pass
         if db_check2 is not None:
             # Member join log
-            logchannel = self.bot.get_channel(joinlog)
+            logchannel = self.bot.get_channel(db_check2)
             embed = discord.Embed(
-                color=self.bot.logging_color, description=f"{emotes.log_memberjoin} New member joined", timestamp=datetime.utcnow())
+                color=self.color['logging_color'], description=f"{emotes.log_memberjoin} New member joined", timestamp=datetime.utcnow())
             #embed.set_author(icon_url=member.avatar_url)
             embed.add_field(name="Username:", value=member, inline=True)
             embed.add_field(name="User ID:", value=member.id, inline=True)
@@ -233,7 +208,65 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 await logchannel.send(embed=embed)
             except Exception as e:
                 await self.event_error(error=e, event='on_member_join (welcome log message)', guild=member.guild)
+                pass
+        
+        if db_check3 is not None:
+            if member.bot and db_check3['bot_joins'] == False:
                 return
+            elif member.bot and db_check3['bot_joins'] == True:
+                pass
+            elif db_check3['bot_joins'] is None:
+                pass
+            if db_check3['message'] and not db_check3['embed']:
+                joinmessage = str(db_check3['message'])
+                joinmessage = joinmessage.replace("{{member.mention}}", member.mention)
+                joinmessage = joinmessage.replace("{{member.name}}", discord.utils.escape_markdown(member.name, as_needed=True))
+                joinmessage = joinmessage.replace("{{server.name}}", member.guild.name)
+                joinmessage = joinmessage.replace("{{server.members}}", str(member.guild.member_count))
+            elif db_check3['message'] is None and not db_check3['embed']:
+                joinmessage = f"{emotes.joined} {member.mention} joined the server! There are {member.guild.member_count} members in the server now."
+
+            elif db_check3['message'] and db_check3['embed'] == True:
+                msg = json.loads(db_check3['message'])
+                emb_dict = msg
+                emb_dict = self.placeholder_replacer(emb_dict, member)
+                if "author" in emb_dict:
+                    emb_dict["author"] = self.placeholder_replacer(emb_dict["author"], member)
+                if "footer" in emb_dict:
+                    emb_dict["footer"] = self.placeholder_replacer(emb_dict["footer"], member)
+                if "fields" in emb_dict:
+                    for field in emb_dict["fields"]:
+                        emb_dict["fields"] = self.placeholder_replacer(field["name"], member)
+                        emb_dict["fields"] = self.placeholder_replacer(field["value"], member)
+            elif db_check3['message'] is None and db_check3['embed'] == True:
+                emb_dict = {
+                    "plainText": "{{member.mention}}",
+                    "title": "Welcome to {{server.name}}",
+                    "description": "You are member #{{server.members}} in this server!",
+                    "color": 6215030
+                    }
+                emb_dict = self.placeholder_replacer(emb_dict, member)
+                if "author" in emb_dict:
+                    emb_dict["author"] = self.placeholder_replacer(emb_dict["author"], member)
+                if "footer" in emb_dict:
+                    emb_dict["footer"] = self.placeholder_replacer(emb_dict["footer"], member)
+                if "fields" in emb_dict:
+                    for field in emb_dict["fields"]:
+                        emb_dict["fields"] = self.placeholder_replacer(field["name"], member)
+                        emb_dict["fields"] = self.placeholder_replacer(field["value"], member) 
+            # Welcome msg
+            welcomechannel = self.bot.get_channel(db_check3['channel'])
+            try:
+                if db_check3['embed']:
+                    try:
+                        await welcomechannel.send(content=emb_dict['plainText'], embed=discord.Embed.from_dict(emb_dict), allowed_mentions=discord.AllowedMentions(users=True))
+                    except:
+                        await welcomechannel.send(embed=discord.Embed.from_dict(emb_dict), allowed_mentions=discord.AllowedMentions(users=True))
+                else:
+                    await welcomechannel.send(joinmessage, allowed_mentions=discord.AllowedMentions(users=True))
+            except Exception as e:
+                await self.event_error(error=e, event='on_member_join (welcome message)', guild=member.guild)
+                pass
 
 ##############################
     @commands.Cog.listener()
@@ -243,19 +276,12 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         await self.bot.db.execute("DELETE FROM autowarns WHERE user_id = $1 AND guild_id = $2", member.id, member.guild.id)
         await self.bot.db.execute("DELETE FROM useractivity WHERE user_id = $1", member.id)
 
-        db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM leavemsg WHERE guild_id = $1", member.guild.id)
-        leavelog = await self.bot.db.fetchval("SELECT channel_id FROM leavemsg WHERE guild_id = $1", member.guild.id)
-        message = await self.bot.db.fetchval("SELECT msg FROM leavemsg WHERE guild_id = $1", member.guild.id)
-        bots = await self.bot.db.fetchval("SELECT bot_join FROM leavemsg WHERE guild_id = $1", member.guild.id)
+        db_check1 = cm.get_cache(self.bot, member.guild.id, 'leavemsg')
+        db_check2 = cm.get_cache(self.bot, member.guild.id, 'joinlog')
+        
 
-        db_check2 = await self.bot.db.fetchval("SELECT guild_id FROM joinlog WHERE guild_id = $1", member.guild.id)
-        joinlog = await self.bot.db.fetchval("SELECT channel_id FROM joinlog WHERE guild_id = $1", member.guild.id)
-
-        moderation = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", member.guild.id)
-        try:
-            case = self.bot.case_num[member.guild.id]
-        except KeyError:
-            self.bot.case_num[member.guild.id] = 1
+        moderation = cm.get_cache(self.bot, member.guild.id, 'moderation')
+        case = cm.get_cache(self.bot, member.guild.id, 'case_num')
 
         if member == self.bot.user:
             return
@@ -263,34 +289,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if member.guild.me.guild_permissions.view_audit_log:
             checks = await self.get_audit_logs(member.guild, limit=1, action=discord.AuditLogAction.kick)  
 
-        if db_check1 is not None:
-            if member.bot and bots == False:
-                return
-            elif member.bot and bots == True:
-                pass
-            elif bots is None:
-                pass
-            if message:
-                leavemessage = str(message)
-                leavemessage = leavemessage.replace("{{member.mention}}", member.mention)
-                leavemessage = leavemessage.replace("{{member.name}}", discord.utils.escape_markdown(member.name, as_needed=True))
-                leavemessage = leavemessage.replace("{{server.name}}", member.guild.name)
-                leavemessage = leavemessage.replace("{{server.members}}", str(member.guild.member_count))
-            elif message is None:
-                leavemessage = f"{emotes.left} {member.mention} left the server... There are {member.guild.member_count} members left in the server."
-
-            leavechannel = self.bot.get_channel(leavelog)
-            try:
-                await leavechannel.send(leavemessage, allowed_mentions=discord.AllowedMentions(users=True))
-            except Exception as e:
-                await self.event_error(error=e, event='on_member_remove (leave message)', guild=member.guild)
-                return
-
         if db_check2 is not None:
             # Member leave log
-            logchannel = self.bot.get_channel(joinlog)
+            logchannel = self.bot.get_channel(db_check2)
             embed = discord.Embed(
-                color=self.bot.logging_color, description=f"{emotes.log_memberleave} Member left", timestamp=datetime.utcnow())
+                color=self.color['logging_color'], description=f"{emotes.log_memberleave} Member left", timestamp=datetime.utcnow())
             #embed.set_author(icon_url=member.avatar_url)
             embed.add_field(name="Username:", value=f"{member} ({member.id})", inline=True)
             embed.add_field(name="Created at:", value=default.date(
@@ -301,7 +304,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 await logchannel.send(embed=embed)
             except Exception as e:
                 await self.event_error(error=e, event='on_member_remove (leave log message)', guild=member.guild)
-                return
+                pass
 
         if moderation is not None:
             try:
@@ -318,9 +321,9 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             logchannel = self.bot.get_channel(moderation)
             if deleted and (datetime.utcnow() - checks[0].created_at).total_seconds() < 5:
 
-                casenum = self.bot.case_num[member.guild.id]
+                casenum = cm.get_cache(self.bot, member.guild.id, 'case_num') or 1
                 embed = discord.Embed(
-                    color=self.bot.logging_color, description=f"{emotes.log_memberleave} Member kicked `[#{casenum}]`", timestamp=datetime.utcnow())
+                    color=self.color['logging_color'], description=f"{emotes.log_memberleave} Member kicked `[#{casenum}]`", timestamp=datetime.utcnow())
                 #embed.set_author(icon_url=member.avatar_url)
                 embed.add_field(name="Username:", value=f"{member} ({member.id})", inline=False)
                 embed.add_field(name="Created at:", value=default.date(
@@ -334,12 +337,66 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 await self.update_query(guildid=member.guild.id, case=casenum)
                 self.bot.case_num[member.guild.id] += 1
                 try:
-                    return await logchannel.send(embed=embed)
+                    await logchannel.send(embed=embed)
                 except Exception as e:
                     await self.event_error(error=e, event='on_member_remove (kick message)', guild=member.guild)
-                    return
+                    pass
 
             elif deleted and (datetime.utcnow() - checks[0].created_at).total_seconds() > 5:
+                pass
+            
+        if db_check1 is not None:
+            if member.bot and db_check1['bot_joins'] == False:
+                return
+            elif member.bot and db_check1['bot_joins'] == True:
+                pass
+            elif db_check1['bot_joins'] is None:
+                pass
+            if db_check1['message'] and not db_check1['embed']:
+                leavemessage = str(db_check1['message'])
+                leavemessage = leavemessage.replace("{{member.mention}}", member.mention)
+                leavemessage = leavemessage.replace("{{member.name}}", discord.utils.escape_markdown(member.name, as_needed=True))
+                leavemessage = leavemessage.replace("{{server.name}}", member.guild.name)
+                leavemessage = leavemessage.replace("{{server.members}}", str(member.guild.member_count))
+            elif db_check1['message'] is None and not db_check1['embed']:
+                leavemessage = f"{emotes.left} {member.mention} left the server... There are {member.guild.member_count} members left in the server."
+            elif db_check1['message'] and db_check1['embed'] == True:
+                msg = json.loads(db_check1['message'])
+                emb_dict = msg
+                emb_dict = self.placeholder_replacer(emb_dict, member)
+                if "author" in emb_dict:
+                    emb_dict["author"] = self.placeholder_replacer(emb_dict["author"], member)
+                if "footer" in emb_dict:
+                    emb_dict["footer"] = self.placeholder_replacer(emb_dict["footer"], member)
+                if "fields" in emb_dict:
+                    for field in emb_dict["fields"]:
+                        emb_dict["fields"] = self.placeholder_replacer(field["name"], member)
+                        emb_dict["fields"] = self.placeholder_replacer(field["value"], member)
+            elif db_check1['message'] is None and db_check1['embed'] == True:
+                emb_dict = {
+                    "description": "{{member.name}} left the server! There are now {{server.members}} members left!",
+                    "color": 13579316
+                    }
+                emb_dict = self.placeholder_replacer(emb_dict, member)
+                if "author" in emb_dict:
+                    emb_dict["author"] = self.placeholder_replacer(emb_dict["author"], member)
+                if "footer" in emb_dict:
+                    emb_dict["footer"] = self.placeholder_replacer(emb_dict["footer"], member)
+                if "fields" in emb_dict:
+                    for field in emb_dict["fields"]:
+                        emb_dict["fields"] = self.placeholder_replacer(field["name"], member)
+                        emb_dict["fields"] = self.placeholder_replacer(field["value"], member) 
+            leavechannel = self.bot.get_channel(db_check1['channel'])
+            try:
+                if db_check1['embed']:
+                    try:
+                        await leavechannel.send(content=emb_dict['plainText'], embed=discord.Embed.from_dict(emb_dict), allowed_mentions=discord.AllowedMentions(users=True))
+                    except:
+                        await leavechannel.send(embed=discord.Embed.from_dict(emb_dict), allowed_mentions=discord.AllowedMentions(users=True))
+                else:
+                    await leavechannel.send(leavemessage, allowed_mentions=discord.AllowedMentions(users=True))
+            except Exception as e:
+                await self.event_error(error=e, event='on_member_remove (leave message)', guild=member.guild)
                 return
 
 
@@ -348,8 +405,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         if before.bot:
             return
 
-        db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM memberupdate WHERE guild_id = $1", before.guild.id)
-        logchannel = await self.bot.db.fetchval("SELECT channel_id FROM memberupdate WHERE guild_id = $1", before.guild.id)
+        db_check1 = cm.get_cache(self.bot, before.guild.id, 'memberupdate')
 
         if db_check1 is None:
             return
@@ -363,7 +419,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         elif after.nick:
             nicks = after.nick
 
-        channel = self.bot.get_channel(logchannel)
+        channel = self.bot.get_channel(db_check1)
 
         if before.nick != after.nick:
             try:
@@ -374,7 +430,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 print(e)
                 deleted = "Fail"
             e = discord.Embed(
-                color=self.bot.logging_color,description=f"{emotes.log_memberedit} Nickname changed", timestamp=datetime.utcnow())
+                color=self.color['logging_color'],description=f"{emotes.log_memberedit} Nickname changed", timestamp=datetime.utcnow())
             e.set_author(name="Nickname changed", icon_url=before.avatar_url)
             e.add_field(name="User:", value=f"{after.name}\n({after.id})")
             e.add_field(name="Nickname:",
@@ -398,17 +454,16 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         
         for guild in self.bot.guilds:
             if before in guild.members:
-                db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM memberupdate WHERE guild_id = $1", guild.id)
-                logchannel = await self.bot.db.fetchval("SELECT channel_id FROM memberupdate WHERE guild_id = $1", guild.id)
+                db_check1 = cm.get_cache(self.bot, guild.id, 'memberupdate')
                 
                 if db_check1 is None:
                     return
                     
-                channel = self.bot.get_channel(logchannel)
+                channel = self.bot.get_channel(db_check1)
 
                 # Avatar changed
                 if before.avatar != after.avatar:
-                    e = discord.Embed(color=self.bot.logging_color,
+                    e = discord.Embed(color=self.color['logging_color'],
                                               title=f"{emotes.log_memberedit} Avatar updated",
                                               timestamp=datetime.utcnow())
                     #e.set_author(name=after, icon_url=after.avatar_url)
@@ -424,7 +479,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                             
                 # Username changed
                 if before.name != after.name:
-                    e = discord.Embed(color=self.bot.logging_color, title=f"{emotes.log_memberedit} Username updated", description=f"**{before.name}** changed his username to **{after.name}**", timestamp=datetime.utcnow())
+                    e = discord.Embed(color=self.color['logging_color'], title=f"{emotes.log_memberedit} Username updated", description=f"**{before.name}** changed his username to **{after.name}**", timestamp=datetime.utcnow())
                     #e.set_author(name=after, icon_url=after.avatar_url)
                     e.set_footer(text=f"User ID: {after.id}")
                     try:
@@ -438,15 +493,12 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         await asyncio.sleep(2)
 
-        db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM moderation WHERE guild_id = $1", guild.id)
-        logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
-        try:
-            case = self.bot.case_num[guild.id]
-        except KeyError:
-            self.bot.case_num[guild.id] = 1
+        db_check1 = cm.get_cache(self.bot, guild.id, 'moderation')
+        #logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
+        case = cm.get_cache(self.bot, guild.id, 'case_num')
 
-        if logchannel is not None:
-            channel = self.bot.get_channel(logchannel)
+        if db_check1 is not None:
+            channel = self.bot.get_channel(db_check1)
 
         if db_check1 is None:
             return
@@ -463,9 +515,9 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             print(e)
             pass
 
-        casenum = self.bot.case_num[guild.id]
+        casenum = case or 1
 
-        embed = discord.Embed(color=self.bot.logging_color,
+        embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_ban} Member banned! `[#{casenum}]`",
                               timestamp=datetime.utcnow())
         embed.add_field(name="Member:",
@@ -488,14 +540,11 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
     async def on_member_unban(self, guild, user):
         await asyncio.sleep(2)
 
-        db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM moderation WHERE guild_id = $1", guild.id)
-        logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
-        try:
-            case = self.bot.case_num[guild.id]
-        except KeyError:
-            self.bot.case_num[guild.id] = 1
+        db_check1 = cm.get_cache(self.bot, guild.id, 'moderation')
+        #logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
+        case = cm.get_cache(self.bot, guild.id, 'case_num')
 
-        channel = self.bot.get_channel(logchannel)
+        channel = self.bot.get_channel(db_check1)
 
         if db_check1 is None:
             return
@@ -512,9 +561,9 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             print(e)
             pass
 
-        casenum = self.bot.case_num[guild.id]
+        casenum = case or 1
 
-        embed = discord.Embed(color=self.bot.logging_color,
+        embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_unban} Member unbanned! `[#{casenum}]`",
                               timestamp=datetime.utcnow())
         embed.add_field(name="User name",
@@ -536,14 +585,12 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
 
-        db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM moderation WHERE guild_id = $1", member.guild.id)
-        logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", member.guild.id)
-        try:
-            case = self.bot.case_num[member.guild.id]
-        except KeyError:
-            self.bot.case_num[member.guild.id] = 1
+        db_check1 = cm.get_cache(self.bot, member.guild.id, 'moderation')
+        #logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", member.guild.id)
 
-        channel = self.bot.get_channel(logchannel)
+        case = cm.get_cache(self.bot, member.guild.id, 'case_num')
+
+        channel = self.bot.get_channel(db_check1)
 
         if db_check1 is None:
             return
@@ -556,14 +603,14 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             print(e)
             pass
 
-        casenum = self.bot.case_num[member.guild.id]
+        casenum = case or 1
         
         if before.mute != after.mute:
             if after.mute is False:
                 mt = "unmuted"
             elif after.mute is True:
                 mt = "muted"
-            embed = discord.Embed(color=self.bot.logging_color,
+            embed = discord.Embed(color=self.color['logging_color'],
                                 description=f"{emotes.log_memberedit} Member was voice {mt}! `[#{casenum}]`",
                                 timestamp=datetime.utcnow())
             embed.add_field(name="User:",
@@ -581,17 +628,16 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
     
     @commands.Cog.listener()
     async def on_guild_update(self, before, after):
-        db_check1 = await self.bot.db.fetchval("SELECT guild_id FROM moderation WHERE guild_id = $1", before.id)
-        logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", before.id)
-
-        channels = self.bot.get_channel(logchannel)
+        db_check1 = cm.get_cache(self.bot, before.id, 'moderation')
+        #logchannel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", before.id)
 
         if db_check1 is None:
             return
-
+        
+        channels = self.bot.get_channel(db_check1)
         
         if before.name != after.name:
-            embed = discord.Embed(color=self.bot.logging_color,
+            embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_guildupdate} Guild name was changed!",
                               timestamp=datetime.utcnow())
             embed.add_field(name="Name:", value=f"{before.name} → {after.name}")
@@ -603,7 +649,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         
         if before.region != after.region:
-            embed = discord.Embed(color=self.bot.logging_color,
+            embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_guildupdate} Guild region was changed!",
                               timestamp=datetime.utcnow())
             embed.add_field(name="Region:", value=f"{before.region} → {after.region}")
@@ -615,7 +661,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 return
         
         if before.afk_channel != after.afk_channel:
-            embed = discord.Embed(color=self.bot.logging_color,
+            embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_guildupdate} Guild afk channel was changed!",
                               timestamp=datetime.utcnow())
             embed.add_field(name="AFK Channel:", value=f"{before.afk_channel} → {after.afk_channel}")
@@ -627,7 +673,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 return
         
         if before.icon_url != after.icon_url:
-            embed = discord.Embed(color=self.bot.logging_color,
+            embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_guildupdate} Guild icon was changed!",
                               timestamp=datetime.utcnow())
             embed.add_field(name="Before:", value=f"[Old icon]({before.icon_url})")
@@ -640,7 +686,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 return
         
         if before.mfa_level != after.mfa_level:
-            embed = discord.Embed(color=self.bot.logging_color,
+            embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_guildupdate} Guild multifactor authentication (MFA) was changed!",
                               timestamp=datetime.utcnow())
             embed.add_field(name="MFA level:", value=f"{before.mfa_level} → {after.mfa_level}")
@@ -652,7 +698,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                 return
         
         if before.verification_level != after.verification_level:
-            embed = discord.Embed(color=self.bot.logging_color,
+            embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_guildupdate} Guild verification level was changed!",
                               timestamp=datetime.utcnow())
             embed.add_field(name="Verfication:", value=f"{before.verification_level} → {after.verification_level}")
@@ -661,7 +707,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             await channels.send(embed=embed)
         
         if before.default_notifications != after.default_notifications:
-            embed = discord.Embed(color=self.bot.logging_color,
+            embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_guildupdate} Guild default notifications were changed!",
                               timestamp=datetime.utcnow())
             embed.add_field(name="Notifications:", value=f"{before.default_notifications.name} → {after.default_notifications.name}")
@@ -671,6 +717,83 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             except Exception as e:
                 await self.event_error(error=e, event='on_guild_update', guild=before.guild)
                 return
+    
+    @commands.Cog.listener('on_member_join')
+    async def anti_join_dehoist(self, member):
+        check = cm.get_cache(self.bot, member.guild.id, 'antidehoist')
+
+        if check is None:
+            return
+        
+        nick = member.display_name
+        chosen_nick = check['nickname']
+        logchannel = check['channel']
+        case = cm.get_cache(self.bot, member.guild.id, 'case_num')
+        chosen_nick = chosen_nick or 'z (hoister)'
+        if logchannel:
+            channel = member.guild.get_channel(logchannel)
+        if not nick[0].isalnum():
+            await asyncio.sleep(60)
+            if not nick[0].isalnum():
+                try:
+                    casenum = case or 1
+                    await member.edit(nick=chosen_nick, reason='Anti dehoist')
+                    embed = discord.Embed(
+                        color=self.color['logging_color'], description=f"{emotes.log_memberedit} Member dehoisted `[#{casenum}]`", timestamp=datetime.utcnow())
+                    embed.add_field(name='User:', value=f"{member} ({member.id})")
+                    embed.add_field(name='Previous name:', value=nick, inline=False)
+                    embed.add_field(name='New name:', value=chosen_nick, inline=False)
+                    embed.set_thumbnail(url=member.avatar_url)
+                    if channel:
+                        try:
+                            await channel.send(embed=embed)
+                        except Exception as e:
+                            await self.event_error(error=e, event='anti_join_dehoist', guild=member.guild)
+                            return
+                        await self.update_query(guildid=member.guild.id, case=casenum)
+                        self.bot.case_num[member.guild.id] += 1
+                except:
+                    pass
+    
+    @commands.Cog.listener('on_member_update')
+    async def anti_edit_dehoist(self, before, after):
+        if before.bot:
+            return
+
+        db_check1 = cm.get_cache(self.bot, before.guild.id, 'antidehoist')
+
+        if db_check1 is None:
+            return
+
+        channel = self.bot.get_channel(db_check1['channel'])
+        chosen_nick = db_check1['nickname'] or 'z (hoister)'
+        case = cm.get_cache(self.bot, before.guild.id, 'case_num')
+
+        if before.nick != after.nick:
+            name = after.display_name
+            if not name[0].isalnum():
+                await asyncio.sleep(60)
+                if not name[0].isalnum():
+                    try:
+                        casenum = case or 1
+                        await after.edit(nick=chosen_nick, reason='Anti dehoist')
+                        embed = discord.Embed(
+                            color=self.color['logging_color'], description=f"{emotes.log_memberedit} Member dehoisted `[#{casenum}]`", timestamp=datetime.utcnow())
+                        embed.add_field(name='User:', value=f"{after} ({after.id})")
+                        embed.add_field(name='Previous name:', value=name, inline=False)
+                        embed.add_field(name='New name:', value=chosen_nick, inline=False)
+                        embed.set_thumbnail(url=after.avatar_url)
+                        if channel:
+                            try:
+                                await channel.send(embed=embed)
+                            except Exception as e:
+                                await self.event_error(error=e, event='anti_edit_dehoist', guild=before.guild)
+                                return
+                            await self.update_query(guildid=before.guild.id, case=casenum)
+                            self.bot.case_num[before.guild.id] += 1
+                    except Exception as e:
+                        print(e)
+                        pass
 
 
 def setup(bot):

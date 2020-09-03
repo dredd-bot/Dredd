@@ -20,6 +20,8 @@ from discord.ext import commands
 from utils.paginator import Pages
 from db import emotes
 from utils.default import traceback_maker
+from utils.default import color_picker
+
 def setup(bot):
     bot.help_command = HelpCommand()
 
@@ -34,6 +36,7 @@ class HelpCommand(commands.HelpCommand):
                 'cooldown': commands.Cooldown(1, 3, commands.BucketType.user),
                 'name': 'help'})
         self.verify_checks = True
+        self.color = color_picker('colors')
         
 
         self.owner_cogs = ['Devishaku', 'Music', 'Owner', "Economy", "Music"]
@@ -124,7 +127,7 @@ class HelpCommand(commands.HelpCommand):
         privacy = "[Privacy Policy](https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md)"
 
 
-        emb = discord.Embed(color=self.context.bot.embed_color)
+        emb = discord.Embed(color=self.color['embed_color'])
         emb.description = f"{emotes.social_discord} [{s}]({support}) | {emotes.pfp_normal} [{i}]({invite}) | {emotes.boats} {boats} | {emotes.discord_privacy} {privacy}\n\n**Made by:** {Moksej}\n{prefix}\n"
 
         def check(r, u):
@@ -149,7 +152,7 @@ class HelpCommand(commands.HelpCommand):
 
         # emb.description += f'\n{exts}'
         #emb.set_author(name=self.context.bot.user, icon_url=self.context.bot.user.avatar_url)
-        emb.title = f"{self.context.bot.user}"
+        emb.title = f"{self.context.bot.user.name} Help"
         emb.set_thumbnail(url=self.context.bot.user.avatar_url)
         updates = await self.context.bot.db.fetchval('SELECT * FROM updates')
         num = int(len(exts) / 2)
@@ -160,7 +163,7 @@ class HelpCommand(commands.HelpCommand):
             num = 3
         emb.add_field(name="\u200b", value="\n".join(exts[-num:]))
         # emb.add_field(name="\u200b", value="\u200b", inline=False)
-        emb.add_field(name='📰 **Latest news**', value=f"{updates}", inline=False)
+        emb.add_field(name='\u200b\n📰 **Latest news**', value=f"{updates}", inline=False)
         
         emb.set_footer(text=f"- You can type {self.clean_prefix}help <command> to see that command help and {self.clean_prefix}help <category> to see that category commands")
         msg = await self.context.send(embed=emb)
@@ -168,6 +171,7 @@ class HelpCommand(commands.HelpCommand):
             if self.context.guild:
                 for reaction in to_react:
                     await msg.add_reaction(reaction)
+                await msg.add_reaction('\U000023f9')
                 cog_emojis = {
                     "<:staff:706190137058525235>": 'Staff',
                     "<:automod:701056320673153034>": 'Automod',
@@ -177,7 +181,8 @@ class HelpCommand(commands.HelpCommand):
                     "<:settingss:695707235833085982>": 'Management',
                     "<:etaa:747192603757248544>": 'Misc',
                     "<:bann:747192603640070237>": 'Moderation',
-                    "<:owners:691667205082841229>": 'Owner'
+                    "<:owners:691667205082841229>": 'Owner',
+                    "\U000023f9": 'Stop'
                 }
                 react, user = await self.context.bot.wait_for('reaction_add', check=check, timeout=300.0)
                 # Thanks @Dutchy#6127 
@@ -240,7 +245,7 @@ class HelpCommand(commands.HelpCommand):
             desc = "No help provided..."
 
 
-        emb = discord.Embed(color=self.context.bot.embed_color, description=desc)
+        emb = discord.Embed(color=self.color['embed_color'], description=desc)
         emb.title = self.get_command_signature(command)
         emb.add_field(name="Usage:\n", value=f"{self.clean_prefix}{command.qualified_name} {command.signature}")
         emb.add_field(name="Aliases:\n", value=aliases)
@@ -283,7 +288,7 @@ class HelpCommand(commands.HelpCommand):
             desc = "No help provided..."
 
         
-        emb = discord.Embed(color=self.context.bot.embed_color, description=f"{desc}")
+        emb = discord.Embed(color=self.color['embed_color'], description=f"{desc}")
         emb.title = self.get_command_signature(group_command.root_parent)
         emb.add_field(name="Usage:\n", value=f"{self.clean_prefix}{cmdsignature}")
         emb.add_field(name="Aliases:\n", value=aliases)
@@ -327,7 +332,7 @@ class HelpCommand(commands.HelpCommand):
                           thumbnail=cog.big_icon,
                           entries=commands,
                           per_page = 12,
-                          embed_color=self.context.bot.embed_color,
+                          embed_color=self.color['embed_color'],
                           show_entry_count=False,
                           author=self.context.author)
 

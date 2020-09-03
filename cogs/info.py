@@ -25,7 +25,7 @@ from discord.ext import commands
 from discord.utils import escape_markdown
 from datetime import datetime
 
-from utils import default
+from utils import default, btime
 from utils.checks import has_voted
 from utils.paginator import Pages
 from utils.Nullify import clean
@@ -33,6 +33,8 @@ from utils.publicflags import UserFlags
 
 from collections import Counter
 from db import emotes
+from utils.default import color_picker
+from utils.caches import CacheManager as cm
 
 
 
@@ -44,6 +46,7 @@ class info(commands.Cog, name="Info"):
         self.big_icon = "https://cdn.discordapp.com/emojis/686251889586864145.png?v=1"
         self.bot.embed_color = 0x0058D6
         self.bot.help_command.cog = self
+        self.color = color_picker('colors')
 
     async def bot_check(self, ctx):
 
@@ -65,7 +68,7 @@ class info(commands.Cog, name="Info"):
                 return False
         return True
 
-    @commands.command(brief="Pongerino")
+    @commands.command(brief="Bot's latency to discord")
     async def ping(self, ctx):
         """ See bot's latency to discord """
         discord_start = time.monotonic()
@@ -95,15 +98,19 @@ class info(commands.Cog, name="Info"):
 
         mems = len(self.bot.users)
 
-        file = discord.File("img/dreddthumb.png", filename="dreddthumb.png")
+        file = discord.File("avatars/dreddthumbnail.png", filename="dreddthumbnail.png")
         Moksej = self.bot.get_user(345457928972533773)
 
-        embed = discord.Embed(color=self.bot.embed_color)
-        embed.add_field(name="__**General Information:**__", value=f"**Developer:** {escape_markdown(str(Moksej), as_needed=True)}\n**Library:**\n{emotes.other_python} [Discord.py](https://github.com/Rapptz/discord.py)\n**Version:** {discord.__version__}\n**Last boot:** {default.timeago(datetime.now() - self.bot.uptime)}\n**Bot version:** {version}", inline=True)
-        embed.add_field(name="__**Other Information:**__", value=f"**Created:** {default.date(self.bot.user.created_at)}\n({default.timeago(datetime.utcnow() - self.bot.user.created_at)})\n**Total:**\nCommands: **{totcmd:,}**\nMembers: **{mems:,}**\nServers: **{len(self.bot.guilds):,}**\nChannels: {emotes.other_unlocked} **{text:,}** | {emotes.other_vcunlock} **{voice:,}**\n", inline=True)
+        embed = discord.Embed(color=self.color['embed_color'])
+        embed.description = f"""
+__**General Information:**__
+**Developer:** {escape_markdown(str(Moksej), as_needed=True)}\n**Library:**\n{emotes.other_python} [Discord.py {discord.__version__}](https://github.com/Rapptz/discord.py)\n**Last boot:** {btime.human_timedelta(self.bot.uptime)}\n**Bot version:** {version}
 
+__**Other Information:**__
+**Created:** {default.date(self.bot.user.created_at)} ({default.timeago(datetime.utcnow() - self.bot.user.created_at)})\n**Total:**\nCommands: **{totcmd:,}**\nMembers: **{mems:,}**\nServers: **{len(self.bot.guilds):,}**\nChannels: {emotes.other_unlocked} **{text:,}** | {emotes.other_vcunlock} **{voice:,}**\n
+"""
         embed.set_image(
-            url='attachment://dreddthumb.png')     
+            url='attachment://dreddthumbnail.png')     
 
         await ctx.send(file=file, embed=embed)
     
@@ -124,14 +131,14 @@ class info(commands.Cog, name="Info"):
                                     pylines += 1
 
 
-        e = discord.Embed(color=self.bot.embed_color,
+        e = discord.Embed(color=self.color['embed_color'],
                           description=f"{emotes.other_python} I am made of **{pyfiles:,}** files and **{pylines:,}** lines. You can also find my source at: [github](https://github.com/TheMoksej/Dredd)") 
         await ctx.send(embed=e)
 
-    @commands.command(brief="Server moderators", aliases=['guildstaff'])
+    @commands.command(brief="List of all the server staff", aliases=['guildstaff'])
     @commands.guild_only()
     async def serverstaff(self, ctx):
-        """ Check which server mods are online in the server """
+        """ Check which server staff are online in the server """
         message = ""
         online, idle, dnd, offline = [], [], [], []
 
@@ -156,15 +163,15 @@ class info(commands.Cog, name="Info"):
         if offline:
             message += f"{emotes.offline_status} {', '.join(offline)}\n"
 
-        e = discord.Embed(color=self.bot.embed_color, title=f"{ctx.guild.name} mods", description="This lists everyone who can ban and/or kick.")
+        e = discord.Embed(color=self.color['embed_color'], title=f"{ctx.guild.name} mods", description="This lists everyone who can ban and/or kick.")
         e.add_field(name="Server Staff List:", value=message)
 
         await ctx.send(embed=e)
 
-    @commands.command(brief="All the server roles")
+    @commands.command(brief="List of all the server roles")
     @commands.guild_only()
     async def roles(self, ctx):
-        """ List of roles in the server """
+        """ List of all the roles in the server """
         allroles = []
 
         for num, role in enumerate(sorted(ctx.guild.roles, reverse=True), start=1):
@@ -187,7 +194,7 @@ class info(commands.Cog, name="Info"):
         await paginator.paginate()
 
 
-    @commands.command(brief="See server information", aliases=['server', 'si'])
+    @commands.command(brief="Get server information", aliases=['server', 'si'])
     @commands.guild_only()
     async def serverinfo(self, ctx):
         """ Overview about the information of a server """
@@ -223,7 +230,7 @@ class info(commands.Cog, name="Info"):
         except KeyError:
             pass
 
-        embed = discord.Embed(color=self.bot.embed_color)
+        embed = discord.Embed(color=self.color['embed_color'])
         embed.set_author(icon_url=ctx.guild.icon_url,
                          name=f"Server Information")
         if ranks:
@@ -299,13 +306,13 @@ class info(commands.Cog, name="Info"):
                 badge_list.append(badges[i])
         
         ranks = []
-        with open('db/badges.json', 'r') as f:
-            data = json.load(f)
+        # with open('db/badges.json', 'r') as f:
+        #     data = json.load(f)
+        data = self.bot.user_badges
 
-        try:
-            ranks.append(" ".join(data["Users"][f"{user.id}"]['Badges']))
-        except KeyError:
-            pass
+        if cm.get_cache(self.bot, f"{user.id}", 'user_badges'):
+            ranks.append(" ".join(data[f"{user.id}"]['Badges']))
+
 
         if user.bot:
             bot = "Yes"
@@ -338,6 +345,11 @@ class info(commands.Cog, name="Info"):
             medias = medias[1020]
             medias += '...'
 
+        if ranks:
+            acknowledgements = '**Acknowledgements:** ' + ' '.join(ranks)
+        else:
+            acknowledgements = ''
+
         usercheck = ctx.guild.get_member(user.id)
         if usercheck:
                 
@@ -352,7 +364,6 @@ class info(commands.Cog, name="Info"):
             "dnd": f"{f'{emotes.dnd_mobile}' if usercheck.is_on_mobile() else f'{emotes.dnd_status}'}",
             "offline": f"{emotes.offline_status}"
             }
-
             
             if usercheck.activities:
                 ustatus = ""
@@ -393,11 +404,7 @@ class info(commands.Cog, name="Info"):
 
             profile = discord.Profile
             
-            emb = discord.Embed(color=self.bot.embed_color)
-            if ranks:
-                acknowledgements = '**Acknowledgements:** ' + ' '.join(ranks)
-            else:
-                acknowledgements = ''
+            emb = discord.Embed(color=self.color['embed_color'])
             emb.set_author(icon_url=user.avatar_url, name=f"{user}'s information")
             emb.add_field(name="__**General Info:**__", value=f"**Full name:** {user} {discord_badges}\n**User ID:** {user.id}\n**Account created:** {user.created_at.__format__('%A %d %B %Y, %H:%M')}\n**Bot:** {bot}\n**Avatar URL:** [Click here]({user.avatar_url})\n{acknowledgements}", inline=False)
             emb.add_field(name="__**Activity Status:**__", value=f"**Status:** {ustatus}\n**Activity status:** {default.member_activity(usercheck)}", inline=False)
@@ -414,11 +421,9 @@ class info(commands.Cog, name="Info"):
             await ctx.send(embed=emb)
 
         elif not usercheck:
-            emb = discord.Embed(color=self.bot.embed_color)
-            if ranks:
-                emb.title = ' '.join(ranks)
+            emb = discord.Embed(color=self.color['embed_color'])
             emb.set_author(icon_url=user.avatar_url, name=f"{user}'s information")
-            emb.add_field(name="__**General Info:**__", value=f"**Full name:** {user}\n**User ID:** {user.id}\n**Account created:** {user.created_at.__format__('%A %d %B %Y, %H:%M')}\n**Bot:** {bot}\n**Avatar URL:** [Click here]({user.avatar_url}){discord_badges}", inline=False)
+            emb.add_field(name="__**General Info:**__", value=f"**Full name:** {user} {discord_badges}\n**User ID:** {user.id}\n**Account created:** {user.created_at.__format__('%A %d %B %Y, %H:%M')}\n**Bot:** {bot}\n**Avatar URL:** [Click here]({user.avatar_url})\n{acknowledgements}", inline=False)
             if user.is_avatar_animated() == False:
                 emb.set_thumbnail(url=user.avatar_url_as(format='png'))
             elif user.is_avatar_animated() == True:
@@ -429,11 +434,13 @@ class info(commands.Cog, name="Info"):
                 emb.add_field(name="Linked medias:", value=medias[:-2])
             await ctx.send(embed=emb)
 
-    @commands.command(aliases=['source'], brief="View the bot source code")
+    @commands.command(aliases=['source'], brief="Bot's source code")
     async def sourcecode(self, ctx):
+        """ View the bot's source code
+        Keep in mind it is [licensed](https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md)"""
         await ctx.send(f"{emotes.other_python} You can find my source code at: https://github.com/TheMoksej/Dredd")
 
-    @commands.command(aliases=['pfp'], brief="Users avatar")
+    @commands.command(aliases=['pfp'], brief="Get users avatar")
     async def avatar(self, ctx, user: discord.User = None):
         """ Displays what avatar user is using """
 
@@ -441,20 +448,20 @@ class info(commands.Cog, name="Info"):
 
         Zenpa = self.bot.get_user(373863656607318018)
         if user is self.bot.user:
-            embed = discord.Embed(color=self.bot.embed_color,
+            embed = discord.Embed(color=self.color['embed_color'],
                                   title=f'{self.bot.user}\'s Profile Picture!')
             embed.set_image(url=self.bot.user.avatar_url_as(static_format='png'))
             embed.set_footer(text=f'Huge thanks to {Zenpa} for this avatar')
             await ctx.send(embed=embed)
 
         else:
-            embed = discord.Embed(color=self.bot.embed_color,
+            embed = discord.Embed(color=self.color['embed_color'],
                                   title=f'{user}\'s Profile Picture!')
             embed.set_image(url=user.avatar_url_as(static_format='png'))
             # embed.set_footer(text=f'© {self.bot.user}')
             await ctx.send(embed=embed)
         
-    @commands.group(brief="Nicknames management", aliases=['nicks'], invoke_without_command=True)
+    @commands.group(brief="Get a list of old member nicknames", aliases=['nicks'], invoke_without_command=True)
     @commands.guild_only()
     async def nicknames(self, ctx, member: discord.Member = None):
         """ Check someones nicknames or opt out """
@@ -478,11 +485,11 @@ class info(commands.Cog, name="Info"):
         for num, nickss in enumerate(nick[:10], start=0):
             nicknames += f"`[{num + 1}]` **{escape_markdown(nickss, as_needed=True)}**\n"
 
-        e = discord.Embed(color=self.bot.embed_color, description=f"**{member}** last {nicks} nickname(s) in the server:\n{nicknames}")
+        e = discord.Embed(color=self.color['embed_color'], description=f"**{member}** last {nicks} nickname(s) in the server:\n{nicknames}")
 
         await ctx.send(embed=e)
 
-    @nicknames.command(name='opt', brief="Opt out/in from/to nickname logging!", aliases=['optout', 'optin'])
+    @nicknames.command(name='opt', brief="Disable or enable nickname tracking", aliases=['optout', 'optin'])
     async def nicknames_optout(self, ctx):
         """ Opt out if you want the bot to stop logging your nicknames. You can also opt in by invoking this command.
         By opting out I'll stop logging your nicknames in any server we share. """
@@ -542,21 +549,24 @@ class info(commands.Cog, name="Info"):
             return await ctx.send("You are in the support server, dummy.")
 
         else:
-            embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.social_discord} Join my support server [here]({self.bot.support})")
+            embed = discord.Embed(color=self.color['embed_color'], description=f"{emotes.social_discord} Join my support server [here]({self.bot.support})")
             await ctx.send(embed=embed)
 
-    @commands.command(description="Invite of the bot", brief="Invite bot")
+    @commands.command(description="Invite of the bot", brief="Invite the bot")
     async def invite(self, ctx):
         """ Invite bot to your server """
 
-        embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.pfp_normal} You can invite me by clicking [here]({self.bot.invite})")
+        embed = discord.Embed(color=self.color['embed_color'], description=f"{emotes.pfp_normal} You can invite me by clicking [here]({self.bot.invite})")
         await ctx.send(embed=embed)
     
     @commands.command(brief='Vote for the bot')
     async def vote(self, ctx):
         """ Give me a vote, please. Thanks... """
 
-        e = discord.Embed(color=self.bot.embed_color, description=f"{emotes.pfp_normal} You can vote for me [here](https://discord.boats/bot/667117267405766696/vote)")
+        if len(self.bot.guilds) >= 100 <= 110:
+            return await ctx.send(f"{emotes.bot_vip} We reached 100 servers! The voting will be disabled until we get 110 servers!")
+
+        e = discord.Embed(color=self.color['embed_color'], description=f"{emotes.pfp_normal} You can vote for me [here](https://discord.boats/bot/667117267405766696/vote)")
         await ctx.send(embed=e)
     
     @commands.command(brief="Credits to people helped", description="All the people who helped with creating this bot are credited")
@@ -568,7 +578,7 @@ class info(commands.Cog, name="Info"):
         Dutchy = self.bot.get_user(171539705043615744)
         # ! alt 200 for ╚
 
-        semb = discord.Embed(color=self.bot.embed_color,
+        semb = discord.Embed(color=self.color['embed_color'],
                              title="I'd like to say huge thanks to these people for their help with Dredd")
         semb.add_field(name="__**Graphic designers:**__\n", value=f"• **{Zenpa}**\n╠ {emotes.social_discord} [Discord Server](https://discord.gg/A6p9tep)\n╚ {emotes.social_instagram} [Instagram](https://www.instagram.com/donatas.an/)", inline=False)
         semb.set_footer(text=f"Also thanks to {xhigh} for the image")
@@ -579,10 +589,10 @@ class info(commands.Cog, name="Info"):
 
         await ctx.send(embed=semb)
     
-    @commands.command(brief="Get server emotes", aliases=['se', 'emotes'])
+    @commands.command(brief="Get a list of all the server emotes", aliases=['se', 'emotes'])
     @commands.guild_only()
     async def serveremotes(self, ctx):
-        """ Get a list of emotes in the server """
+        """ Get a list of all the emotes in the server """
 
         _all = []
         for num, e in enumerate(ctx.guild.emojis, start=0):
@@ -623,17 +633,17 @@ class info(commands.Cog, name="Info"):
         if not comd and not comds:
             return await ctx.send(f"{emotes.warning} There are no commands disabled!")
             
-        e = discord.Embed(color=self.bot.embed_color, description=f"List of all disabled commands")
+        e = discord.Embed(color=self.color['embed_color'], description=f"List of all disabled commands")
         if comd:
             e.add_field(name='**Globally disabled commands:**', value=f"{comd[:-2]}", inline=False)
         if comds:
             e.add_field(name=f"**Disabled commands in this server:**", value=f'{comds[:-2]}')
         await ctx.send(embed=e)
     
-    @commands.command(brief='User permissions in the guild', aliases=['perms'])
+    @commands.command(brief='User permissions in the server', aliases=['perms'])
     @commands.guild_only()
     async def permissions(self, ctx, member: discord.Member = None):
-        """ See what permissions member has in the guild. """
+        """ See what permissions member has in the server. """
 
         member = member or ctx.author
         
@@ -659,18 +669,6 @@ class info(commands.Cog, name="Info"):
                           show_entry_count=False,
                           author=ctx.author)
         await paginator.paginate()
-
-
-    # @commands.command(brief='Change log for each version', aliases=['changes'])
-    # async def changelog(self, ctx):
-    #     e = discord.Embed(color=self.bot.logging_color)
-    #     e.add_field(name=f"Most recent changes for v{self.bot.version}:", value=f"{self.bot.most_recent_change}\n─────────────────────", inline=False)
-    #     for ver, change in [v for v in reversed([tuple(v) for v in self.bot.changelog.items()])][:3]:
-    #         e.add_field(name=ver, value=change, inline=False)
-
-    #     await ctx.send(embed=e)
-
-
 
 def setup(bot):
     bot.add_cog(info(bot))

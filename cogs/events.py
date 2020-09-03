@@ -25,45 +25,42 @@ from utils import default, btime
 from utils.default import timeago
 from datetime import datetime
 from db import emotes
-
+from utils.default import color_picker
+from utils.caches import CacheManager as cm
 
 class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
     def __init__(self, bot):
         self.bot = bot
         self._last_result = None
-    #     self.current_timer = None
-    #     self._task = bot.loop.create_task(self.temp_mutes())
-
-    # def cog_unload(self):
-    #     self._task.cancel()
+        self.color = color_picker('colors')
     
     async def bot_check(self, ctx):
         moks = self.bot.get_user(345457928972533773)
         if ctx.author == moks:
             return True
-        try:
-            if self.bot.blacklisted_users[ctx.author.id] == ['No reason']:
-                reasons = ''
-            elif self.bot.blacklisted_users[ctx.author.id] != ['No reason']:
-                reason = "".join(self.bot.blacklisted_users[ctx.author.id])
-                reasons = f"**Reason:** {reason}\n"
-        except KeyError:
-            return True
-        
-        support = self.bot.support
 
-        if self.bot.blacklisted_users[ctx.author.id]:
-            print(f"{ctx.author} attempted to use my commands, but was blocked because of the blacklist.\n[REASON] {reason}")
-            for u, g, t in self.bot.informed_times:
-                if u == ctx.author.id and g == ctx.guild.id:
-                    if t >= 1:
-                        return False 
-            e = discord.Embed(color=self.bot.error_color, title=f"{emotes.blacklisted} Error occured!", description=f"Uh oh! Looks like you are blacklisted from me and cannot execute my commands!\n{reasons}\n[Join support server to learn more]({support})")
-            await ctx.send(embed=e, delete_after=15)
-            self.bot.informed_times.append((ctx.author.id, ctx.guild.id, 1))
+        data = cm.get_cache(self.bot, ctx.author.id, 'blacklisted_users')
+        if data:
             return False
         return True
-
+    
+    async def gain_early(self, member):
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
+        try:
+            if emotes.bot_early_supporter not in data['Users'][f'{member.id}']['Badges']:
+                data['Users'][f"{member.id}"]['Badges'] += [emotes.bot_early_supporter]
+                self.bot.user_badges[f"{member.id}"]["Badges"] += [emotes.bot_early_supporter]
+            else:
+                return
+        except KeyError:
+            data['Users'][f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
+            self.bot.user_badges[f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
+        
+        await member.add_roles(discord.Object(679642623107137549))
+        
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -94,31 +91,35 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         support = self.bot.support
 
         # If it is blacklisted, log it.
-        try:
-            if self.bot.blacklisted_guilds[guild.id]:
+        data = cm.get_cache(self.bot, guild.id, 'blacklisted_guilds')
+        if data:
+            try:
+                to_send = sorted([chan for chan in guild.channels if chan.permissions_for(
+                    guild.me).send_messages and isinstance(chan, discord.TextChannel)], key=lambda x: x.position)[0]
+            except IndexError:
+                pass
+            else:
+                reason = ''.join(data)
+                e = discord.Embed(color=self.color['deny_color'], description=f"Hello!\nThis server has been blacklisted for: **{reason}**\n\nThus why I'll be leaving this server.\nIf you wish to appeal feel free to join the [support server]({self.bot.support})\nOnly server owner can appeal, unless their account is terminated.", timestamp=datetime.utcnow())
+                e.set_author(name=f"Blacklist issue occured!", icon_url=self.bot.user.avatar_url)
+                e.set_thumbnail(url='https://cdn.discordapp.com/attachments/667077166789558288/747132112099868773/normal_3.gif')
                 try:
-                    to_send = sorted([chan for chan in guild.channels if chan.permissions_for(
-                        guild.me).send_messages and isinstance(chan, discord.TextChannel)], key=lambda x: x.position)[0]
-                except IndexError:
-                    pass
-                else:
-                    e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.blacklisted} Blacklist error!", description=f"Looks like the guild you've tried inviting me to is blacklisted and I cannot join it.\nBlacklist reason: {reason}\n\n[Join support server for more information]({support})")
                     await to_send.send(embed=e)
-                    await guild.leave()
-                
-                # Send it to the log channel
-                chan = self.bot.get_channel(676419533971652633)
-                modid = await self.bot.db.fetchval("SELECT dev FROM blockedguilds WHERE guild_id = $1", guild.id)
-                mod = self.bot.get_user(modid)
-                e = discord.Embed(color=self.bot.logembed_color, title=f"{emotes.blacklisted} Attempted Invite", timestamp=datetime.utcnow(),
-                                description=f"A blacklisted guild attempted to invite me.\n**Guild name:** {guild.name}\n**Guild ID:** {guild.id}\n**Guild Owner:** {guild.owner}\n**Guild size:** {len(guild.members)-1}\n**Blacklisted by:** {mod}\n**Blacklist reason:** {reason}")
-                e.set_thumbnail(url=guild.icon_url)
-                return await chan.send(embed=e)
-        except KeyError:
-            pass
+                except:
+                    pass
+                await guild.leave()
+            
+            # Send it to the log channel
+            chan = self.bot.get_channel(676419533971652633)
+            modid = await self.bot.db.fetchval("SELECT dev FROM blockedguilds WHERE guild_id = $1", guild.id)
+            mod = self.bot.get_user(modid)
+            e = discord.Embed(color=self.color['logembed_color'], title=f"{emotes.blacklisted} Attempted Invite", timestamp=datetime.utcnow(),
+                            description=f"A blacklisted guild attempted to invite me.\n**Guild name:** {guild.name}\n**Guild ID:** {guild.id}\n**Guild Owner:** {guild.owner}\n**Guild size:** {len(guild.members)-1}\n**Blacklisted by:** {mod}\n**Blacklist reason:** {reason}")
+            e.set_thumbnail(url=guild.icon_url)
+            return await chan.send(embed=e)
         
         # Guild is not blacklisted!
-        # Insert guild's data to the database
+        # Insert guild's data to the database and cache
         prefix = '-'
         await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix) VALUES ($1, $2)", guild.id, prefix)
         await self.bot.db.execute("INSERT INTO raidmode(guild_id, raidmode, dm) VALUES ($1, $2, $3)", guild.id, False, True)
@@ -136,13 +137,19 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         else:
             if to_send.permissions_for(guild.me).embed_links:  # We can embed!
                 e = discord.Embed(
-                    color=self.bot.join_color, title="A cool bot has spawned in!")
+                    color=self.color['join_color'], title="A cool bot has spawned in!")
                 e.description = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also [join support server]({support})\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
                 e.set_thumbnail(url='https://cdn.discordapp.com/attachments/667077166789558288/747132112099868773/normal_3.gif')
-                await to_send.send(embed=e)
+                try:
+                    await to_send.send(embed=e)
+                except:
+                    pass
             else:  # We were invited without embed perms...
                 msg = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also join support server: {support}\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
-                await to_send.send(msg)
+                try:
+                    await to_send.send(msg)
+                except:
+                    pass
 
         # Log the join
         logchannel = self.bot.get_channel(675333016066719744) 
@@ -151,11 +158,15 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         bots = len([x for x in guild.members if x.bot])
         tch = len(guild.text_channels)
         vch = len(guild.voice_channels)
+        if len(self.bot.guilds) == 100:
+            g100 = f'\n\n{emotes.bot_vip} **This is 100th server!**'
+        else:
+            g100 = ''
 
         ratio = f'{int(100 / members * bots)}'
 
-        embed = discord.Embed(color=self.bot.logging_color, title="I've joined a guild",
-                              description="I've joined a new guild. Informing you for safety reasons")
+        embed = discord.Embed(color=self.color['logging_color'], title="I've joined a guild",
+                              description=f"I've joined a new guild. Informing you for safety reasons{g100}")
         embed.set_thumbnail(url=guild.icon_url)
         embed.add_field(name="__**General Info**__",
                         value=f"**Guild name:** {guild.name}\n**Guild ID:** {guild.id}\n**Guild owner:** {guild.owner}\n**Guild owner ID:** {guild.owner.id}\n**Guild created:** {default.date(guild.created_at)} ({default.timeago(datetime.utcnow() - guild.created_at)})\n**Member count:** {members-1} (Bots / Users ratio: {ratio}%)\n**Text channels:** {tch}\n**Voice channels:** {vch}", inline=False)
@@ -169,14 +180,13 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         # Delete guild data from the database
         # await self.bot.db.execute("DELETE FROM automods WHERE guild_id = $1", guild.id)
         await self.bot.db.execute("DELETE FROM guilds WHERE guild_id = $1", guild.id)
-        self.bot.prefixes.pop(guild.id)
-        self.bot.raidmode.pop(guild.id)
+        cm.delete_cache(self.bot, guild.id)
 
         # Log the leave
         members = len(guild.members)
         logchannel = self.bot.get_channel(675333016066719744)
 
-        e = discord.Embed(color=self.bot.logging_color, title='I\'ve left the guild...', description=f"**Guild name:** {guild.name}\n**Member count:** {members}")
+        e = discord.Embed(color=self.color['logging_color'], title='I\'ve left the guild...', description=f"**Guild name:** {guild.name}\n**Member count:** {members}")
         await logchannel.send(embed=e)
     
     
@@ -194,6 +204,12 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         except:
             return
 
+        if message.guild and message.guild.id == 667065302260908032:
+            if message.author.id == 393793344263815180:
+                num = random.randint(1, 10)
+                if num == 5:
+                    await message.channel.send(f"{message.author.mention} simp", allowed_mentions=discord.AllowedMentions(users=True))
+
         # Something happened in DM's
         if message.guild is None:
             blacklist = await self.bot.db.fetchval("SELECT * FROM blacklist WHERE user_id = $1", message.author.id)
@@ -209,11 +225,19 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
 
             # They DM'ed the bot
             logchannel = self.bot.get_channel(674929832596865045)
+            dmid = ''
+            for num in self.bot.dm:
+                if self.bot.dm[num] == message.author.id:
+                    dmid += f"{num}"
+            
+            total_dms = len(self.bot.dm)
+            if not dmid:
+                self.bot.dm[total_dms + 1] = message.author.id
+                dmid = total_dms + 1
             
             msgembed = discord.Embed(
-                title=f"Received new Direct Message:", description=message.content, color=self.bot.log_color, timestamp=datetime.utcnow())
-            msgembed.set_author(name=message.author,
-                                icon_url=message.author.avatar_url)
+                description=message.content, color=discord.Color.blurple(), timestamp=datetime.utcnow())
+            msgembed.set_author(name=f"New DM from: {message.author} | #{dmid}", icon_url=message.author.avatar_url)
             # They've sent a image/gif/file
             if message.attachments:
                 attachment_url = message.attachments[0].url
@@ -299,26 +323,24 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
     
     @commands.Cog.listener('on_member_join')
     async def raid_check(self, member):
-        try:
-            data = self.bot.raidmode
-            if data[member.guild.id]:
-                if member.guild.me.guild_permissions.kick_members:
-                    if data[member.guild.id]['raidmode'] == True:
-                        if data[member.guild.id]['dm'] == True:
-                            try:
-                                await member.send(f"{emotes.warning} I'm sorry but **{member.guild.name}** is currently experiencing a raid and have raid-mode enabled. Try joining back later!")
-                            except:
-                                pass
-                            await member.guild.kick(member, reason='Anti-raid protection')
-                        elif data[member.guild.id]['dm'] == False:
-                            await member.guild.kick(member, reason='Anti-raid protection')
-                    elif data[member.guild.id]['raidmode'] == False:
-                        return
-            else:
-                return
-        except Exception as e:
-            print(e)
+
+        data = cm.get_cache(self.bot, member.guild.id, 'raidmode')
+        if data:
+            if member.guild.me.guild_permissions.kick_members:
+                if data['raidmode'] == True:
+                    if data['dm'] == True:
+                        try:
+                            await member.send(f"{emotes.warning} I'm sorry but **{member.guild.name}** is currently experiencing a raid and have raid-mode enabled. Try joining back later!")
+                        except:
+                            pass
+                        await member.guild.kick(member, reason='Anti-raid protection')
+                    elif data['dm'] == False:
+                        await member.guild.kick(member, reason='Anti-raid protection')
+                elif data['raidmode'] == False:
+                    return
+        else:
             return
+
     
     @commands.Cog.listener('on_member_update')
     async def nitro_booster(self, before, after):
@@ -346,7 +368,15 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 return
         else:
             return
+    
+    @commands.Cog.listener('on_member_join')
+    async def badges_sync(self, member):
+        if member.guild.id == 671078170874740756:
+            if member.bot:
+                return
+            await self.gain_early(member=member)
+        else:
+            return
             
-
 def setup(bot):
     bot.add_cog(Events(bot))

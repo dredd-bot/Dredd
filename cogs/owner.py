@@ -33,6 +33,7 @@ from utils.paginator import Pages, TextPages
 from prettytable import PrettyTable
 from db import emotes
 from datetime import datetime
+from utils.default import color_picker
 
 class owner(commands.Cog, name="Owner"):
 
@@ -52,16 +53,19 @@ class owner(commands.Cog, name="Owner"):
         # self.api.set_auth("dblista.pl", config.DBLIST_TOKEN)
         # self.api.set_auth("bots.discordbotlabs.org", config.DLABS_TOKEN)
         self.api.start_loop()
+        self.color = color_picker('colors')
 
     async def cog_check(self, ctx: commands.Context):
         """
         Local check, makes all commands in this cog owner-only
         """
         if not await ctx.bot.is_owner(ctx.author):
-            try:
-                await ctx.message.add_reaction('<:youtried:731954681739345921>')
-            except:
-                pass
+
+            if ctx.guild.id == 671078170874740756:
+                try:
+                    await ctx.message.add_reaction('<:youtried:731954681739345921>')
+                except:
+                    pass
             await ctx.send(f"{emotes.bot_owner} | This command is owner-locked", delete_after=20)
             return False
         return True
@@ -218,16 +222,13 @@ class owner(commands.Cog, name="Owner"):
 # ! Blacklist
 
     @dev.command(brief="Blacklist a guild", aliases=['guildban'])
-    async def guildblock(self, ctx, guild: int, *, reason: str = None):
+    async def guildblock(self, ctx, guild: int, *, reason: str):
         """ Blacklist bot from specific guild """
 
         try:
             await ctx.message.delete()
         except:
             pass
-
-        if reason is None:
-            reason = "No reason"
 
         db_check = await self.bot.db.fetchval("SELECT guild_id FROM blockedguilds WHERE guild_id = $1", guild)
 
@@ -239,8 +240,6 @@ class owner(commands.Cog, name="Owner"):
 
         await self.bot.db.execute("INSERT INTO blockedguilds(guild_id, reason, dev) VALUES ($1, $2, $3)", guild, reason, ctx.author.id)
         self.bot.blacklisted_guilds[guild] = [reason]
-        
-        bu = await self.bot.db.fetch("SELECT * FROM blockedguilds")
         server = self.bot.support
 
         g = self.bot.get_guild(guild)
@@ -248,9 +247,9 @@ class owner(commands.Cog, name="Owner"):
         try:
             try:
                 owner = g.owner
-                emb = discord.Embed(color=self.bot.logging_color, title="Uh oh!",
-                description=f"I'm sorry, looks like I was forced to leave your server: **{g}**\n**Reason:** `[BLACKLIST]: {reason}`\n\nJoin [support server]({server}) for more information")
-                await owner.send(embed=emb)
+                e = discord.Embed(color=self.color['deny_color'], description=f"Hello!\nYour server **{ctx.guild}** has been blacklisted by {ctx.author}.\n**Reason:** {reason}\n\nIf you wish to appeal feel free to join the [support server]({self.bot.support})", timestamp=datetime.utcnow())
+                e.set_author(name=f"Blacklist state updated!", icon_url=self.bot.user.avatar_url)
+                await owner.send(embed=e)
             except Exception as e:
                 print(e)
                 await ctx.send("Wasn't able to message guild owner")
@@ -280,7 +279,7 @@ class owner(commands.Cog, name="Owner"):
         bu = await self.bot.db.fetch("SELECT * FROM blockedguilds")
 
         g = self.bot.get_guild(guild)
-        await ctx.send(f"I've successfully removed **{g}** ({guild}) guild from my blacklist", delete_after=10)
+        await ctx.send(f"I've successfully removed **{g}** ({guild}) guild from my blacklist")
 
     @dev.command(brief="Bot block user", aliases=['botban'])
     async def botblock(self, ctx, user: discord.User, *, reason: str = None):
@@ -307,8 +306,10 @@ class owner(commands.Cog, name="Owner"):
 
         try:
             data['Users'][f'{user.id}']["Badges"] = [f'{emotes.blacklisted}']
+            self.bot.user_badges[f"{user.id}"]["Badges"] = [f'{emotes.blacklisted}']
         except KeyError:
             data['Users'][f'{user.id}'] = {"Badges": [f'{emotes.blacklisted}']}
+            self.bot.user_badges[f"{user.id}"] = {"Badges": [f'{emotes.blacklisted}']}
 
         g = self.bot.get_guild(671078170874740756)
         member = g.get_member(user.id)
@@ -320,11 +321,13 @@ class owner(commands.Cog, name="Owner"):
                     pass
         
             role = member.guild.get_role(734537587116736597)
+            bot_admin = member.guild.get_role(674929900674875413)
             await member.add_roles(role, reason='User is blacklisted')
             overwrites = {
                 member.guild.default_role: discord.PermissionOverwrite(read_messages=False),
                 member: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                member.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+                member.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+                bot_admin: discord.PermissionOverwrite(read_messages=True, send_messages=False)
             }
             category = member.guild.get_channel(734539183703588954)
             channel = await member.guild.create_text_channel(name=f'{member.id}-blacklist', overwrites=overwrites, category=category, reason=f"User was blacklisted")
@@ -336,13 +339,18 @@ class owner(commands.Cog, name="Owner"):
         await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
         self.bot.blacklisted_users[user.id] = [reason]
 
-        bu = await self.bot.db.fetch("SELECT * FROM blacklist")
-
+        try:
+            e = discord.Embed(color=self.color['deny_color'], description=f"Hello!\nYou've been blacklisted from using Dredd commands by {ctx.author}.\n**Reason:** {reason}\n\nIf you think your blacklist was unfair, please join the [support server]({self.bot.support})", timestamp=datetime.utcnow())
+            e.set_author(name=f"Blacklist state updated!", icon_url=self.bot.user.avatar_url)
+            await user.send(embed=e)
+        except Exception as e:
+            await ctx.channel.send(f"{emotes.warning} **Error occured:** {e}")
+            pass
         await ctx.send(f"I've successfully added **{user}** to my blacklist", delete_after=10)
 
 
     @dev.command(brief="Bot unblock user", aliases=['botunban'])
-    async def botunblock(self, ctx, user: discord.User):
+    async def botunblock(self, ctx, user: discord.User, *, reason: str):
         """ Unblacklist someone from bot commands """
 
         try:
@@ -362,6 +370,7 @@ class owner(commands.Cog, name="Owner"):
         self.bot.blacklisted_users.pop(user.id)
         try:
             data['Users'].pop(f"{user.id}")
+            self.bot.user_badges.pop(f"{user.id}")
         except KeyError:
             pass
         
@@ -372,10 +381,12 @@ class owner(commands.Cog, name="Owner"):
             try:
                 if emotes.bot_early_supporter not in data['Users'][f'{member.id}']['Badges']:
                     data['Users'][f"{member.id}"]['Badges'] += [emotes.bot_early_supporter]
+                    self.bot.user_badges[f"{user.id}"]["Badges"] += [f'{emotes.bot_early_supporter}']
                 else:
                     return
             except KeyError:
                 data['Users'][f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
+                self.bot.user_badges[f"{user.id}"] = {"Badges": [emotes.bot_early_supporter]}
 
             role1 = member.guild.get_role(741749103280783380)
             role2 = member.guild.get_role(741748979917652050)
@@ -390,6 +401,14 @@ class owner(commands.Cog, name="Owner"):
         
         with open('db/badges.json', 'w') as f:
             data = json.dump(data, f, indent=4)
+        
+        try:
+            e = discord.Embed(color=self.color['approve_color'], description=f"Hello!\nYou've been un-blacklisted from using Dredd commands by {ctx.author}.\n**Reason:** {reason}", timestamp=datetime.utcnow())
+            e.set_author(name=f"Blacklist state updated!", icon_url=self.bot.user.avatar_url)
+            await user.send(embed=e)
+        except Exception as e:
+            await ctx.channel.send(f"{emotes.warning} **Error occured:** {e}")
+            pass
 
         await ctx.send(f"I've successfully removed **{user}** from my blacklist", delete_after=10)
     
@@ -441,7 +460,7 @@ class owner(commands.Cog, name="Owner"):
         for num, user in enumerate(user_list[start:end], start=start):
             user_lists.append(f'`[{num + 1}]`**{await self.bot.fetch_user(str(user))}** ({str(user)})\n**────────────────────────**\n')
  
-        embed = discord.Embed(color=self.bot.embed_color,
+        embed = discord.Embed(color=self.color['embed_color'],
                               title="Blacklisted users:", description="".join(user_lists))
         embed.set_footer(text=f"Viewing page {page}/{pages}")
 
@@ -461,13 +480,13 @@ class owner(commands.Cog, name="Owner"):
 
         if db_check is None:
             await self.bot.db.execute("INSERT INTO updates(update) VALUES ($1)", updates)
-            embed = discord.Embed(color=self.bot.embed_color,
+            embed = discord.Embed(color=self.color['embed_color'],
                                   description=f"Set latest updates to {updates}")
             await ctx.send(embed=embed, delete_after=10)
 
         if db_check is not None:
             await self.bot.db.execute(f"UPDATE updates SET update = $1", updates)
-            embed = discord.Embed(color=self.bot.embed_color,
+            embed = discord.Embed(color=self.color['embed_color'],
                                   description=f"Set latest updates to {updates}")
             await ctx.send(embed=embed, delete_after=10)
 
@@ -481,7 +500,7 @@ class owner(commands.Cog, name="Owner"):
         except:
             pass
 
-        e = discord.Embed(color=self.bot.logging_color)
+        e = discord.Embed(color=self.color['logging_color'])
         e.set_author(icon_url=self.bot.user.avatar_url, name=f'Change log for V{self.bot.version}')
         e.description = self.bot.most_recent_change
         e.set_footer(text=f"© {self.bot.user}")
@@ -589,7 +608,7 @@ class owner(commands.Cog, name="Owner"):
                 async with c.get(url) as f:
                     bio = await f.read()
             await self.bot.user.edit(avatar=bio)
-            embed = discord.Embed(color=self.bot.embed_color,
+            embed = discord.Embed(color=self.color['embed_color'],
                                   description=f"Changed the avatar!")
             embed.set_thumbnail(url=url)
             await ctx.send(embed=embed)
@@ -702,7 +721,7 @@ class owner(commands.Cog, name="Owner"):
 
             if guild.me.guild_permissions.administrator == True:
                     perm = [f'`Administrator`  ']
-            e = discord.Embed(color=self.bot.embed_color, title=f'**{guild}** Inspection')
+            e = discord.Embed(color=self.color['embed_color'], title=f'**{guild}** Inspection')
             e.set_thumbnail(url=guild.icon_url)
             if botfarm > 50 and len(guild.members) > 15:
                 e.description = f"{emotes.warning} This **MIGHT** be a bot farm, do you want me to leave this guild? `[Ratio: {botfarm}%]`"
@@ -723,23 +742,21 @@ class owner(commands.Cog, name="Owner"):
 
     @guild.command(name='leave', category="Other", brief="Leave a guild", description="Make bot leave a suspicious guild")
     @commands.is_owner()
-    async def leave(self, ctx, guild: int, reason: str = None):
+    async def leave(self, ctx, guild: int, reason: str):
         """ Make bot leave suspicious guild """
         try:
             await ctx.message.delete()
         except:
             pass
-        if reason is None:
-            reason = "No reason"
         if guild == 667065302260908032 or guild == 684891633203806260 or guild == 650060149100249091 or guild == 368762307473571840:
             return await ctx.send("You cannot leave that guild")
         server = self.bot.support
         owner = self.bot.get_guild(guild).owner
         g = self.bot.get_guild(guild).name
-        emb = discord.Embed(color=self.bot.logging_color, title="Uh oh!",
-                            description=f"I'm sorry, looks like I was forced to leave your server: **{g}**\n**Reason:** `{reason}`\n\nJoin [support server]({server}) for more information")
+        e = discord.Embed(color=self.color['logging_color'], description=f"Hello!\nI was forced to leave your server **{g}** by {ctx.author}\n**Reason:** {reason}\n\nIf you have any questions feel free to join the [support server]({server})", timestamp=datetime.utcnow())
+        e.set_author(name=f"Force leave executed!", icon_url=self.bot.user.avatar_url)
         try:
-            await owner.send(embed=emb)
+            await owner.send(embed=e)
         except Exception as e:
             pass
         await self.bot.get_guild(guild).leave()
@@ -760,17 +777,26 @@ class owner(commands.Cog, name="Owner"):
 
     @dev.command(brief="DM a user", description="Direct message a user. DO NOT ABUSE IT!")
     @commands.is_owner()
-    async def dm(self, ctx, user: discord.User, *, msg: str):
+    async def dm(self, ctx, id: str, *, msg: str):
         """ DM an user """
         try:
             await ctx.message.delete()
         except:
             pass
         try:
+            if not id.isdigit():
+                return await ctx.author.send(f"{emotes.warning} ID must be integer")
+            try:
+                user = self.bot.dm[int(id)]
+            except Exception as e:
+                return await ctx.author.send(f"{emotes.warning} Error occured! {default.traceback_maker(e, advance=True)}")
+            user = self.bot.get_user(user)
             await user.send(msg)
             logchannel = self.bot.get_channel(674929832596865045)
             logembed = discord.Embed(
-                title=f"I've DM'ed to {user}", description=msg, color=0x0DC405)
+                description=msg, color=0x81C969, timestamp=datetime.utcnow())
+            logembed.set_author(name=f"I've sent a DM to {user} | #{id}", icon_url=user.avatar_url)
+            logembed.set_footer(text=f"User ID: {user.id}")
             await logchannel.send(embed=logembed)
 
         except discord.errors.Forbidden:
@@ -795,7 +821,7 @@ class owner(commands.Cog, name="Owner"):
         cmd = self.bot.get_command(command)
 
         if cmd is None:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
+            embed = discord.Embed(color=self.color['logembed_color'], description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
             return await ctx.send(embed=embed)
 
         if cmd.parent:
@@ -818,7 +844,7 @@ class owner(commands.Cog, name="Owner"):
         cmd = self.bot.get_command(command)
 
         if cmd is None:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
+            embed = discord.Embed(color=self.color['logembed_color'], description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
             return await ctx.send(embed=embed)
 
         if cmd.parent:
@@ -849,7 +875,7 @@ class owner(commands.Cog, name="Owner"):
                 cmds.append(f'{command}')
                 
                 
-            e = discord.Embed(color=self.bot.embed_color, title="Disabled commands", description="`" + '`, `'.join(cmds) + '`')
+            e = discord.Embed(color=self.color['embed_color'], title="Disabled commands", description="`" + '`, `'.join(cmds) + '`')
             await ctx.send(embed=e)
         
         except Exception as e:
@@ -857,18 +883,13 @@ class owner(commands.Cog, name="Owner"):
     
     @dev.command(brief='Put bot into maintenance mode')
     async def maintenance(self, ctx):
-        with open('db/lockdown.json', 'r') as f:
-            data = json.load(f)
         
-        if data['lockdown'] == 'True':
-            data['lockdown'] = 'False'
+        if self.bot.lockdown == 'True':
+            self.bot.lockdown = 'False'
             await ctx.send(f"{emotes.white_mark} Bot is out of maintenance mode now.")
-        elif data['lockdown'] == 'False':
-            data['lockdown'] = 'True'
+        elif self.bot.lockdown == 'False':
+            self.bot.lockdown = 'True'
             await ctx.send(f"{emotes.white_mark} Bot is in maintenance mode now.")
-        
-        with open('db/lockdown.json', 'w') as f:
-            data = json.dump(data, f, indent=4)
 
 
 # ! Cog managment
@@ -985,7 +1006,7 @@ class owner(commands.Cog, name="Owner"):
         
     
 
-        e = discord.Embed(color=self.bot.embed_color, title="Bot admins", description="".join(users))
+        e = discord.Embed(color=self.color['embed_color'], title="Bot admins", description="".join(users))
         await ctx.send(embed=e)
 
     @dev.command()
@@ -1003,8 +1024,15 @@ class owner(commands.Cog, name="Owner"):
         try:
             result = await self.api.post_count()
         except Exception as e:
-            await ctx.send("Request failed: `{}`".format(e))
-            return
+            try:
+                await ctx.send("Request failed: `{}`".format(e))
+                return
+            except:
+                channel = self.bot.get_channel(703627099180630068)
+                s = default.traceback_maker(e, advance=False)
+                print(s)
+                await channel.send(default.error_send('Posting everything failed!', s))
+                return
 
         print(result['failure'])
         await ctx.send("Successfully manually posted server count ({:,}) to {:,} lists."
@@ -1051,8 +1079,10 @@ class owner(commands.Cog, name="Owner"):
                 return await ctx.send(f"{emotes.warning} {user} already has {badge} badge")
             elif badge not in data['Users'][f'{user.id}']["Badges"]:
                 data['Users'][f'{user.id}']["Badges"] += [badge]
+                self.bot.user_badges[f"{user.id}"]["Badges"] += [badge]
         except KeyError:
             data['Users'][f"{user.id}"] = {"Badges": [badge]}
+            self.bot.user_badges[f"{user.id}"] = {"Badges": [badge]}
 
         with open('db/badges.json', 'w') as f:
             data = json.dump(data, f, indent=4)
@@ -1070,12 +1100,12 @@ class owner(commands.Cog, name="Owner"):
             with open('db/badges.json', 'r') as f:
                 data = json.load(f)
 
-            avail_badges = ['bot_partner', 'bot_verified']
+            avail_badges = ['server_partner', 'bot_verified']
             if badge.lower() not in avail_badges:
                 return await ctx.send(f"{emotes.warning} **Invalid badge! Here are the valid ones:** {', '.join(avail_badges)}", delete_after=20)
 
-            if badge.lower() == "bot_partner":
-                badge = emotes.bot_partner
+            if badge.lower() == "server_partner":
+                badge = emotes.server_partner
             elif badge.lower() == "bot_verified":
                 badge = emotes.bot_verified
 
@@ -1130,8 +1160,10 @@ class owner(commands.Cog, name="Owner"):
         try:
             if len(data['Users'][f'{user.id}']["Badges"]) < 2:
                 data['Users'].pop(f"{user.id}")
+                self.bot.user_badges.pop(f"{user.id}")
             else:
                 data['Users'][f'{user.id}']["Badges"].remove(badge)
+                self.bot.user_badges[f"{user.id}"]["Badges"].remove(badge)
         except Exception as e:
             return await ctx.send(f"{emotes.warning} {user} has no badges! {e}")
 
@@ -1151,12 +1183,12 @@ class owner(commands.Cog, name="Owner"):
             with open('db/badges.json', 'r') as f:
                 data = json.load(f)
 
-            avail_badges = ['bot_partner', 'bot_verified']
+            avail_badges = ['server_partner', 'bot_verified']
             if badge.lower() not in avail_badges:
                 return await ctx.send(f"{emotes.warning} **Invalid badge! Here are the valid ones:** {', '.join(avail_badges)}", delete_after=20)
 
-            if badge.lower() == "bot_partner":
-                badge = emotes.bot_partner
+            if badge.lower() == "server_partner":
+                badge = emotes.server_partner
             elif badge.lower() == "bot_verified":
                 badge = emotes.bot_verified
 
@@ -1267,7 +1299,7 @@ class owner(commands.Cog, name="Owner"):
             msg = await ctx.channel.send(f"{emotes.loading2} Waiting for partner message...")
             message = await self.bot.wait_for('message', check=check)
 
-            e = discord.Embed(color=self.bot.embed_color, title='Are you sure?')
+            e = discord.Embed(color=self.color['embed_color'], title='Are you sure?')
             if message.content.lower() == "cancel":
                 await message.delete()
                 return await msg.edit(content=f"{emotes.white_mark} Cancelled..", delete_after=15)
@@ -1286,8 +1318,10 @@ class owner(commands.Cog, name="Owner"):
                 try:
                     if badge not in data['Users'][f'{partner.id}']["Badges"]:
                         data['Users'][f'{partner.id}']["Badges"] += [badge]
+                        self.bot.user_badges[f"{partner.id}"]["Badges"] += [badge]
                 except KeyError:
                     data['Users'][f"{partner.id}"] = {"Badges": [badge]}
+                    self.bot.user_badges[f"{partner.id}"] = {"Badges": [badge]}
 
                 with open('db/badges.json', 'w') as f:
                     data = json.dump(data, f, indent=4)
@@ -1339,6 +1373,7 @@ class owner(commands.Cog, name="Owner"):
 
         try:
             data['Users'][f'{partner.id}']['Badges'].remove(badge)
+            self.bot.user_badges[f'{partner.id}']['Badges'].remove(badge)
         except KeyError:
             pass
         with open('db/badges.json', 'w') as f:
@@ -1348,7 +1383,6 @@ class owner(commands.Cog, name="Owner"):
 
         await ctx.send(f"{emotes.white_mark} Removed {partner} from our partner list. Now go ahead and delete their partner message in {partner_channel.mention} if you haven't yet.")
         await self.bot.db.execute("DELETE FROM partners WHERE user_id = $1", partner.id)
-
 
 def setup(bot):
     bot.add_cog(owner(bot))

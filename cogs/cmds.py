@@ -19,6 +19,7 @@ import traceback
 from discord.ext import commands
 from datetime import datetime
 from db import emotes
+from utils.default import color_picker
 
 
 class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
@@ -27,6 +28,7 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
         self._last_result = None
         self.help_icon = ''
         self.big_icon = ''
+        self.color = color_picker('colors')
 
     @commands.Cog.listener()
     async def on_command(self, ctx):
@@ -72,7 +74,7 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
 
         if isinstance(exc, commands.NSFWChannelRequired):
             file = discord.File("img/nsfwerror.png", filename="nsfwerror.png")
-            embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.other_nsfw} This command is marked NSFW. Please make this channel NSFW in channel settings")
+            embed = discord.Embed(color=self.color['logging_color'], description=f"{emotes.other_nsfw} This command is marked NSFW. Please make this channel NSFW in channel settings")
             embed.set_image(url='attachment://nsfwerror.png')
             return await ctx.send(file=file, embed=embed, delete_after=20)
         if isinstance(exc, commands.CommandNotFound):
@@ -104,7 +106,7 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
                 ctx.command.reset_cooldown(ctx)
                 return await ctx.reinvoke()              
             log = self.bot.get_channel(691654772360740924)
-            embed = discord.Embed(colour=self.bot.logembed_color)
+            embed = discord.Embed(colour=self.color['logembed_color'])
             embed.title = "**User is on cooldown**"
             embed.description = f"""**User:** {ctx.author} ({ctx.author.id})
 Cooldown resets in **{exc.retry_after:.0f}** seconds."""
@@ -113,7 +115,7 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
 
         ctx.command.reset_cooldown(ctx)
         if isinstance(exc, commands.MissingRequiredArgument):
-            embed = discord.Embed(color=self.bot.logging_color, description=f"{emotes.red_mark} You're missing an argument - **{(exc.param.name)}**")
+            embed = discord.Embed(color=self.color['logging_color'], description=f"{emotes.red_mark} You're missing an argument - **{(exc.param.name)}**")
             return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **{(exc.param.name)}**", delete_after=20)
         
         support = self.bot.support
@@ -133,7 +135,7 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
         tbe = "".join(tb) + ""
         log = self.bot.get_channel(675742172015755274)
         embed = discord.Embed(
-            title=f"{emotes.error} Error occured while executing command!", color=self.bot.logembed_color, timestamp=datetime.utcnow())
+            title=f"{emotes.error} Error occured while executing command!", color=self.color['logembed_color'], timestamp=datetime.utcnow())
         embed.description = f'''```py
 {tbe}
 ```'''
@@ -145,7 +147,7 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
             await log.send(embed=embed)
         except Exception:
             print(tb)
-            e = discord.Embed(color=self.bot.logembed_color, timestamp=datetime.utcnow())
+            e = discord.Embed(color=self.color['logembed_color'], timestamp=datetime.utcnow())
             e.title = f"{emotes.error} Error too long!"
             e.description = f"```py\n{exc}```"
             e.add_field(name='Error information:', value=f'''`{ctx.message.clean_content}`
@@ -154,7 +156,7 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
 **Author:** {ctx.author} **ID:** {ctx.author.id}''')
             await log.send(embed=e)
 
-        e = discord.Embed(color=self.bot.error_color, timestamp=datetime.utcnow(), description=f'{emotes.error} An error occured while executing command `{ctx.command}`\n[Join support server]({support})')
+        e = discord.Embed(color=self.color['error_color'], timestamp=datetime.utcnow(), description=f'{emotes.error} An error occured while executing command `{ctx.command}`\n[Join support server]({support})')
         e.add_field(name="Error info:", value=f"""```py
 {exc}```""")
         e.set_footer(text=f"Developer(s) were notified about this issue")

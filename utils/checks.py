@@ -3,6 +3,7 @@ import aiohttp
 from db import emotes
 
 from discord.ext import commands
+from utils.default import color_picker
 
 class owner_only(commands.CommandError):
     pass
@@ -11,21 +12,24 @@ def has_voted():
     async def predicate(ctx):
         if await ctx.bot.is_booster(ctx.author):
             return True
+        if len(ctx.bot.guilds) >= 100 <= 110:
+            return True
         async with aiohttp.ClientSession() as session:
             async with session.get(f'https://discord.boats/api/bot/667117267405766696/voted?id={ctx.author.id}') as r:
                 js = await r.json()
+                color = color_picker('colors')
                 if js['error'] == True and js['message'] == "User wasn't found":
-                    e = discord.Embed(color=ctx.bot.logging_color, description="Please [vote here](https://discord.boats/bot/667117267405766696/vote) to be able to use this command.")
+                    e = discord.Embed(color=color['logging_color'], description="Please [vote here](https://discord.boats/bot/667117267405766696/vote) to be able to use this command.")
                     await ctx.send(embed=e)
                     return False
                 elif js['error'] == False and js['voted'] == False:
-                    e = discord.Embed(color=ctx.bot.logging_color, description="Please [vote here](https://discord.boats/bot/667117267405766696/vote) to be able to use this command.")
+                    e = discord.Embed(color=color['logging_color'], description="Please [vote here](https://discord.boats/bot/667117267405766696/vote) to be able to use this command.")
                     await ctx.send(embed=e)
                     return False
                 elif js['error'] == False and js['voted'] == True:
                     return True
                 elif js['error'] == True:
-                    e = discord.Embed(color=ctx.bot.logging_color, description=f"Error while fetching your vote: {js['message']}")
+                    e = discord.Embed(color=color['logging_color'], description=f"Error while fetching your vote: {js['message']}")
                     await ctx.send(embed=e)
                     return False
     return commands.check(predicate)
@@ -67,7 +71,8 @@ def test_command():
         if await ctx.bot.is_admin(ctx.author):
             return True
         elif not await ctx.bot.is_admin(ctx.author):
-            e = discord.Embed(color=ctx.bot.logembed_color, description=f"{emotes.warning} This command is in it's testing phase, please [join support server]({ctx.bot.support}) if you want to know when it'll be available.")
+            color = color_picker('colors')
+            e = discord.Embed(color=color['logembed_color'], description=f"{emotes.warning} This command is in it's testing phase, please [join support server]({ctx.bot.support}) if you want to know when it'll be available.")
             await ctx.send(embed=e)
             return False
         return False

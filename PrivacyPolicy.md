@@ -30,6 +30,10 @@
 #### To clear your temporary punishments:
 ##### • You must kick the bot from the server
 ##### • If it's temporary mute - unmute the member.
+#### To clear snipes:
+##### • You can op out by invoking `<serverprefix>snipes op-out`
+##### • It stores only 1 message per channel
+##### • Snipes are being logged in a cache, that means it will automatically erase after a reboot
 
 ### 4. Why does it store the data?
 #### It stores server IDs for settings and data because:
@@ -40,11 +44,11 @@
 ##### • Bot needs to find the user who was temporarily muted and punish them if they try to rejoin or unmute them when their punishment ends.
 #### It stores server IDs and user IDs for blacklist because:
 ##### • We need to prevent people/servers that abuse the bot, break bot rules.
-#### It stores deleted messages because:
-##### • It's needed for snipe command to work. It also logs only 1 message, that is - each time you delete the message, the old column gets updated and the old deleted message is gone forever. Of course it only updates the column where the guild and channel ids are the same.
+#### It stores deleted messages in a cache because:
+##### • It's needed for snipe command to work.
 
 ### 5. I'm questioning why do you need all this data, and this Privacy Policy doesn't answer my question. What should I do?
 #### Feel free to join the [support server](https://discord.gg/f3MaASW) and/or contact [Moksej#3335](https://discord.com/users/345457928972533773).
 
 ### Please note, that we can change this policy without any warning at any given time.
-#### **Last changed:** `2020 August 11th`
+#### **Last changed:** `2020 September 2nd`

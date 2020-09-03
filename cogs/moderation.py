@@ -19,6 +19,9 @@ import datetime
 import asyncio
 import random
 import typing
+import re
+import argparse
+import shlex
 from discord.ext import commands
 from discord.utils import escape_markdown, sleep_until
 from datetime import datetime
@@ -28,7 +31,12 @@ from utils.paginator import Pages
 from db import emotes
 from utils.default import responsible, timetext, date
 from io import BytesIO
+from utils.default import color_picker
+from utils.caches import CacheManager as cm
 
+class Arguments(argparse.ArgumentParser):
+    def error(self, message):
+        raise RuntimeError(message)
 
 class moderation(commands.Cog, name="Moderation"):
 
@@ -37,6 +45,7 @@ class moderation(commands.Cog, name="Moderation"):
         self.big_icon = "https://cdn.discordapp.com/emojis/747192603640070237.png?v=1"
         self.help_icon = "<:bann:747192603640070237>"
         self.bot.embed_color = 0x0058D6
+        self.color = color_picker('colors')
 
 # ! Commands
 
@@ -68,37 +77,40 @@ class moderation(commands.Cog, name="Moderation"):
 
         if after is not None:
             after = discord.Object(id=after)
-        
-        msgs = []
-        for message in await ctx.channel.history(limit=limit).flatten():
-            msgs.append(f"[{message.created_at}] {message.author} - {message.content}\n")
-        msgs.reverse()
-        msghis = "".join(msgs)
+        # if predicate is True:
+        #     msgs = []
+        #     for message in await ctx.channel.history(limit=limit).flatten():
+        #         msgs.append(f"[{message.created_at}] {message.author} - {message.content}\n")
+        #     msgs.reverse()
+        #     msghis = "".join(msgs)
 
         try:
             deleted = await ctx.channel.purge(limit=limit, before=before, after=after, check=predicate)
-            await self.log_delete(ctx, data=discord.File(BytesIO(("".join(msgs)).encode("utf-8")), filename=f"{ctx.message.id}.txt"), messages=len(deleted))
+            # if predicate is True:
+            #     await self.log_delete(ctx, data=discord.File(BytesIO(("".join(msgs)).encode("utf-8")), filename=f"{ctx.message.id}.txt"), messages=len(deleted))
         except discord.Forbidden as e:
             return await ctx.send("No permissions")
         except discord.HTTPException as e:
             return await ctx.send(f"Looks like you got an error: {e}")
-
+    
         deleted = len(deleted)
         if deleted == 1:
             messages = f"{emotes.log_msgdelete} Deleted **1** message"
         elif deleted > 1:
             messages = f"{emotes.log_msgdelete} Deleted **{deleted}** messages"
+        elif deleted == 0:
+            messages = f"Was unable to delete any messages"
 
         to_send = '\n'.join(messages)
 
         if len(to_send) > 2000:
 
             text = f"{emotes.log_msgdelete} Removed `{deleted}` messages"
-            await ctx.send(text, delete_after=10)
+            await ctx.channel.send(text, delete_after=5)
         else:
-            e = discord.Embed(color=self.bot.embed_color)
+            e = discord.Embed(color=self.color['embed_color'])
             e.description = f"{messages}"
-            await ctx.send(embed=e, delete_after=10)
+            await ctx.channel.send(embed=e, delete_after=5)
 
     async def log_mute(self, ctx, member=None, reason=None, timed=None):
         check = await self.bot.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", ctx.guild.id)
@@ -109,14 +121,10 @@ class moderation(commands.Cog, name="Moderation"):
             channel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", ctx.guild.id)
             chan = self.bot.get_channel(channel)
 
-            try:
-                case = self.bot.case_num[ctx.guild.id]
-            except KeyError:
-                self.bot.case_num[ctx.guild.id] = 1
+            case = cm.get_cache(self.bot, ctx.guild.id, 'case_num')
+            casenum = case or 1
 
-            casenum = self.bot.case_num[ctx.guild.id]
-
-            e = discord.Embed(color=self.bot.logging_color, description=f"{emotes.log_memberedit} **{member}** muted `[#{casenum}]`")
+            e = discord.Embed(color=self.color['logging_color'], description=f"{emotes.log_memberedit} **{member}** muted `[#{casenum}]`")
             e.add_field(name="Moderator:", value=f"{ctx.author} ({ctx.author.id})", inline=False)
             e.add_field(name="Reason:", value=f"{reason}")
             if timed:
@@ -137,14 +145,10 @@ class moderation(commands.Cog, name="Moderation"):
             channel = await self.bot.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", ctx.guild.id)
             chan = self.bot.get_channel(channel)
 
-            try:
-                case = self.bot.case_num[ctx.guild.id]
-            except KeyError:
-                self.bot.case_num[ctx.guild.id] = 1
+            case = cm.get_cache(self.bot, ctx.guild.id, 'case_num')
+            casenum = case or 1
 
-            casenum = self.bot.case_num[ctx.guild.id]
-
-            e = discord.Embed(color=self.bot.logging_color, description=f"{emotes.log_memberedit} **{member}** unmuted `[#{casenum}]`")
+            e = discord.Embed(color=self.color['logging_color'], description=f"{emotes.log_memberedit} **{member}** unmuted `[#{casenum}]`")
             e.add_field(name="Moderator:", value=f"{ctx.author} ({ctx.author.id})", inline=False)
             e.add_field(name="Reason:", value=f"{reason}", inline=False)
             e.set_thumbnail(url=member.avatar_url_as(format='png'))
@@ -162,12 +166,12 @@ class moderation(commands.Cog, name="Moderation"):
 
 #########################################################################################################
 
-    @commands.command(brief="Change someones nickname", description="Change or remove anyones nickname", aliases=["nick"])
+    @commands.command(brief="Change someones nickname", aliases=["nick"])
     @commands.guild_only()
     @commands.has_permissions(manage_nicknames=True)
     @commands.bot_has_permissions(manage_nicknames=True)
     async def setnick(self, ctx, member: discord.Member, *, name: str = None):
-        """ Change someone's nickname """
+        """ Change or remove anyones nickname """
         
         
         try:
@@ -179,16 +183,16 @@ class moderation(commands.Cog, name="Moderation"):
                 return await ctx.send(f"{emotes.red_mark} Nickname is too long! You can't have nicknames longer than 32 characters")
             await member.edit(nick=name)
             if name is not None:
-                emb = discord.Embed(color=self.bot.embed_color, description=f"{emotes.white_mark} Changed **{member.name}'s** nickname to **{name}**.")
+                emb = discord.Embed(color=self.color['embed_color'], description=f"{emotes.white_mark} Changed **{member.name}'s** nickname to **{name}**.")
                 return await ctx.send(embed=emb)
             elif name is None:
-                emb = discord.Embed(color=self.bot.embed_color, description=f"{emotes.white_mark} Removed **{member.name}'s** nickname")
+                emb = discord.Embed(color=self.color['embed_color'], description=f"{emotes.white_mark} Removed **{member.name}'s** nickname")
                 return await ctx.send(embed=emb)
         except Exception as e:
             print(e)
             await ctx.send(f"Something failed while trying to change **{member}**'s nickname.")
 
-    @commands.command(brief="Kick members", description="Kick someone from the server")
+    @commands.command(brief="Kick someone from the server")
     @commands.guild_only()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True, manage_messages=True)
@@ -202,7 +206,9 @@ class moderation(commands.Cog, name="Moderation"):
 
             if total == 0:
                 return await ctx.send("Please provide member(s) to kick.")
-            
+
+            if total > 10:
+                return await ctx.send("You can kick only 10 members at once!")             
             
             failed = 0
             for member in members:
@@ -228,7 +234,7 @@ class moderation(commands.Cog, name="Moderation"):
             print(e)
             await ctx.send(f"Something failed while trying to kick members.")
 
-    @commands.command(brief="Ban members", description="Ban someone from the server")
+    @commands.command(brief="Ban someone from the server")
     @commands.guild_only()
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True, manage_messages=True)
@@ -243,7 +249,9 @@ class moderation(commands.Cog, name="Moderation"):
 
         try:
             total = len(members)
-            
+
+            if total > 10:
+                return await ctx.send("You can ban only 10 members at once!") 
 
             failed = 0
             for member in members:
@@ -269,7 +277,7 @@ class moderation(commands.Cog, name="Moderation"):
             print(e)
             await ctx.send(f"Something failed while trying to ban members.")
 
-    @commands.command(brief='Ban members that are not in the server')
+    @commands.command(brief='Ban someone who\'s not in the server')
     @commands.guild_only()
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
@@ -290,7 +298,7 @@ class moderation(commands.Cog, name="Moderation"):
             return await ctx.send(f"{emotes.error} Something failed!")
 
 
-    @commands.command(brief="Unban members", description="Unban someone from the server")
+    @commands.command(brief="Unban someone from the server")
     @commands.guild_only()
     @commands.has_permissions(ban_members=True)
     @commands.bot_has_permissions(ban_members=True, manage_messages=True)
@@ -306,10 +314,10 @@ class moderation(commands.Cog, name="Moderation"):
             print(e)
             await ctx.send(f"{emotes.red_mark} Something failed while trying to unban.")
     
-    @commands.command(brief="Unban all members", description="Unban everyone from the server.")
+    @commands.command(brief="Unban all the users from the server")
     @commands.guild_only()
     @commands.has_permissions(ban_members=True)
-    @commands.bot_has_permissions(ban_members=True, use_external_emojis=True, manage_messages=True)
+    @commands.bot_has_permissions(ban_members=True, manage_messages=True)
     async def unbanall(self, ctx, *, reason: str=None):
         """ Unban all users from the server """
         bans = len(await ctx.guild.bans())
@@ -353,7 +361,7 @@ class moderation(commands.Cog, name="Moderation"):
                 for banz in await ctx.guild.bans():
                     ben = f"• {banz.user}\n"
                     ban.append(ben)
-                    e = discord.Embed(color=self.bot.embed_color, title=f"Bans for {ctx.guild}", description="".join(ban))
+                    e = discord.Embed(color=self.color['embed_color'], title=f"Bans for {ctx.guild}", description="".join(ban))
                     e.set_footer(text="Are you sure you want to unban them all?")
                     await checkmsg.edit(content='', embed=e)
                 await checkmsg.add_reaction(f'{emotes.white_mark}')
@@ -383,13 +391,12 @@ class moderation(commands.Cog, name="Moderation"):
 
                 
 
-    @commands.command(brief="Softban members", description="Softbans member from the server")
+    @commands.command(brief="Softban someone from the server", description="Softbans member from the server")
     @commands.guild_only()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True, manage_messages=True)
     async def softban(self, ctx, user: discord.Member, reason: str = None):
         """ Softbans member from the server """
-
 
         try:
             member = user
@@ -407,7 +414,7 @@ class moderation(commands.Cog, name="Moderation"):
             print(e)
             await ctx.send(f"Something failed while trying to soft-ban **{user}**.")
     
-    @commands.command(brief="Mute someone")
+    @commands.command(brief="Mute someone in the server")
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
@@ -419,7 +426,7 @@ class moderation(commands.Cog, name="Moderation"):
         muterole = discord.utils.find(lambda r: r.name.lower() == "muted", ctx.guild.roles)
 
         if muterole is None:
-            embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
+            embed = discord.Embed(color=self.color['embed_color'], description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
             return await ctx.send(embed=embed, delete_after=10)
 
         if muterole.position > ctx.guild.me.top_role.position:
@@ -454,7 +461,7 @@ class moderation(commands.Cog, name="Moderation"):
                 try:
                     await member.add_roles(muterole, reason=responsible(ctx.author, reason))
                     await self.log_mute(ctx, member=member, reason=reason)
-                    await self.bot.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id) VALUES($1, $2, $3, $4, $5, $6)", ctx.guild.id, member.id, ctx.author.id, responsible(ctx.author, reason), None, muterole.id)
+                    await self.bot.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id, type) VALUES($1, $2, $3, $4, $5, $6, $7)", ctx.guild.id, member.id, ctx.author.id, responsible(ctx.author, reason), None, muterole.id, 'mute')
                 except discord.HTTPException as e:
                     print(e)
                     failed += 1
@@ -471,10 +478,10 @@ class moderation(commands.Cog, name="Moderation"):
             elif failed != 0 and total - failed == 0:
                 await ctx.send(f"{emotes.red_mark} Failed to mute all the members")
         except Exception as e:
-            print(e)
+            print(default.traceback_maker(e))
             await ctx.send(f"Something failed while trying to mute members.")
 
-    @commands.command(brief="Temporarily mute someone")
+    @commands.command(brief="Temporarily mute someone in the server")
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
@@ -523,7 +530,7 @@ class moderation(commands.Cog, name="Moderation"):
                 try:
                     await member.add_roles(muterole, reason=responsible(ctx.author, reason))
                     await self.log_mute(ctx, member=member, reason=reason, timed=duration.dt)
-                    await self.bot.temp_punishment(ctx.guild.id, member.id, ctx.author.id, reason, duration.dt, muterole.id)
+                    await self.bot.temp_punishment(ctx.guild.id, member.id, ctx.author.id, reason, duration.dt, muterole.id, 'mute')
                     success_list.append(f"{member.mention} ({member.id})")
                 except discord.HTTPException as e:
                     print(e)
@@ -557,8 +564,80 @@ class moderation(commands.Cog, name="Moderation"):
         except Exception as e:
             print(e)
             return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}") 
+    @commands.command(brief="Temporarily ban someone from the server")
+    @commands.guild_only()
+    @commands.has_permissions(ban_members=True)
+    @commands.bot_has_permissions(ban_members=True)
+    async def tempban(self, ctx, members: commands.Greedy[discord.Member], duration: btime.FutureTime, *, reason: str=None):
+        """ You can ban someone temporarily.
+        
+        Note: If you'll be getting time format error, put the time into \"time\" and it'll work just fine """
+        muterole = discord.utils.find(lambda r: r.name.lower() == "muted", ctx.guild.roles)
 
-    @commands.command(brief='Unmute someone')
+        error = '\n'
+        try:
+            total = len(members)
+
+            if total == 0:
+                return await ctx.send("Please provide members to mute.")
+
+            if total > 10:
+                return await ctx.send("You can ban only 10 members at once!") 
+
+            failed = 0
+            failed_list = []
+            success_list = []
+            for member in members:
+                if member == ctx.author:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - you are the member?")
+                    continue
+                if member.top_role.position >= ctx.author.top_role.position:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above you in role hierarchy or has the same role.")
+                    continue
+                if member.top_role.position >= ctx.guild.me.top_role.position:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above me in role hierarchy or has the same role.")
+                    continue
+                try:
+                    await ctx.guild.ban(member, reason=responsible(ctx.author, f"{reason or 'No reason'}\nBanned until: {duration.dt}"))
+                    await self.bot.temp_ban_log(ctx.guild.id, member.id, ctx.author.id, reason, duration.dt, 'ban')
+                    success_list.append(f"{member.mention} ({member.id})")
+                except discord.HTTPException as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+                except discord.Forbidden as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+            muted = ""
+            notmuted = ""
+            if success_list and not failed_list:
+                muted += "**I've successfully banned {0} member(s):**\n".format(total)
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted)
+            if success_list and failed_list:
+                muted += "**I've successfully banned {0} member(s):**\n".format(total - failed)
+                notmuted += f"**However I failed to ban the following {failed} member(s):**\n"
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted + notmuted)
+            if not success_list and failed_list:  
+                notmuted += f"**I failed to ban all the members:**\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(notmuted)
+                    
+        except Exception as e:
+            print(e)
+            return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}") 
+
+    @commands.command(brief='Unmute someone in the server')
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
@@ -567,7 +646,7 @@ class moderation(commands.Cog, name="Moderation"):
         muterole = discord.utils.find(lambda r: r.name.lower() == "muted", ctx.guild.roles)
 
         if muterole is None:
-            embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
+            embed = discord.Embed(color=self.color['embed_color'], description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
             return await ctx.send(embed=embed, delete_after=10)
 
         if muterole.position > ctx.guild.me.top_role.position:
@@ -625,12 +704,12 @@ class moderation(commands.Cog, name="Moderation"):
             print(e)
             await ctx.send(f"Something failed while trying to unmute members.")
             
-    @commands.command(brief="Dehoist members", description="Dehoist all members to specific nickname")
+    @commands.command(brief="Dehoist members in the server")
     @commands.guild_only()
     @commands.has_permissions(manage_nicknames=True)
     @commands.bot_has_permissions(manage_nicknames=True)
     async def dehoist(self, ctx, *, nick: str):
-        """ Dehoist members with non alphabetic letters """        
+        """ Dehoist members with non alphabetic names """        
         nickname_only = False
         try:
             hoisters = []
@@ -679,9 +758,9 @@ class moderation(commands.Cog, name="Moderation"):
                         
         except Exception as e:
             print(default.traceback_maker(e))
-            await ctx.send(e)
+            await ctx.send(f"Error! ```py\n{e}```")
     
-    @commands.command(brief="Clone text channel", description="Clone text channel in this server")
+    @commands.command(brief="Clone a text channel")
     @commands.guild_only()
     @commands.has_permissions(manage_channels=True)
     @commands.bot_has_permissions(manage_channels=True)
@@ -700,22 +779,23 @@ class moderation(commands.Cog, name="Moderation"):
         await channel.clone(name=f'{channel.name}-clone', reason=responsible(ctx.author, reason))
         await ctx.send(f"{emotes.white_mark} Successfully cloned {channel.name}")
 
-    @commands.group(aliases=['clear', 'delete', 'prune'], brief="Clear messages", description="Clear messages from the chat", invoke_without_command=True)
+    @commands.group(aliases=['clear', 'delete', 'prune'], brief="Manage messages in the chat", invoke_without_command=True)
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
-    async def purge(self, ctx):
+    async def purge(self, ctx, search=100):
         """ Purge messages in the chat. Default amount is set to **100**"""
-        await ctx.send_help(ctx.command)   
-    @purge.command(brief="Every message", description="Clear all messages in chat")
-    @commands.has_permissions(manage_messages=True)
-    @commands.bot_has_permissions(manage_messages=True)
-    @commands.guild_only()
-    async def all(self, ctx, search=100):
-        """ Removes all messages
-        Might take longer if you're purging messages that are older than 2 weeks """
         await ctx.message.delete()
-        await self.do_removal(ctx, search, lambda e: True)
+        await self.do_removal(ctx, search, lambda e: True) 
+    # @purge.command(brief="Every message", description="Clear all messages in chat")
+    # @commands.has_permissions(manage_messages=True)
+    # @commands.bot_has_permissions(manage_messages=True)
+    # @commands.guild_only()
+    # async def all(self, ctx, search=100):
+    #     """ Removes all messages
+    #     Might take longer if you're purging messages that are older than 2 weeks """
+    #     await ctx.message.delete()
+    #     await self.do_removal(ctx, search, lambda e: True)
     
     @purge.command(brief="User messages", description="Clear messages sent from an user")
     @commands.has_permissions(manage_messages=True)
@@ -726,18 +806,166 @@ class moderation(commands.Cog, name="Moderation"):
         await ctx.message.delete()
         await self.do_removal(ctx, search, lambda e: e.author == member)
     
-    @purge.command(brief="Bot's messages", description="Clear messages sent from an user")
+    @purge.command(name='bot')
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
-    async def bot(self, ctx, bot: discord.Member, search=100):
-        """ Removes bot's messages """
-        if not bot.bot:
-            return await ctx.send(f'{emotes.red_mark} Please define a valid bot.')
-        await ctx.message.delete()
-        await self.do_removal(ctx, search, lambda e: e.author == bot)
+    async def _bot(self, ctx, prefix=None, search=100):
+        """Removes a bot user's messages and messages with their optional prefix."""
+
+        def predicate(m):
+            return (m.webhook_id is None and m.author.bot) or (prefix and m.content.startswith(prefix))
+
+        await self.do_removal(ctx, search, predicate)
     
-    @commands.command(brief="Voice mute member", description="Voice mute any member in the server", aliases=["vmute"])
+    @purge.command()
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True)
+    @commands.guild_only()
+    async def embeds(self, ctx, search=100):
+        """Removes messages that have embeds in them."""
+        await self.do_removal(ctx, search, lambda e: len(e.embeds))
+
+    @purge.command()
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True)
+    @commands.guild_only()
+    async def images(self, ctx, search=100):
+        """Removes messages that have embeds or attachments."""
+        await self.do_removal(ctx, search, lambda e: len(e.embeds) or len(e.attachments))
+    
+    @purge.command()
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True)
+    @commands.guild_only()
+    async def contains(self, ctx, *, substr: str):
+        """Removes all messages containing a substring.
+
+        The substring must be at least 3 characters long.
+        """
+        if len(substr) < 3:
+            await ctx.send(f"{emotes.warning} substring must be at least 3 characters long.")
+        else:
+            await self.do_removal(ctx, 100, lambda e: substr in e.content)
+    
+    @purge.command(name='emoji')
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True)
+    @commands.guild_only()
+    async def _emoji(self, ctx, search=100):
+        """Removes all messages containing custom emoji."""
+        custom_emoji = re.compile(r'<:(\w+):(\d+)>')
+        def predicate(m):
+            return custom_emoji.search(m.content)
+
+        await self.do_removal(ctx, search, predicate)
+
+    @purge.command()
+    @commands.has_permissions(manage_messages=True)
+    @commands.bot_has_permissions(manage_messages=True)
+    @commands.guild_only()
+    async def custom(self, ctx, *, args: str):
+        """A more advanced purge command.
+
+        This command uses a powerful "command line" syntax.
+        Most options support multiple values to indicate 'any' match.
+        If the value has spaces it must be quoted.
+
+        The messages are only deleted if all options are met unless
+        the `--or` flag is passed, in which case only if any is met.
+
+        The following options are valid.
+
+        `--user`: A mention or name of the user to remove.
+        `--contains`: A substring to search for in the message.
+        `--starts`: A substring to search if the message starts with.
+        `--ends`: A substring to search if the message ends with.
+        `--search`: How many messages to search. Default 100. Max 2000.
+        `--after`: Messages must come after this message ID.
+        `--before`: Messages must come before this message ID.
+
+        Flag options (no arguments):
+
+        `--bot`: Check if it's a bot user.
+        `--embeds`: Check if the message has embeds.
+        `--files`: Check if the message has attachments.
+        `--emoji`: Check if the message has custom emoji.
+        `--reactions`: Check if the message has reactions
+        `--or`: Use logical OR for all options.
+        `--not`: Use logical NOT for all options.
+        """
+        parser = Arguments(add_help=False, allow_abbrev=False)
+        parser.add_argument('--user', nargs='+')
+        parser.add_argument('--contains', nargs='+')
+        parser.add_argument('--starts', nargs='+')
+        parser.add_argument('--ends', nargs='+')
+        parser.add_argument('--or', action='store_true', dest='_or')
+        parser.add_argument('--not', action='store_true', dest='_not')
+        parser.add_argument('--emoji', action='store_true')
+        parser.add_argument('--bot', action='store_const', const=lambda m: m.author.bot)
+        parser.add_argument('--embeds', action='store_const', const=lambda m: len(m.embeds))
+        parser.add_argument('--files', action='store_const', const=lambda m: len(m.attachments))
+        parser.add_argument('--reactions', action='store_const', const=lambda m: len(m.reactions))
+        parser.add_argument('--search', type=int, default=100)
+        parser.add_argument('--after', type=int)
+        parser.add_argument('--before', type=int)
+
+        try:
+            args = parser.parse_args(shlex.split(args))
+        except Exception as e:
+            await ctx.send(str(e))
+            return
+
+        predicates = []
+        if args.bot:
+            predicates.append(args.bot)
+
+        if args.embeds:
+            predicates.append(args.embeds)
+
+        if args.files:
+            predicates.append(args.files)
+
+        if args.reactions:
+            predicates.append(args.reactions)
+
+        if args.emoji:
+            custom_emoji = re.compile(r'<:(\w+):(\d+)>')
+            predicates.append(lambda m: custom_emoji.search(m.content))
+
+        if args.user:
+            users = []
+            converter = commands.MemberConverter()
+            for u in args.user:
+                try:
+                    user = await converter.convert(ctx, u)
+                    users.append(user)
+                except Exception as e:
+                    await ctx.send(str(e))
+                    return
+
+            predicates.append(lambda m: m.author in users)
+
+        if args.contains:
+            predicates.append(lambda m: any(sub in m.content for sub in args.contains))
+
+        if args.starts:
+            predicates.append(lambda m: any(m.content.startswith(s) for s in args.starts))
+
+        if args.ends:
+            predicates.append(lambda m: any(m.content.endswith(s) for s in args.ends))
+
+        op = all if not args._or else any
+        def predicate(m):
+            r = op(p(m) for p in predicates)
+            if args._not:
+                return not r
+            return r
+
+        args.search = max(0, min(2000, args.search)) # clamp from 0-2000
+        await self.do_removal(ctx, args.search, predicate, before=args.before, after=args.after)
+    
+    @commands.command(brief="Voice mute someone in the server", aliases=["vmute"])
     @commands.guild_only()
     @commands.has_guild_permissions(mute_members=True)
     @commands.bot_has_guild_permissions(mute_members=True)
@@ -780,7 +1008,7 @@ class moderation(commands.Cog, name="Moderation"):
             await ctx.send(f"Something failed while trying to voice mute members.")
 
 
-    @commands.command(brief="Voice unmute member", description="Voice unmute any member in the server", aliases=["vunmute"])
+    @commands.command(brief="Voice unmute someone in the server", aliases=["vunmute"])
     @commands.guild_only()
     @commands.has_guild_permissions(mute_members=True)
     @commands.bot_has_guild_permissions(mute_members=True)
@@ -820,7 +1048,7 @@ class moderation(commands.Cog, name="Moderation"):
             print(e)
             await ctx.send(f"Something failed while trying to voice unmute members.")
     
-    @commands.command(brief="New users", hidden=True)
+    @commands.command(brief="Get a list of newest users")
     @commands.guild_only()
     async def newusers(self, ctx, *, count: int):
         """
@@ -834,7 +1062,7 @@ class moderation(commands.Cog, name="Moderation"):
         if not ctx.guild.chunked:
             await self.bot.request_offline_members(ctx.guild)
         members = sorted(ctx.guild.members, key=lambda m: m.joined_at, reverse=True)[:counts]
-        e = discord.Embed(title='Newest member(s) in this server', colour=self.bot.embed_color)
+        e = discord.Embed(title='Newest member(s) in this server', colour=self.color['embed_color'])
         for member in members:
             data = f'**Joined Server at** {btime.human_timedelta(member.joined_at)}\n**Account created at** {btime.human_timedelta(member.created_at)}'
             e.add_field(name=f'**{member}** ({member.id})', value=data, inline=False)
@@ -843,9 +1071,10 @@ class moderation(commands.Cog, name="Moderation"):
 
         await ctx.send(embed=e)
 
-    @commands.command(brief="Hoist a role", aliases=['ar'])
+    @commands.command(brief="Hoist a role for an announcement", aliases=['ar'])
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
     async def announcerole(self, ctx, *, role: discord.Role):
         """ Make a role mentionable you want to mention in announcements.
         
@@ -884,7 +1113,7 @@ class moderation(commands.Cog, name="Moderation"):
                 return await msg.edit(content=f"**{role.mention}** was never mentioned by **{ctx.author}**...", allowed_mentions=discord.AllowedMentions(roles=False))
                 break
     
-    @commands.command(brief="Member warnings", aliases=['warns'])
+    @commands.command(brief="Get all the member warnings", aliases=['warns'])
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
     async def warnings(self, ctx, member: discord.Member = None):
@@ -968,11 +1197,11 @@ class moderation(commands.Cog, name="Moderation"):
         
         await self.bot.db.execute("INSERT INTO warnings(user_id, guild_id, id, reason, time, mod_id) VALUES ($1, $2, $3, $4, $5, $6)", member.id, ctx.guild.id, random_id, reason, datetime.utcnow(), ctx.author.id)
 
-        e = discord.Embed(color=self.bot.embed_color, description=f"Successfully warned **{member}** for: **{reason}** with ID: **{random_id}**", delete_after=15)
+        e = discord.Embed(color=self.color['embed_color'], description=f"Successfully warned **{member}** for: **{reason}** with ID: **{random_id}**", delete_after=15)
 
         await ctx.send(embed=e)
 
-    @commands.command(brief="Remove warn from member", aliases=['unwarn'])
+    @commands.command(brief="Remove warning from a member", aliases=['unwarn'])
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
     async def removewarn(self, ctx, member: discord.Member, warnid):
@@ -996,7 +1225,7 @@ class moderation(commands.Cog, name="Moderation"):
             if warnings is None:
                 return await ctx.send(f"Warn with ID: **{int(warnid)}** was not found.")
     
-    @commands.command(brief="Remove all warns from member", aliases=['unwarnall'])
+    @commands.command(brief="Remove all the warnings from a member", aliases=['unwarnall'])
     @commands.guild_only()
     @commands.has_permissions(manage_messages=True)
     @commands.bot_has_permissions(use_external_emojis=True)
@@ -1041,7 +1270,7 @@ class moderation(commands.Cog, name="Moderation"):
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 300, commands.BucketType.guild)
-    async def lockchannel(self, ctx, channel: discord.TextChannel, *, reason: str = None):
+    async def lockchannel(self, ctx, channel: typing.Optional[discord.TextChannel] = None, *, reason: str = None):
         """ Lock any text channels from everyone being able to chat """
         
         if reason is None:
@@ -1052,16 +1281,20 @@ class moderation(commands.Cog, name="Moderation"):
         if channel.overwrites_for(ctx.guild.default_role).send_messages == False:
             return await ctx.send(f"{emotes.red_mark} {channel.mention} is already locked!", delete_after=20)
         else:
-            await channel.set_permissions(ctx.guild.default_role, send_messages=False, reason=responsible(ctx.author, reason))
-            await channel.send(f"{emotes.locked} This channel was locked for: `{reason}`")
-            await ctx.send(f"{emotes.white_mark} {channel.mention} was locked!", delete_after=20)
-    
+            try:
+                await channel.set_permissions(ctx.guild.default_role, send_messages=False, reason=responsible(ctx.author, reason))
+                await channel.send(f"{emotes.locked} This channel was locked for: `{reason}`")
+                await ctx.send(f"{emotes.white_mark} {channel.mention} was locked!", delete_after=20)
+            except Exception as e:
+                print(default.traceback_maker(e))
+                await ctx.send(f"Error! ```py\n{e}```")
+
     @commands.command(brief='Unlock a text channel')
     @commands.guild_only()
     @commands.has_permissions(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 300, commands.BucketType.guild)
-    async def unlockchannel(self, ctx, channel: discord.TextChannel, *, reason: str = None):
+    async def unlockchannel(self, ctx, channel: typing.Optional[discord.TextChannel] = None, *, reason: str = None):
         """ Unlock text channel to everyone 
         This will sync permissions with category """
 
@@ -1073,115 +1306,119 @@ class moderation(commands.Cog, name="Moderation"):
         if channel.overwrites_for(ctx.guild.default_role).send_messages is None:
             return await ctx.send(f"{emotes.red_mark} {channel.mention} is not locked!", delete_after=20)
         elif channel.overwrites_for(ctx.guild.default_role).send_messages == False:
-            await channel.set_permissions(ctx.guild.default_role, overwrite=None, reason=responsible(ctx.author, reason))
-            await channel.send(f"{emotes.unlocked} This channel was unlocked for: `{reason}`")
-            await ctx.send(f"{emotes.white_mark} {channel.mention} was unlocked!", delete_after=20)
-
-    @commands.command(brief='Lockdown the server', hidden=True)
-    @commands.guild_only()
-    @commands.is_owner()
-    @commands.cooldown(1, 300, commands.BucketType.guild)
-    @commands.has_permissions(manage_roles=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    async def lockdown(self, ctx, *, reason: commands.clean_content):
-        """ Will lock all the channels in the server """
-
-        lock = 0
-        for channel in ctx.guild.channels:
-            if channel.overwrites_for(ctx.guild.default_role).read_messages == False:
-                await self.bot.db.execute("INSERT INTO lockdown(guild_id, channel_id) values ($1, $2)", ctx.guild.id, channel.id)
-                continue
-            if channel.overwrites_for(ctx.guild.default_role).send_messages == False:
-                if not await self.bot.db.fetchval("SELECT * FROM lockdown WHERE channel_id = $1 AND guild_id = $2", channel.id, ctx.guild.id):
-                    await self.bot.db.execute("INSERT INTO lockdown(guild_id, channel_id) values ($1, $2)", ctx.guild.id, channel.id)
-                continue
-            if isinstance(channel, discord.CategoryChannel):
-                continue
             try:
-                await channel.set_permissions(ctx.guild.me, send_messages=True, reason=responsible(ctx.author, reason))
-                await channel.set_permissions(ctx.guild.default_role, send_messages=False, connect=False, reason=responsible(ctx.author, reason))
-                if isinstance(channel, discord.TextChannel):
-                    await channel.send(f"{emotes.locked} **Channel locked for:** {reason}")
-                lock += 1
+                await channel.set_permissions(ctx.guild.default_role, overwrite=None, reason=responsible(ctx.author, reason))
+                await channel.send(f"{emotes.unlocked} This channel was unlocked for: `{reason}`")
+                await ctx.send(f"{emotes.white_mark} {channel.mention} was unlocked!", delete_after=20)
             except Exception as e:
-                print(e)
-                pass
+                print(default.traceback_maker(e))
+                await ctx.send(f"Error! ```py\n{e}```")
+
+    # @commands.command(brief='Lockdown the server', hidden=True)
+    # @commands.guild_only()
+    # @commands.is_owner()
+    # @commands.cooldown(1, 300, commands.BucketType.guild)
+    # @commands.has_permissions(manage_roles=True)
+    # @commands.bot_has_permissions(manage_roles=True)
+    # async def lockdown(self, ctx, *, reason: commands.clean_content):
+    #     """ Will lock all the channels in the server """
+
+    #     lock = 0
+    #     for channel in ctx.guild.channels:
+    #         if channel.overwrites_for(ctx.guild.default_role).read_messages == False:
+    #             await self.bot.db.execute("INSERT INTO lockdown(guild_id, channel_id) values ($1, $2)", ctx.guild.id, channel.id)
+    #             continue
+    #         if channel.overwrites_for(ctx.guild.default_role).send_messages == False:
+    #             if not await self.bot.db.fetchval("SELECT * FROM lockdown WHERE channel_id = $1 AND guild_id = $2", channel.id, ctx.guild.id):
+    #                 await self.bot.db.execute("INSERT INTO lockdown(guild_id, channel_id) values ($1, $2)", ctx.guild.id, channel.id)
+    #             continue
+    #         if isinstance(channel, discord.CategoryChannel):
+    #             continue
+    #         try:
+    #             await channel.set_permissions(ctx.guild.me, send_messages=True, reason=responsible(ctx.author, reason))
+    #             await channel.set_permissions(ctx.guild.default_role, send_messages=False, connect=False, reason=responsible(ctx.author, reason))
+    #             if isinstance(channel, discord.TextChannel):
+    #                 await channel.send(f"{emotes.locked} **Channel locked for:** {reason}")
+    #             lock += 1
+    #         except Exception as e:
+    #             print(e)
+    #             pass
         
-        await ctx.send(f"{emotes.white_mark} Locked {lock} channels")
+    #     await ctx.send(f"{emotes.white_mark} Locked {lock} channels")
     
-    @commands.command(brief='Unlockdown the server', hidden=True)
-    @commands.guild_only()
-    @commands.is_owner()
-    @commands.cooldown(1, 300, commands.BucketType.guild)
-    @commands.has_permissions(manage_roles=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    async def unlockdown(self, ctx, *, reason: commands.clean_content):
-        """ Unlock all the channels that were previously locked using a lockdown. """
+    # @commands.command(brief='Unlockdown the server', hidden=True)
+    # @commands.guild_only()
+    # @commands.is_owner()
+    # @commands.cooldown(1, 300, commands.BucketType.guild)
+    # @commands.has_permissions(manage_roles=True)
+    # @commands.bot_has_permissions(manage_roles=True)
+    # async def unlockdown(self, ctx, *, reason: commands.clean_content):
+    #     """ Unlock all the channels that were previously locked using a lockdown. """
 
-        check = await self.bot.db.fetchval("SELECT * FROM lockdown WHERE guild_id = $1", ctx.guild.id)
-        if check is None:
-            try:
-                def check(r, u):
-                    return u.id == ctx.author.id and r.message.id == checkmsg.id
+    #     check = await self.bot.db.fetchval("SELECT * FROM lockdown WHERE guild_id = $1", ctx.guild.id)
+    #     if check is None:
+    #         try:
+    #             def check(r, u):
+    #                 return u.id == ctx.author.id and r.message.id == checkmsg.id
 
-                channels = 0
-                for channel in ctx.guild.channels:
-                    if isinstance(channel, discord.CategoryChannel):
-                        continue
-                    channels += 1
+    #             channels = 0
+    #             for channel in ctx.guild.channels:
+    #                 if isinstance(channel, discord.CategoryChannel):
+    #                     continue
+    #                 channels += 1
                 
-                checkmsg = await ctx.send(f"No results of previously locked channels using `lockdown` were found are you sure you want to unlock all **{channels}** channels in this server?")
-                await checkmsg.add_reaction(f'{emotes.white_mark}')
-                await checkmsg.add_reaction(f'{emotes.red_mark}')
-                react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
+    #             checkmsg = await ctx.send(f"No results of previously locked channels using `lockdown` were found are you sure you want to unlock all **{channels}** channels in this server?")
+    #             await checkmsg.add_reaction(f'{emotes.white_mark}')
+    #             await checkmsg.add_reaction(f'{emotes.red_mark}')
+    #             react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30.0)
 
-                if str(react) == f"{emotes.white_mark}":
-                    await checkmsg.edit(content=f"{emotes.loading1} Started unlocking process")
-                    unlocked = 0
-                    for channel in ctx.guild.channels:
-                        if isinstance(channel, discord.CategoryChannel):
-                            continue
-                        try:
-                            await channel.set_permissions(ctx.guild.default_role, overwrite=None, reason=responsible(ctx.author, reason))
-                            await channel.send(f"{emotes.unlocked} **Channel unlocked for:** {reason}")
-                            unlocked += 1
-                        except Exception as e:
-                            print(e)
-                            pass
-                    return await ctx.send(f"{emotes.white_mark} Unlocked {unlocked} channels.", delete_after=15)
+    #             if str(react) == f"{emotes.white_mark}":
+    #                 await checkmsg.edit(content=f"{emotes.loading1} Started unlocking process")
+    #                 unlocked = 0
+    #                 for channel in ctx.guild.channels:
+    #                     if isinstance(channel, discord.CategoryChannel):
+    #                         continue
+    #                     try:
+    #                         await channel.set_permissions(ctx.guild.default_role, overwrite=None, reason=responsible(ctx.author, reason))
+    #                         await channel.send(f"{emotes.unlocked} **Channel unlocked for:** {reason}")
+    #                         unlocked += 1
+    #                     except Exception as e:
+    #                         print(e)
+    #                         pass
+    #                 return await ctx.send(f"{emotes.white_mark} Unlocked {unlocked} channels.", delete_after=15)
 
-                elif str(react) == f"{emotes.red_mark}":
-                    await checkmsg.edit(content=f"Ok. Not unlocking any channels", delete_after=15)
-                    try:
-                        return await checkmsg.clear_reactions()
-                    except:
-                        return
-            except asyncio.TimeoutError:
-                await checkmsg.edit(content=f"{emotes.warning} Timeout!")
-                try:
-                    return await checkmsg.clear_reactions()
-                except:
-                    return
+    #             elif str(react) == f"{emotes.red_mark}":
+    #                 await checkmsg.edit(content=f"Ok. Not unlocking any channels", delete_after=15)
+    #                 try:
+    #                     return await checkmsg.clear_reactions()
+    #                 except:
+    #                     return
+    #         except asyncio.TimeoutError:
+    #             await checkmsg.edit(content=f"{emotes.warning} Timeout!")
+    #             try:
+    #                 return await checkmsg.clear_reactions()
+    #             except:
+    #                 return
 
-        unlocked = 0
-        for channel in ctx.guild.channels:
-            if channel.overwrites_for(ctx.guild.default_role).read_messages == False:
-                continue      
-            if await self.bot.db.fetchval("SELECT channel_id FROM lockdown WHERE guild_id = $1 and channel_id = $2", ctx.guild.id, channel.id):
-                continue
-            if isinstance(channel, discord.CategoryChannel):
-                continue
-            try:
-                await channel.set_permissions(ctx.guild.default_role, read_messages = True, send_messages=True, connect=True, reason=responsible(ctx.author, reason))
-                if isinstance(channel, discord.TextChannel):
-                    await channel.send(f"{emotes.unlocked} **Channel unlocked for:** {reason}")
-                unlocked += 1
-            except Exception as e:
-                print(e)
-                pass
+    #     unlocked = 0
+    #     for channel in ctx.guild.channels:
+    #         if channel.overwrites_for(ctx.guild.default_role).read_messages == False:
+    #             continue      
+    #         if await self.bot.db.fetchval("SELECT channel_id FROM lockdown WHERE guild_id = $1 and channel_id = $2", ctx.guild.id, channel.id):
+    #             continue
+    #         if isinstance(channel, discord.CategoryChannel):
+    #             continue
+    #         try:
+    #             await channel.set_permissions(ctx.guild.default_role, read_messages = True, send_messages=True, connect=True, reason=responsible(ctx.author, reason))
+    #             if isinstance(channel, discord.TextChannel):
+    #                 await channel.send(f"{emotes.unlocked} **Channel unlocked for:** {reason}")
+    #             unlocked += 1
+    #         except Exception as e:
+    #             print(e)
+    #             pass
 
-        await ctx.send(f"{emotes.white_mark} Unlocked {unlocked} channels")
-        await self.bot.db.execute("DELETE FROM lockdown WHERE guild_id = $1", ctx.guild.id)
+    #     await ctx.send(f"{emotes.white_mark} Unlocked {unlocked} channels")
+    #     await self.bot.db.execute("DELETE FROM lockdown WHERE guild_id = $1", ctx.guild.id)
         
             
     

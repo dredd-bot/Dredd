@@ -20,6 +20,8 @@ import random
 from discord.ext import commands
 from datetime import datetime
 from db import emotes
+from utils.default import color_picker
+from utils.caches import CacheManager as cm
 
 
 CAPS = re.compile(r"[ABCDEFGHIJKLMNOPQRSTUVWXYZ]")
@@ -33,6 +35,7 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         self.big_icon = ""
         self.long_raid_cooldown = commands.CooldownMapping(commands.Cooldown(25, 15, commands.BucketType.guild))
         self.short_raid_cooldown = commands.CooldownMapping.from_cooldown(8, 4, commands.BucketType.guild)
+        self.color = color_picker('colors')
 
 # Automod   
     @commands.Cog.listener('on_message')
@@ -40,10 +43,7 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         if message.guild is None:
             return
             
-        try:
-            setting = self.bot.automod[message.guild.id]
-        except KeyError:
-            return
+        setting = cm.get_cache(self.bot, message.guild.id, 'automod')
         # setting = await self.bot.db.fetchval("SELECT punishment FROM automods WHERE guild_id = $1", message.guild.id)
 
         if setting == 0 or setting is None:
@@ -58,16 +58,19 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
             return
 
         if not message.guild.me.guild_permissions.manage_guild:
+            self.bot.automod.pop(message.guild.id)
             return await self.bot.db.execute("DELETE FROM automods WHERE guild_id = $1", message.guild.id)
-
-        for res in await self.bot.db.fetch("SELECT * FROM whitelist WHERE guild_id = $1", message.guild.id):
-            ch = res['channel_id']
-            rl = res['role_id']
-            if str(message.channel.id) == str(ch):
-                return
-            role = message.guild.get_role(rl)
-            if role in message.author.roles:
-                return
+        channels = cm.get_cache(self.bot, message.guild.id, 'whitelisted_channels')
+        roles = cm.get_cache(self.bot, message.guild.id, 'whitelisted_roles')
+        if channels is not None:
+            for res in channels:
+                if str(message.channel.id) == str(res):
+                    return
+        if roles is not None:
+            for res in roles:
+                role = message.guild.get_role(res)
+                if role in message.author.roles:
+                    return
 
         for coro in self.automodactions.copy():
             if await coro(self, message):
@@ -78,10 +81,7 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         message = after
         if message.guild is None:
             return
-        try:
-            setting = self.bot.automod[message.guild.id]
-        except KeyError:
-            return
+        setting = cm.get_cache(self.bot, message.guild.id, 'automod')
         # setting = await self.bot.db.fetchval("SELECT punishment FROM automods WHERE guild_id = $1", message.guild.id)
 
         if setting == 0 or setting is None:
@@ -97,16 +97,20 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
             return
 
         if not message.guild.me.guild_permissions.manage_guild:
+            self.bot.automod.pop(message.guild.id)
             return await self.bot.db.execute("DELETE FROM automods WHERE guild_id = $1", message.guild.id)
 
-        for res in await self.bot.db.fetch("SELECT * FROM whitelist WHERE guild_id = $1", message.guild.id):
-            ch = res['channel_id']
-            rl = res['role_id']
-            if str(message.channel.id) == str(ch):
-                return
-            role = message.guild.get_role(rl)
-            if role in message.author.roles:
-                return
+        channels = cm.get_cache(self.bot, message.guild.id, 'whitelisted_channels')
+        roles = cm.get_cache(self.bot, message.guild.id, 'whitelisted_roles')
+        if channels is not None:
+            for res in channels:
+                if str(message.channel.id) == str(res):
+                    return
+        if roles is not None:
+            for res in roles:
+                role = message.guild.get_role(res)
+                if role in message.author.roles:
+                    return
 
         for coro in self.automodactions.copy():
             if await coro(self, message):
@@ -115,13 +119,13 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
 
     async def discord_links(self, message):
 
-        link = await self.bot.db.fetchval("SELECT punishment FROM inv WHERE guild_id = $1", message.guild.id)
-        exes = await self.bot.db.fetchval("SELECT inv FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
-        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction")
-        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", message.guild.id)   
+        link = cm.get_cache(self.bot, message.guild.id, 'invites')  
 
         if link == 0 or link is None:
             return
+
+        exes = await self.bot.db.fetchval("SELECT inv FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
+        channel = cm.get_cache(self.bot, message.guild.id, 'automod_actions')
 
         logchannel = message.guild.get_channel(channel)
         inv = INVITE.search(message.content)
@@ -148,13 +152,14 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         
 
     async def allow_links(self, message):
-        link = await self.bot.db.fetchval("SELECT punishment FROM link WHERE guild_id = $1", message.guild.id)
-        exes = await self.bot.db.fetchval("SELECT links FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
-        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", message.guild.id)
-        logchannel = message.guild.get_channel(channel)   
+        link = cm.get_cache(self.bot, message.guild.id, 'links') 
 
         if link == 0 or link is None:
             return
+        
+        exes = await self.bot.db.fetchval("SELECT links FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
+        channel = cm.get_cache(self.bot, message.guild.id, 'automod_actions')
+        logchannel = message.guild.get_channel(channel)  
             
         inv = INVITE.search(message.content)
         if inv:
@@ -182,13 +187,14 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         return False
 
     async def mass_caps(self, message):
-        caps = await self.bot.db.fetchval("SELECT punishment FROM caps WHERE guild_id = $1", message.guild.id)
-        exes = await self.bot.db.fetchval("SELECT caps FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
-        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", message.guild.id)
-        logchannel = message.guild.get_channel(channel)   
+        caps = cm.get_cache(self.bot, message.guild.id, 'masscaps')
 
         if caps == 0 or caps is None:
             return
+        
+        exes = await self.bot.db.fetchval("SELECT caps FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
+        channel = cm.get_cache(self.bot, message.guild.id, 'automod_actions')
+        logchannel = message.guild.get_channel(channel)
         
         if message.mentions == True:
             return
@@ -215,15 +221,15 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         return False
 
     async def mass_mentions(self, message):
-        punishment = await self.bot.db.fetchval("SELECT punishment FROM massmention WHERE guild_id = $1", message.guild.id)
-        chech = await self.bot.db.fetchval("SELECT mentions FROM mentions WHERE guild_id = $1", message.guild.id)
-        exes = await self.bot.db.fetchval("SELECT mm FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
-        channel = await self.bot.db.fetchval("SELECT channel_id FROM automodaction WHERE guild_id = $1", message.guild.id)
-        logchannel = message.guild.get_channel(channel)   
-
+        punishment = cm.get_cache(self.bot, message.guild.id, 'massmentions')
+        chech = cm.get_cache(self.bot, message.guild.id, 'mentionslimit')
 
         if punishment is None or punishment == 0:
             return
+
+        exes = await self.bot.db.fetchval("SELECT mm FROM autowarns WHERE guild_id = $1 AND user_id = $2", message.guild.id, message.author.id)
+        channel = cm.get_cache(self.bot, message.guild.id, 'automod_actions')
+        logchannel = message.guild.get_channel(channel)  
 
         if chech == 0 or chech is None:
             chech = 3
@@ -249,7 +255,7 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         return False
 
     async def embed(self, message):
-        emb = discord.Embed(color=self.bot.automod_color, title=f"{emotes.log_settings} Automod action", timestamp=datetime.utcnow())
+        emb = discord.Embed(color=self.color['automod_color'], title=f"{emotes.log_settings} Automod action", timestamp=datetime.utcnow())
         emb.set_author(icon_url=str(message.author.avatar_url), name=str(message.author))
         emb.set_footer(text=f"Member ID: {message.author.id}")
         return emb

@@ -21,6 +21,7 @@ from utils import btime
 from utils.default import timeago
 from datetime import datetime
 from db import emotes
+from utils.caches import CacheManager as cm
 
 
 class Eventss(commands.Cog, name="Eventss", command_attrs=dict(hidden=True)):
@@ -34,8 +35,7 @@ class Eventss(commands.Cog, name="Eventss", command_attrs=dict(hidden=True)):
         if before.status == after.status:
             return
 
-        check = await self.bot.db.fetchval("SELECT * FROM status_op_out WHERE user_id = $1", before.id)
-        check2 = await self.bot.db.fetchval("SELECT * FROM useractivity WHERE user_id = $1", before.id)
+        check = cm.get_cache(self.bot, before.id, 'status_op_out')
 
         if check is None:
             return
@@ -47,6 +47,8 @@ class Eventss(commands.Cog, name="Eventss", command_attrs=dict(hidden=True)):
         online = discord.Status.online
         dnd = discord.Status.dnd
         offline = discord.Status.offline
+
+        check2 = await self.bot.db.fetchval("SELECT * FROM useractivity WHERE user_id = $1", before.id)
 
         if before.status != after.status:
             if before.status != offline and after.status == offline:
@@ -110,15 +112,13 @@ class Eventss(commands.Cog, name="Eventss", command_attrs=dict(hidden=True)):
     async def snipe_messages(self, message):
         await self.bot.wait_until_ready()
 
-        op_out_check = await self.bot.db.fetchval("SELECT * FROM snipe_op_out WHERE user_id = $1", message.author.id)
-        check = await self.bot.db.fetchval("SELECT * FROM snipe WHERE guild_id = $1 AND user_id = $2 AND channel_id = $3", message.guild.id, message.author.id, message.channel.id)
+        op_out_check = cm.get_cache(self.bot, message.author.id, 'snipes_op_out')
 
         if op_out_check:
             return
-        if check is None:
-            await self.bot.db.execute("INSERT INTO snipe(message, user_id, guild_id, channel_id, time) VALUES($1, $2, $3, $4, $5)", message.content, message.author.id, message.guild.id, message.channel.id, datetime.now())
-        else:
-            await self.bot.db.execute("UPDATE snipe SET message = $1, time = $2, channel_id = $3 WHERE guild_id = $4 AND user_id = $5", message.content, datetime.now(), message.channel.id, message.guild.id, message.author.id)
+        
+        if message.webhook_id is None:
+            self.bot.snipes[message.channel.id] = {'message': message.content, 'deleted_at': datetime.now(), 'author': message.author.id}
 
 def setup(bot):
     bot.add_cog(Eventss(bot))

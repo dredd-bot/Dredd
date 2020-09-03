@@ -23,6 +23,7 @@ import json
 from discord.ext import commands
 from db import emotes
 from datetime import datetime
+from utils.default import color_picker
 
 class admin(commands.Cog, name="Staff"):
 
@@ -31,6 +32,7 @@ class admin(commands.Cog, name="Staff"):
         self.help_icon = "<:staff:706190137058525235>"
         self.big_icon = "https://cdn.discordapp.com/emojis/706190137058525235.png?v=1"
         self._last_result = None
+        self.color = color_picker('colors')
 
     async def cog_check(self, ctx: commands.Context):
         """
@@ -53,11 +55,13 @@ class admin(commands.Cog, name="Staff"):
 # ! Blacklist
 
     @admin.command(brief="Blacklist a guild", aliases=['guildban'])
-    async def guildblock(self, ctx, guild: int, *, reason: str = None):
+    async def guildblock(self, ctx, guild: int, *, reason: str):
         """ Blacklist bot from specific guild """
 
-        if reason is None:
-            reason = "No reason"
+        try:
+            await ctx.message.delete()
+        except:
+            pass
 
         db_check = await self.bot.db.fetchval("SELECT guild_id FROM blockedguilds WHERE guild_id = $1", guild)
 
@@ -69,17 +73,33 @@ class admin(commands.Cog, name="Staff"):
 
         await self.bot.db.execute("INSERT INTO blockedguilds(guild_id, reason, dev) VALUES ($1, $2, $3)", guild, reason, ctx.author.id)
         self.bot.blacklisted_guilds[guild] = [reason]
+        server = self.bot.support
 
-        await ctx.send(f"I've successfully added **{guild}** guild to my blacklist", delete_after=10)
+        g = self.bot.get_guild(guild)
+        await ctx.send(f"I've successfully added **{g}** guild to my blacklist", delete_after=10)
         try:
-            g = self.bot.get_guild(guild)
+            try:
+                owner = g.owner
+                e = discord.Embed(color=self.color['deny_color'], description=f"Hello!\nYour server **{ctx.guild}** has been blacklisted by {ctx.author}.\n**Reason:** {reason}\n\nIf you wish to appeal feel free to join the [support server]({self.bot.support})", timestamp=datetime.utcnow())
+                e.set_author(name=f"Blacklist state updated!", icon_url=self.bot.user.avatar_url)
+                await owner.send(embed=e)
+            except Exception as e:
+                print(e)
+                await ctx.send("Wasn't able to message guild owner")
+                pass
             await g.leave()
+            await ctx.send(f"I've successfully left `{g}`")
         except Exception:
             pass
 
     @admin.command(brief="Unblacklist a guild", aliases=['guildunban'])
     async def guildunblock(self, ctx, guild: int):
         """ Unblacklist bot from blacklisted guild """
+
+        try:
+            await ctx.message.delete()
+        except:
+            pass
 
         db_check = await self.bot.db.fetchval("SELECT guild_id FROM blockedguilds WHERE guild_id = $1", guild)
 
@@ -89,41 +109,140 @@ class admin(commands.Cog, name="Staff"):
         await self.bot.db.execute("DELETE FROM blockedguilds WHERE guild_id = $1", guild)
         self.bot.blacklisted_guilds.pop(guild)
 
-        await ctx.send(f"I've successfully removed **{guild}** guild from my blacklist", delete_after=10)
+        bu = await self.bot.db.fetch("SELECT * FROM blockedguilds")
+
+        g = self.bot.get_guild(guild)
+        await ctx.send(f"I've successfully removed **{g}** ({guild}) guild from my blacklist")
 
     @admin.command(brief="Bot block user", aliases=['botban'])
-    async def botblock(self, ctx, user: discord.User, *, reason: str = None):
+    async def botblock(self, ctx, user: discord.User, *, reason: str):
         """ Blacklist someone from bot commands """
 
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
         if reason is None:
-            reason = "No reason"
+            reason = 'No reason'
+
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
 
         db_check = await self.bot.db.fetchval("SELECT user_id FROM blacklist WHERE user_id = $1", user.id)
 
-        if await self.bot.is_admin(user):
+        if user.id == 345457928972533773 or user.id == 373863656607318018:
             return await ctx.send("You cannot blacklist that user")
+
 
         if db_check is not None:
             return await ctx.send("This user is already in my blacklist.")
 
+        try:
+            data['Users'][f'{user.id}']["Badges"] = [f'{emotes.blacklisted}']
+            self.bot.user_badges[f"{user.id}"]["Badges"] = [f'{emotes.blacklisted}']
+        except KeyError:
+            data['Users'][f'{user.id}'] = {"Badges": [f'{emotes.blacklisted}']}
+            self.bot.user_badges[f"{user.id}"] = {"Badges": [f'{emotes.blacklisted}']}
+
+        g = self.bot.get_guild(671078170874740756)
+        member = g.get_member(user.id)
+        if member:
+            for role in member.roles:
+                try:
+                    await member.remove_roles(role, reason='User was blacklisted')
+                except:
+                    pass
+        
+            role = member.guild.get_role(734537587116736597)
+            bot_admin = member.guild.get_role(674929900674875413)
+            await member.add_roles(role, reason='User is blacklisted')
+            overwrites = {
+                member.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                member: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+                member.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True),
+                bot_admin: discord.PermissionOverwrite(read_messages=True, send_messages=False)
+            }
+            category = member.guild.get_channel(734539183703588954)
+            channel = await member.guild.create_text_channel(name=f'{member.id}-blacklist', overwrites=overwrites, category=category, reason=f"User was blacklisted")
+            await channel.send(f"{member.mention} Hello! Since you're blacklisted, I'll be locking your access to all the channels. If you wish to appeal, feel free to do so in here. Leaving the server will get you banned immediately.\n\n**Blacklist reason:** {''.join(reason)}", allowed_mentions=discord.AllowedMentions(users=True))
+        
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
+
         await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
         self.bot.blacklisted_users[user.id] = [reason]
 
-        await ctx.send(f"I've successfully added **{user}** to my blacklist", delete_after=10)
+        try:
+            e = discord.Embed(color=self.color['deny_color'], description=f"Hello!\nYou've been blacklisted from using Dredd commands by {ctx.author}.\n**Reason:** {reason}\n\nIf you think your blacklist was unfair, please join the [support server]({self.bot.support})", timestamp=datetime.utcnow())
+            e.set_author(name=f"Blacklist state updated!", icon_url=self.bot.user.avatar_url)
+            await user.send(embed=e)
+        except Exception as e:
+            await ctx.channel.send(f"{emotes.warning} **Error occured:** {e}")
+            pass
+        await ctx.send(f"I've successfully added **{user}** to my blacklist")
 
     @admin.command(brief="Bot unblock user", aliases=['botunban'])
-    async def botunblock(self, ctx, user: discord.User):
+    async def botunblock(self, ctx, user: discord.User, *, reason: str):
         """ Unblacklist someone from bot commands """
 
+        try:
+            await ctx.message.delete()
+        except:
+            pass
+
         db_check = await self.bot.db.fetchval("SELECT user_id FROM blacklist WHERE user_id = $1", user.id)
+
+        with open('db/badges.json', 'r') as f:
+            data = json.load(f)
 
         if db_check is None:
             return await ctx.send("This user isn't in my blacklist.")
 
         await self.bot.db.execute("DELETE FROM blacklist WHERE user_id = $1", user.id)
         self.bot.blacklisted_users.pop(user.id)
+        try:
+            data['Users'].pop(f"{user.id}")
+            self.bot.user_badges.pop(f"{user.id}")
+        except KeyError:
+            pass
+        
+        g = self.bot.get_guild(671078170874740756)
+        member = g.get_member(user.id)
 
-        await ctx.send(f"I've successfully removed **{user}** from my blacklist", delete_after=10)
+        if member:
+            try:
+                if emotes.bot_early_supporter not in data['Users'][f'{member.id}']['Badges']:
+                    data['Users'][f"{member.id}"]['Badges'] += [emotes.bot_early_supporter]
+                    self.bot.user_badges[f"{user.id}"]["Badges"] += [f'{emotes.bot_early_supporter}']
+                else:
+                    return
+            except KeyError:
+                data['Users'][f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
+                self.bot.user_badges[f"{user.id}"] = {"Badges": [emotes.bot_early_supporter]}
+
+            role1 = member.guild.get_role(741749103280783380)
+            role2 = member.guild.get_role(741748979917652050)
+            role3 = member.guild.get_role(741748857888571502)
+            role4 = member.guild.get_role(674930044082192397)
+            role5 = member.guild.get_role(679642623107137549)
+            await member.add_roles(role1, role2, role3, role4, role5)
+            await member.remove_roles(discord.Object(id=734537587116736597))
+            for channel in member.guild.get_channel(734539183703588954).channels:
+                if channel.name == f'{member.id}-blacklist':
+                    await channel.delete()
+        
+        with open('db/badges.json', 'w') as f:
+            data = json.dump(data, f, indent=4)
+        try:
+            e = discord.Embed(color=self.color['approve_color'], description=f"Hello!\nYou've been un-blacklisted from using Dredd commands by {ctx.author}.\n**Reason:** {reason}", timestamp=datetime.utcnow())
+            e.set_author(name=f"Blacklist state updated!", icon_url=self.bot.user.avatar_url)
+            await user.send(embed=e)
+        except Exception as e:
+            await ctx.channel.send(f"{emotes.warning} **Error occured:** {e}")
+            pass
+
+        await ctx.send(f"I've successfully removed **{user}** from my blacklist")
 
 
 # ! Social 
@@ -145,15 +264,15 @@ class admin(commands.Cog, name="Staff"):
         message_id = await self.bot.db.fetchval("SELECT msg_id FROM suggestions WHERE suggestion_id = $1", suggestion_id)
 
         if message_id is None:
-            return await ctx.author.send(f"Suggestion with id: **{suggestion_id}** doesn't exist.")
+            return await ctx.author.send(f"Suggestion **#{suggestion_id}** doesn't exist.")
 
         channel = self.bot.get_channel(674929868345180160)
-        message = await ctx.channel.fetch_message(id=message_id)
+        message = await channel.fetch_message(id=message_id)
         embed = message.embeds[0]
 
 
-        embed.color = 0xFF0202
-        embed.set_footer(text=f"Suggestion was denied")
+        embed.color = self.color['deny_color']
+        embed.set_footer(text=f"Suggestion was denied by {ctx.author}")
         embed.add_field(name="Note:", value=note)
         await message.clear_reactions()
         await message.edit(embed=embed)
@@ -168,12 +287,12 @@ class admin(commands.Cog, name="Staff"):
             to_send.append(user['user_id'])
 
         for user in to_send:
+            e = discord.Embed(color=self.color['deny_color'], description=f"The following suggestion was denied by {ctx.author}\n**Reason:** {note}\n\n**Suggestion:**\n>>> {suggestion_info}")
+            e.set_author(name=f"Suggested by {suggestion_owner} | #{suggestion_id}", icon_url=suggestion_owner.avatar_url)
             try:
-                e = discord.Embed(color=self.bot.error_color, title=f"Suggestion was denied", description=f"Suggestion with an id of: **{suggestion_id}** and suggested by **{suggestion_owner}** was denied for a: `{note}`")
-                e.add_field(name="Suggestion:", value=suggestion_info)
                 user = self.bot.get_user(user)
-                await user.send(embed=e)
                 await self.bot.db.execute("DELETE FROM track_suggest WHERE user_id = $1 AND suggestion_id = $2", user.id, suggestion_id)
+                await user.send(embed=e)
             except Exception as e:
                 print(e)
                 pass
@@ -196,14 +315,14 @@ class admin(commands.Cog, name="Staff"):
         message_id = await self.bot.db.fetchval("SELECT msg_id FROM suggestions WHERE suggestion_id = $1", suggestion_id)
 
         if message_id is None:
-            return await ctx.author.send(f"Suggestion with id: **{suggestion_id}** doesn't exist.")
+            return await ctx.author.send(f"Suggestion **#{suggestion_id}** doesn't exist.")
 
         channel = self.bot.get_channel(674929868345180160)
         message = await channel.fetch_message(message_id)
         embed = message.embeds[0]
 
-        embed.color = 0x00E82E
-        embed.set_footer(text=f"Suggestion was approved")
+        embed.color = self.color['approve_color']
+        embed.set_footer(text=f"Suggestion was approved by {ctx.author}")
         embed.add_field(name="Note", value=note)
         await message.clear_reactions()
         await message.edit(embed=embed)
@@ -220,12 +339,12 @@ class admin(commands.Cog, name="Staff"):
             to_send.append(user['user_id'])
 
         for user in to_send:
+            e = discord.Embed(color=self.color['approve_color'], description=f"The following suggestion was approved by {ctx.author}\n**Reason:** {note}\n\n**Suggestion:**\n>>> {suggestion_info}")
+            e.set_author(name=f"Suggested by {suggestion_owner} | #{suggestion_id}", icon_url=suggestion_owner.avatar_url)
             try:
-                e = discord.Embed(color=self.bot.memberlog_color, title=f"Suggestion was approved", description=f"Suggestion with an id of: **{suggestion_id}** and suggested by **{suggestion_owner}** was approved with a note: `{note}`")
-                e.add_field(name="Suggestion:", value=suggestion_info)
                 user = self.bot.get_user(user)
+                await self.bot.db.execute("DELETE FROM track_suggest WHERE user_id = $1 AND suggestion_id = $2", user.id, suggestion_id)
                 await user.send(embed=e)
-                await self.bot.db.execute("DELETE FROM track_suggestion WHERE user_id = $1 AND suggestion_id = $2", user.id, suggestion_id)
             except Exception as e:
                 print(e)
                 pass
@@ -238,11 +357,11 @@ class admin(commands.Cog, name="Staff"):
         cant_disable = ["help", "jishaku", "dev", "disablecmd", "enablecmd", 'admin']
         cmd = self.bot.get_command(command)
         if cmd is None:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
+            embed = discord.Embed(color=self.color['logembed_color'], description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
             return await ctx.send(embed=embed)
 
         if cmd.name in cant_disable:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Why are you trying to disable **{cmd.name}** you dum dum.")
+            embed = discord.Embed(color=self.color['logembed_color'], description=f"{emotes.red_mark} Why are you trying to disable **{cmd.name}** you dum dum.")
             return await ctx.send(embed=embed)
 
         if cmd.parent and str(cmd.parent) not in cant_disable:
@@ -267,7 +386,7 @@ class admin(commands.Cog, name="Staff"):
         cmd = self.bot.get_command(command)
 
         if cmd is None:
-            embed = discord.Embed(color=self.bot.logembed_color, description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
+            embed = discord.Embed(color=self.color['logembed_color'], description=f"{emotes.red_mark} Command **{command}** doesn't exist.")
             return await ctx.send(embed=embed)
 
         if cmd.parent:
@@ -296,7 +415,7 @@ class admin(commands.Cog, name="Staff"):
             memory = psutil.virtual_memory().total >> 20
             mem_usage = psutil.virtual_memory().used >> 20
             storage_free = psutil.disk_usage('/').free >> 30
-            em = discord.Embed(color=self.bot.embed_color,
+            em = discord.Embed(color=self.color['embed_color'],
                                description=f"Hosting OS: **{platform.platform()}**\n"
                                            f"Cores: **{cores}**\n"
                                            f"CPU: **{cpu_per}%**\n"
@@ -385,8 +504,10 @@ class admin(commands.Cog, name="Staff"):
                 return await ctx.send(f"{emotes.warning} {user} already has {badge} badge")
             elif badge not in data['Users'][f'{user.id}']["Badges"]:
                 data['Users'][f'{user.id}']["Badges"] += [badge]
+                self.bot.user_badges[f"{user.id}"]["Badges"] += [badge]
         except KeyError:
             data['Users'][f"{user.id}"] = {"Badges": [badge]}
+            self.bot.user_badges[f"{user.id}"] = {"Badges": [badge]}
 
         with open('db/badges.json', 'w') as f:
             data = json.dump(data, f, indent=4)
@@ -415,6 +536,7 @@ class admin(commands.Cog, name="Staff"):
 
         try:
             data['Users'][f'{user.id}']["Badges"].remove(badge)
+            self.bot.user_badges[f"{user.id}"]["Badges"].remove(badge)
         except KeyError as e:
             print(e)
             return await ctx.send(f"{emotes.warning} {user} has no badges!")

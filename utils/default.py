@@ -6,6 +6,7 @@ import pathlib
 import random
 import time
 import traceback
+import json
 
 from discord.ext import commands
 from utils.Nullify import clean
@@ -34,7 +35,12 @@ def traceback_maker(err, advance: bool = True):
     error = ('```py\n{1}{0}: {2}\n```').format(type(err).__name__, _traceback, err)
     return error if advance else f"{type(err).__name__}: {err}"
 
-# def error_send(err)
+def error_send(err_type, err_msg):
+    msg = f"""
+Error type: **{err_type}**
+Error message: ```py
+{err_msg}```"""
+    return msg
 
 def next_level(ctx):
     if str(ctx.guild.premium_tier) == "0":
@@ -116,4 +122,11 @@ def member_activity(member):
                 message += f"{emotes.music_presence} Listening to **{clean(activity.name)}**\n"
 
     return message
+
+def color_picker(color):
+    with open('db/settings.json', 'r') as f:
+        data = json.load(f)
+    
+    return data[color]
+
 

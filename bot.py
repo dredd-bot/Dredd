@@ -27,6 +27,7 @@ import aiohttp
 from discord.ext import commands, tasks
 from itertools import cycle
 from db import emotes
+from utils.caches import cache, CacheManager
 
 asyncio.set_event_loop(asyncio.SelectorEventLoop())
 
@@ -40,68 +41,7 @@ async def run():
     if not hasattr(bot, 'uptime'):
         bot.uptime = datetime.datetime.now()
     try:
-
-        owners = await bot.db.fetch("SELECT * FROM owners")
-        for res in owners:
-            bot.owners.append(res['user_id'])
-        print(f'[OWNERS] Owners loaded')
-
-        admins = await bot.db.fetch("SELECT * FROM admins")
-        for res in admins:
-            bot.admins.append(res['user_id'])
-        print(f'[ADMINS] Admins loaded')
-
-        boosters = await bot.db.fetch("SELECT * FROM vip")
-        for res in boosters:
-            bot.boosters[res['user_id']] = {'custom_prefix': res['prefix']}
-        print(f'[BOOSTERS] Boosters loaded')
-
-        prefixes = await bot.db.fetch("SELECT * FROM guilds")
-        for res in prefixes:
-            bot.prefixes[res['guild_id']] = res['prefix']
-        print(f'[PREFIXES] Prefixes loaded')
-
-        blacklist_user = await bot.db.fetch("SELECT * FROM blacklist")
-        for user in blacklist_user:
-            bot.blacklisted_users[user['user_id']] = [user['reason']]
-        print(f'[BLACKLIST] Users blacklist loaded [{len(blacklist_user)}]')
-
-
-        blacklist_guild = await bot.db.fetch("SELECT * FROM blockedguilds")
-        for guild in blacklist_guild:
-            bot.blacklisted_guilds[guild['guild_id']] = [guild['reason']]
-        print(f'[BLACKLIST] Guilds blacklist loaded [{len(blacklist_guild)}]')
-
-
-        afk_user = await bot.db.fetch("SELECT * FROM userafk")
-        for res in afk_user:
-            #bot.afk_users[res['user_id']] = {'time': res['time'], 'guild': res['guild_id'], 'message': res['message']}
-            bot.afk_users.append((res['user_id'], res['guild_id'], res['message'], res['time']))
-        print(f'[AFK] AFK users loaded [{len(afk_user)}]')
-
-
-        temp_mutes = await bot.db.fetch("SELECT * FROM moddata")
-        for res in temp_mutes:
-            if res['time'] is None:
-                continue
-            bot.temp_timer.append((res['guild_id'], res['user_id'], res['mod_id'], res['reason'], res['time'], res['role_id']))
-        print(f'[TEMP MUTE] Mutes loaded [{len(bot.temp_timer)}]')
-
-        automod = await bot.db.fetch("SELECT * FROM automods")
-        for res in automod:
-            bot.automod[res['guild_id']] = res['punishment']
-        print(f"[AUTOMOD] Automod settings loaded")
-
-        raid_mode = await bot.db.fetch("SELECT * FROM raidmode")
-        for res in raid_mode:
-            bot.raidmode[res['guild_id']] = {'raidmode': res['raidmode'], 'dm': res['dm']}
-        print(f'[RAID MODE] raid mode settings loaded')
-
-        case = await bot.db.fetch("SELECT * FROM modlog")
-        for res in case:
-            bot.case_num[res['guild_id']] = res['case_num']
-        print("[CASES] Cases loaded")
-
+        await cache(bot)
         await bot.start(config.DISCORD_TOKEN)
     except KeyboardInterrupt:
         await db.close()
@@ -180,15 +120,15 @@ class Bot(commands.AutoShardedBot):
         self.cmdUsers = {}
         self.guildUsage = {}
 
-        self.embed_color = 0x0058D6 #0058D6
-        self.logembed_color = 0xD66060 #D66060
-        self.log_color = 0x1EA2B4 #1EA2B4
-        self.error_color = 0xD12312 #D12312
-        self.update_color = 0xCCE021 #CCE021
-        self.automod_color = 0xb54907 #b54907
-        self.logging_color = 0xE08C0B #E08C0B
-        self.memberlog_color = 0x55d655 #55d655
-        self.join_color = 0x0B145B #0B145B
+        # self.embed_color = 0x0058D6 #0058D6
+        # self.logembed_color = 0xD66060 #D66060
+        # self.log_color = 0x1EA2B4 #1EA2B4
+        # self.error_color = 0xD12312 #D12312
+        # self.update_color = 0xCCE021 #CCE021
+        # self.automod_color = 0xb54907 #b54907
+        # self.logging_color = 0xE08C0B #E08C0B
+        # self.memberlog_color = 0x55d655 #55d655
+        # self.join_color = 0x0B145B #0B145B
 
         self.support = 'https://discord.gg/f3MaASW'
         self.invite = '<https://discord.com/oauth2/authorize?client_id=667117267405766696&scope=bot&permissions=477588727&redirect_uri=https%3A%2F%2Fdiscord.gg%2Ff3MaASW&response_type=code>'
@@ -197,28 +137,50 @@ class Bot(commands.AutoShardedBot):
         
         self.e = emotes
         self.config = config
+        self.cache = CacheManager.get_cache
         self.cmd_edits = {}
         self.prefixes = {}
         self.vip_prefixes = {}
 
         self.guilds_data = {}
-
         self.loop = asyncio.get_event_loop()
         self.session = aiohttp.ClientSession(loop=self.loop)
         self.blacklisted_guilds = {}
         self.blacklisted_users = {}
-        self.informed_times = []
         self.afk_users = []
         self.temp_timer = []
+        self.temp_bans = []
         self.dm = {}
+        self.user_badges = {}
+        self.snipes = {}
+        self.status_op_out = {}
+        self.snipes_op_out = {}
 
         self.automod = {}
+        self.automod_actions = {}
         self.case_num = {}
         self.raidmode = {}
+        self.moderation = {}
+        self.joinlog = {}
+        self.msgedit = {}
+        self.msgdelete = {}
+        self.joinmsg = {}
+        self.leavemsg = {}
+        self.antidehoist = {}
+        self.memberupdate = {}
+        self.masscaps = {}
+        self.invites = {}
+        self.massmentions = {}
+        self.links = {}
+        self.joinrole = {}
+        self.mentionslimit = {}
+        self.whitelisted_channels = {}
+        self.whitelisted_roles = {}
 
-        self.owners = []
-        self.admins = []
+        self.owners = {}
+        self.admins = {}
         self.boosters = {}
+        self.lockdown = 'False'
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)
@@ -227,23 +189,18 @@ class Bot(commands.AutoShardedBot):
         return self.categories.get(name)
 
     async def is_owner(self, user):
-        for owner in self.owners:
-            if owner == user.id:
-                return True
+        if CacheManager.get_cache(self, user.id, 'owners'):
+            return True
     
     async def is_admin(self, user):
         if await self.is_owner(user):
             return True
-        for admin in self.admins:
-            if admin == user.id:
-                return True
+        if CacheManager.get_cache(self, user.id, 'admins'):
+            return True
     
     async def is_booster(self, user):
-        try:
-            if self.boosters[user.id]:
-                return True
-        except:
-            pass
+        if CacheManager.get_cache(self, user.id, 'boosters'):
+            return True
 
     async def close(self):
         await self.session.close()
@@ -282,10 +239,15 @@ class Bot(commands.AutoShardedBot):
             except discord.NotFound:
                 return
 
-    async def temp_punishment(self, guild: int, user: int, mod: int, reason: str, time, role: int):
-        await self.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id) VALUES($1, $2, $3, $4, $5, $6)", guild, user, mod, reason, time, role)
+    async def temp_punishment(self, guild: int, user: int, mod: int, reason: str, time, role: int, type: str):
+        await self.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id, type) VALUES($1, $2, $3, $4, $5, $6, $7)", guild, user, mod, reason, time, role, type)
 
-        self.temp_timer.append((guild, user, mod, reason, time, role))
+        self.temp_timer.append((guild, user, mod, reason, time, role, type))
+    
+    async def temp_ban_log(self, guild:int, user: int, mod: int, reason: str, time, type:str):
+        await self.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id, type) VALUES($1, $2, $3, $4, $5, $6, $7)", guild, user, mod, reason, time, None, type)
+
+        self.temp_bans.append((guild, user, mod, reason, time, type))
     
     async def log_temp_unmute(self, guild=None, mod=None, member=None, reason=None):
         check = await self.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", guild.id)

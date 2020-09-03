@@ -29,7 +29,8 @@ from utils.Nullify import clean
 from utils import btime
 from datetime import datetime
 from db import emotes
-
+from utils.default import color_picker
+from utils.caches import CacheManager as cm
 
 class misc(commands.Cog, name="Misc"):
 
@@ -37,15 +38,17 @@ class misc(commands.Cog, name="Misc"):
         self.bot = bot
         self.help_icon = "<:etaa:747192603757248544>"
         self.big_icon = "https://cdn.discordapp.com/emojis/747192603757248544.png?v=1"
+        self.color = color_picker('colors')
 
     async def bot_check(self, ctx):
-        with open('db/lockdown.json', 'r') as f:
-            data = json.load(f)
         if await self.bot.is_owner(ctx.author):
             return True
 
-        if data['lockdown'] == "True":
-            await ctx.send(f"{emotes.warning} | We're currently in maintenance mode, sorry for the inconvenience.")
+        if self.bot.lockdown == "True":
+            e = discord.Embed(color=self.color['deny_color'], description=f"Hello!\nWe're currently under the maintenance and the bot is unavailable for use. You can join the [support server]({self.bot.support}) to know when we'll be available again!", timestamp=datetime.utcnow())
+            e.set_author(name=f"Dredd under the maintenance!", icon_url=self.bot.user.avatar_url)
+            e.set_thumbnail(url='https://cdn.discordapp.com/attachments/667077166789558288/747132112099868773/normal_3.gif')
+            await ctx.send(embed=e)
             return False
         return True
 
@@ -57,11 +60,11 @@ class misc(commands.Cog, name="Misc"):
     CHUNK_SIZE = 512 * 1024
 
                 
-    @commands.command(brief="Urban dictionary anything")
+    @commands.command(brief="Search the urban dictionary")
     @commands.guild_only()
     @commands.is_nsfw()
     async def urban(self, ctx, *, urban: str):
-        """ Search anything you want in urban dictionary """
+        """ Search for a term in the urban dictionary """
 
         async with aiohttp.ClientSession() as cs:
             async with cs.get(f'http://api.urbandictionary.com/v0/define?term={urban}') as r:
@@ -82,7 +85,7 @@ class misc(commands.Cog, name="Misc"):
                 definition = definition.rsplit(' ', 1)[0]
                 definition += '...'
 
-        embed = discord.Embed(color=self.bot.embed_color,
+        embed = discord.Embed(color=self.color['embed_color'],
                               description=f"**Search:** {result['word']} | **by:** {result['author']}")
         embed.add_field(
             name="Votes:", value=f"\U0001f44d **{result['thumbs_up']}** | \U0001f44e **{result['thumbs_down']}**", inline=False)
@@ -94,7 +97,7 @@ class misc(commands.Cog, name="Misc"):
             await asyncio.sleep(5)
             return await ctx.send(embed=embed)
 
-    @commands.command(category="Basic", brief="Suggest anything", aliases=['idea'])
+    @commands.command(brief="Suggest anything", aliases=['idea'])
     async def suggest(self, ctx, *, suggestion: commands.clean_content):
         """ Suggest anything you want to see in the server/bot!
         Suggestion will be sent to support server for people to vote."""
@@ -106,19 +109,22 @@ class misc(commands.Cog, name="Misc"):
 
         logchannel = self.bot.get_channel(674929868345180160)
 
-        if len(suggestion) > 128:
-            return await ctx.send(f"{emotes.warning} Your suggestion is over 128 characters!")
-        elif len(suggestion) < 128:
+        if len(suggestion) > 384:
+            return await ctx.send(f"{emotes.warning} Your suggestion is over 384 characters!")
+        elif len(suggestion) < 384:
             ids = await self.bot.db.fetch("SELECT suggestion_id FROM suggestions")
-            e = discord.Embed(color=self.bot.logging_color, title=f"Suggestion! [ID: {len(ids) + 1}]", description=f"A new suggestion was submitted by **{ctx.author}**")
-            e.add_field(name="Suggestion:", value=f"```\n{suggestion}```", inline=False)
+            e = discord.Embed(color=self.color['logging_color'], title=f"New suggestion by {ctx.author.name}! #{len(ids) + 1}", description=f"> {suggestion}", timestamp=datetime.utcnow())
+            e.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
             msg = await logchannel.send(embed=e)
             await msg.add_reaction(f"{emotes.white_mark}")
             await msg.add_reaction(f"{emotes.red_mark}")
             await self.bot.db.execute("INSERT into suggestions(suggestion_info, suggestion_id, user_id, msg_id, approved) VALUES($1, $2, $3, $4, $5)", suggestion, len(ids) + 1, ctx.author.id, msg.id, False)
-            await ctx.send(f"{emotes.white_mark} Your suggestion was sent successfully with id: **{len(ids) + 1}**! You can also follow this suggestion to know if it was approved or not by typing `{ctx.prefix}follow suggestion {len(ids) + 1}`")
+            await self.bot.db.execute("INSERT INTO track_suggest(user_id, suggestion_id) VALUES($1, $2)", ctx.author.id, len(ids) + 1)
+            e = discord.Embed(color=self.color['approve_color'], description=f"You'll get notified in your DMs when the suggestion will be approved or denied\nPeople can also follow this suggestion using `{ctx.prefix}follow suggestion {len(ids) + 1}`\n\n**Suggestion:**\n>>> {suggestion}", timestamp=datetime.utcnow())
+            e.set_author(name=f"Suggestion sent as #{len(ids) + 1}", icon_url=ctx.author.avatar_url)
+            return await ctx.send(embed=e)
 
-    @commands.group(brief='Follow suggestions or bugs')
+    @commands.group(brief='Follow your or other suggestions')
     async def follow(self, ctx):
         """ You can follow suggestions 
         When they'll get approved or denied you'll get a dm from bot with a result """
@@ -132,16 +138,16 @@ class misc(commands.Cog, name="Misc"):
         tracks = await self.bot.db.fetchval("SELECT * FROM track_suggest WHERE user_id = $1 AND suggestion_id = $2", ctx.author.id, suggestionid)
 
         if check is None:
-            await ctx.send(f"{emotes.warning} Looks like suggestion with id {suggestionid} doesn't exist.")
+            await ctx.send(f"{emotes.warning} Looks like suggestion **#{suggestionid}** doesn't exist.")
         elif check == False and tracks is None:
             await self.bot.db.execute("INSERT INTO track_suggest(user_id, suggestion_id) VALUES($1, $2)", ctx.author.id, suggestionid)
-            await ctx.send(f"{emotes.white_mark} Started following suggestion with id: **{suggestionid}**, you'll get notified if the suggestion was approved or not.")
+            await ctx.send(f"{emotes.white_mark} Started following suggestion **#{suggestionid}**, you'll get notified when the suggestion will be approved or denied")
         elif check == True:
-            await ctx.send(f"{emotes.warning} That suggestion is already approved/denied, you cannot follow it.")
+            await ctx.send(f"{emotes.warning} That suggestion is already approved or denied, you cannot follow it.")
         elif tracks:
-            await ctx.send(f"{emotes.red_mark} You're already following suggestion with id **{suggestionid}**")
+            await ctx.send(f"{emotes.red_mark} You're already following suggestion **#{suggestionid}**")
     
-    @commands.command(brief='Set AFK state', aliases=['afk'])
+    @commands.command(brief='Set your AFK state', aliases=['afk'])
     @commands.guild_only()
     @has_voted()
     async def setafk(self, ctx, *, message: str = None):
@@ -307,7 +313,7 @@ class misc(commands.Cog, name="Misc"):
 
         todo = todos[todoid]
 
-        e = discord.Embed(color=self.bot.embed_color, title=f'Information on your todo with id: {todoid}')
+        e = discord.Embed(color=self.color['embed_color'], title=f'Information on your todo with id: {todoid}')
         e.description = f"""
 **Todo content:** {todo['todo']}
 
@@ -349,7 +355,7 @@ class misc(commands.Cog, name="Misc"):
         return await ctx.send(f"{emotes.white_mark} Changed `{clean(todo_to_edit['todo'])}` to `{clean(content)}` in your todo list")
 
 
-    @commands.command(brief='Tells you user status')
+    @commands.command(brief='Check yours or the users status')
     async def status(self, ctx, member: discord.Member = None):
         """ Check how long have you/others have been online/idle/dnd/offline for.
         You need to be opted in first."""
@@ -375,7 +381,7 @@ class misc(commands.Cog, name="Misc"):
         else:
             return await ctx.send('I have nothing logged yet')
     
-    @commands.command(name='status-opt', aliases=['statusopt', 'sopt'], brief="Opt out/in from/to your status being logged")
+    @commands.command(name='status-opt', aliases=['statusopt', 'sopt'], brief="Disable or enable status logging")
     async def status_opt(self, ctx):
         """ Opt in yourself so I would log your statuses. You can also opt in"""
         nicks_opout = await self.bot.db.fetchval("SELECT user_id FROM status_op_out WHERE user_id = $1", ctx.author.id)
@@ -390,6 +396,7 @@ class misc(commands.Cog, name="Misc"):
 
                 if str(react) == f"{emotes.white_mark}": 
                     await self.bot.db.execute('DELETE FROM status_op_out WHERE user_id = $1', ctx.author.id)
+                    self.bot.status_op_out.pop(ctx.author.id)
                     await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your statuses once again.")
                     await checkmsg.delete()
 
@@ -412,6 +419,7 @@ class misc(commands.Cog, name="Misc"):
 
                 if str(react) == f"{emotes.white_mark}": 
                     await self.bot.db.execute('INSERT INTO status_op_out(user_id) VALUES($1)', ctx.author.id)
+                    self.bot.status_op_out[ctx.author.id] = '.'
                     await self.bot.db.execute("DELETE FROM useractivity WHERE user_id = $1", ctx.author.id)
                     await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your statuses from now on!")
                     await checkmsg.delete()
@@ -431,28 +439,26 @@ class misc(commands.Cog, name="Misc"):
         You can pass in the channel mention/name/id so it'd fetch message in that channel """
         channel = channel or ctx.channel
 
-        author = await self.bot.db.fetchval("SELECT user_id FROM snipe WHERE guild_id = $1 AND channel_id = $2 ORDER BY time desc", ctx.guild.id, channel.id)
-        content = await self.bot.db.fetchval("SELECT message FROM snipe WHERE guild_id = $1 AND channel_id = $2 AND user_id = $3 LIMIT 1", ctx.guild.id, channel.id, author)
-        time = await self.bot.db.fetchval("SELECT time FROM snipe WHERE guild_id = $1 AND channel_id = $2 AND user_id = $3 LIMIT 1", ctx.guild.id, channel.id, author)
-        if author is None:
+        check = cm.get_cache(self.bot, channel.id, 'snipes')
+        if check is None:
             return await ctx.send(f"{emotes.red_mark} Haven't logged anything yet")
-        
+        content = check['message']
         if len(content) > 2000:
             content = content[:2000]
             content += '...'
         
         content = content or "*[Content unavailable]*"
-        e = discord.Embed(color=self.bot.embed_color)
-        a = ctx.guild.get_member(author)
+        e = discord.Embed(color=self.color['embed_color'])
+        a = ctx.guild.get_member(check['author'])
         if a is None:
             return await ctx.send(f"{emotes.warning} Couldn't get that member.")
         e.set_author(name=f"Deleted by {a}", icon_url=a.avatar_url)
         e.description = f"{content}"
-        e.set_footer(text=f"Deleted {btime.human_timedelta(time)} in {channel.name}")
+        e.set_footer(text=f"Deleted {btime.human_timedelta(check['deleted_at'])} in {channel.name}")
 
         await ctx.send(embed=e)
     
-    @snipe.command(name='op-out', brief='Opts you out so it wouldn\'t log your messages')
+    @snipe.command(name='op-out', brief='Disable or enable your snipes logging')
     @commands.guild_only()
     async def snipe_opt_out(self, ctx):
         """ Opts you out or in from logging your messages"""
@@ -470,7 +476,7 @@ class misc(commands.Cog, name="Misc"):
 
                 if str(react) == f"{emotes.white_mark}": 
                     await self.bot.db.execute('INSERT INTO snipe_op_out(user_id) VALUES($1)', ctx.author.id)
-                    await self.bot.db.execute("DELETE FROM snipe WHERE user_id = $1", ctx.author.id)
+                    self.bot.snipes_op_out[ctx.author.id] = '.'
                     await ctx.channel.send(f"{emotes.white_mark} You're now opted-out! I won't be logging your deleted messages anymore")
                     await checkmsg.delete()
 
@@ -493,6 +499,7 @@ class misc(commands.Cog, name="Misc"):
 
                 if str(react) == f"{emotes.white_mark}": 
                     await self.bot.db.execute("DELETE FROM snipe_op_out WHERE user_id = $1", ctx.author.id)
+                    self.bot.snipes_op_out.pop(ctx.author.id)
                     await ctx.channel.send(f"{emotes.white_mark} You're now opted-in! I'll be logging your deleted messages (snipes) once again")
                     await checkmsg.delete()
 
@@ -504,7 +511,7 @@ class misc(commands.Cog, name="Misc"):
                 print(e)
                 return
 
-    @commands.command(brief='Check all the bot partners', aliases=['partners', 'plist'])
+    @commands.command(brief='Get the list of bot partners', aliases=['partners', 'plist'])
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def partnerslist(self, ctx):
         """ Displays a list of partners """

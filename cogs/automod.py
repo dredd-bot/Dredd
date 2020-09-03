@@ -17,6 +17,7 @@ import discord
 from discord.ext import commands, tasks
 from utils.paginator import Pages
 from db import emotes
+from utils.default import color_picker
 
 class automod(commands.Cog, name="Automod"):
 
@@ -24,14 +25,14 @@ class automod(commands.Cog, name="Automod"):
         self.bot = bot
         self.help_icon = "<:automod:701056320673153034>"
         self.big_icon = "https://cdn.discordapp.com/attachments/679643465407266817/701055848788787300/channeldeletee.png"
-        self.bot.embed_color = 0x0058D6
+        self.color = color_picker('colors')
 
     async def cog_check(self, ctx):         
         if not ctx.guild:
             return False
         return True
 
-    @commands.command(brief="Automod log channel")
+    @commands.command(brief="Manage automod logs")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
     async def logchannel(self, ctx, channel: discord.TextChannel = None):
@@ -45,6 +46,7 @@ class automod(commands.Cog, name="Automod"):
 
         if channel is None and db_check is not None:
             await self.bot.db.execute(f"DELETE FROM automodaction WHERE guild_id = $1", ctx.guild.id)
+            self.bot.automod_actions.pop(ctx.guild.id)
             await ctx.send(f"{emotes.white_mark} Stopped logging automod actions.", delete_after=15)
         elif channel is None and db_check is None:
             await ctx.send(f"{emotes.red_mark} You aren't logging automod actions.")
@@ -55,12 +57,14 @@ class automod(commands.Cog, name="Automod"):
             elif channel.permissions_for(ctx.guild.me).send_messages:
                 if db_check is None:
                     await self.bot.db.execute(f"INSERT INTO automodaction(guild_id, channel_id) VALUES ($1, $2)", ctx.guild.id, channel.id)
+                    self.bot.automod_actions[ctx.guild.id] = channel.id
                     await ctx.send(f"{emotes.white_mark} Automod actions will be sent to {channel.mention}", delete_after=15)
                 elif db_check is not None:
                     await self.bot.db.execute(f"UPDATE automodaction SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
+                    self.bot.automod_actions[ctx.guild.id] = channel.id
                     await ctx.send(f"{emotes.white_mark} Automod actions will be sent to {channel.mention} from now on!", delete_after=15)
         
-    @commands.command(brief="Toggle automod", description="Enable automod in your server")
+    @commands.command(brief="Enable or disable automod", description="Enable automod in your server")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True, ban_members=True)
     @commands.bot_has_permissions(manage_guild=True, ban_members=True)
@@ -76,6 +80,22 @@ class automod(commands.Cog, name="Automod"):
         if db_check is not None:
             await self.bot.db.execute(f"DELETE FROM automods WHERE guild_id = $1", ctx.guild.id)
             self.bot.automod.pop(ctx.guild.id)
+            try:
+                self.bot.invites.pop(ctx.guild.id)
+            except:
+                pass
+            try:
+                self.bot.links.pop(ctx.guild.id)
+            except:
+                pass
+            try:
+                self.bot.massmentions.pop(ctx.guild.id)
+            except:
+                pass
+            try:
+                self.bot.masscaps.pop(ctx.guild.id)
+            except:
+                pass
             return await ctx.send(f"{emotes.white_mark} Automod was disabled.", delete_after=15)
     
     @commands.group(brief="Toggle automod actions", invoke_without_command=True)
@@ -105,9 +125,11 @@ class automod(commands.Cog, name="Automod"):
 
         elif db_check is not None and check is None:
             await self.bot.db.execute("INSERT INTO inv(guild_id, punishment) VALUES ($1, $2)", ctx.guild.id, 1)
+            self.bot.invites[ctx.guild.id] = 1
             await ctx.send(f"{emotes.white_mark} People who will be sending invites will be punished now.")
         elif db_check is not None and check is not None:
             await self.bot.db.execute("DELETE FROM inv WHERE guild_id = $1", ctx.guild.id)
+            self.bot.invites.pop(ctx.guild.id)
             await ctx.send(f"{emotes.white_mark} People who will be sending invites won't be punished anymore")
 
     @punishment.command()
@@ -123,9 +145,11 @@ class automod(commands.Cog, name="Automod"):
 
         elif db_check is not None and check is None:
             await self.bot.db.execute("INSERT INTO link(guild_id, punishment) VALUES ($1, $2)", ctx.guild.id, 1)
+            self.bot.links[ctx.guild.id] = 1
             await ctx.send(f"{emotes.white_mark} People who will be sending links will be punished now.")
         elif db_check is not None and check is not None:
             await self.bot.db.execute("DELETE FROM link WHERE guild_id = $1", ctx.guild.id)
+            self.bot.links.pop(ctx.guild.id)
             await ctx.send(f"{emotes.white_mark} People who will be sending links won't be punished anymore")
     
     @punishment.command(aliases=['mm', 'mentions'])
@@ -141,9 +165,13 @@ class automod(commands.Cog, name="Automod"):
 
         elif db_check is not None and check is None:
             await self.bot.db.execute("INSERT INTO massmention(guild_id, punishment) VALUES ($1, $2)", ctx.guild.id, 1)
+            self.bot.massmentions[ctx.guild.id] = 1
+            self.bot.mentionslimit[ctx.guild.id] = 3
             await ctx.send(f"{emotes.white_mark} People who will be mass mentioning will be punished now.\nDefault number is set to `3` mentions per message, but you can change it with `{ctx.prefix}mentions <number>`")
         elif db_check is not None and check is not None:
             await self.bot.db.execute("DELETE FROM massmention WHERE guild_id = $1", ctx.guild.id)
+            self.bot.massmentions.pop(ctx.guild.id)
+            self.bot.mentionslimit.pop(ctx.guild.id)
             await ctx.send(f"{emotes.white_mark} People who will be mass mentioning won't be punished anymore")
         
     @punishment.command(aliases=['caps'])
@@ -159,12 +187,14 @@ class automod(commands.Cog, name="Automod"):
 
         elif db_check is not None and check is None:
             await self.bot.db.execute("INSERT INTO caps(guild_id, punishment) VALUES ($1, $2)", ctx.guild.id, 1)
+            self.bot.masscaps[ctx.guild.id] = 1
             await ctx.send(f"{emotes.white_mark} People who will be sending mass caps will be punished now.")
         elif db_check is not None and check is not None:
             await self.bot.db.execute("DELETE FROM caps WHERE guild_id = $1", ctx.guild.id)
+            self.bot.masscaps.pop(ctx.guild.id)
             await ctx.send(f"{emotes.white_mark} People who will be sending mass caps won't be punished anymore")
 
-    @commands.command(brief="Mass mentions limit")
+    @commands.command(brief="Change the mass mentions limit")
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
     @commands.bot_has_permissions(manage_guild=True)
@@ -188,14 +218,16 @@ class automod(commands.Cog, name="Automod"):
                 return await ctx.send("You cannot setup that number!", delete_after=15)
             if db_check is None:
                 await self.bot.db.execute(f"INSERT INTO mentions(guild_id, mentions) VALUES ($1, $2)", ctx.guild.id, limit)
-                embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.white_mark} Mass mentions were set to `{limit}`.", delete_after=15)
+                self.bot.mentionslimit[ctx.guild.id] = limit
+                embed = discord.Embed(color=self.color['embed_color'], description=f"{emotes.white_mark} Mass mentions were set to `{limit}`.", delete_after=15)
                 return await ctx.send(embed=embed)
             elif db_check is not None:
                 await self.bot.db.execute("UPDATE mentions SET mentions = $1 WHERE guild_id  = $2", limit, ctx.guild.id)
-                embed = discord.Embed(color=self.bot.embed_color, description=f"{emotes.white_mark} Mass mentions were set to `{limit}`.", delete_after=15)
+                self.bot.mentionslimit[ctx.guild.id] = limit
+                embed = discord.Embed(color=self.color['embed_color'], description=f"{emotes.white_mark} Mass mentions were set to `{limit}`.", delete_after=15)
                 return await ctx.send(embed=embed)
 
-    @commands.group(brief="Automod white channels", aliases=["wc"], invoke_without_command=True)
+    @commands.group(brief="Manage automod's whitelist", aliases=["wc"], invoke_without_command=True)
     @commands.guild_only()
     @commands.has_permissions(manage_guild=True)
     async def whitelist(self, ctx):
@@ -223,18 +255,26 @@ class automod(commands.Cog, name="Automod"):
 
         if str(channel.id) not in str(db_check):
             await self.bot.db.execute("INSERT INTO whitelist(guild_id, channel_id) VALUES ($1, $2)", ctx.guild.id, channel.id)
+            try:
+                self.bot.whitelisted_channels[ctx.guild.id].append(channel.id)
+            except:
+                self.bot.whitelisted_channels[ctx.guild.id] = [channel.id]
             await ctx.send(f"{emotes.white_mark} {channel.mention} was added to automod whitelist", delete_after=15)
     
-    @channel.command(brief="Remove whitelisted channel")
+    @channel.command(brief="Remove whitelisted channel", name='remove')
     @commands.has_permissions(manage_guild=True)
     @commands.guild_only()
-    async def remove(self, ctx, channel: discord.TextChannel):
+    async def channel_remove(self, ctx, channel: discord.TextChannel):
         """ Remove channels that aren't being moderated """
 
         db_check = await self.bot.db.fetch("SELECT channel_id FROM whitelist WHERE guild_id = $1", ctx.guild.id)
 
         if str(channel.id) in str(db_check):
             await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND channel_id = $2", ctx.guild.id, channel.id)
+            if len(self.bot.whitelisted_channels[ctx.guild.id]) > 1:
+                self.bot.whitelisted_channels[ctx.guild.id].remove(channel.id)
+            else:
+                self.bot.whitelisted_channels.pop(ctx.guild.id)
             return await ctx.send(f"{emotes.white_mark} {channel.mention} was removed from the whitelist", delete_after=15)
 
         if str(channel.id) not in str(db_check):
@@ -262,6 +302,7 @@ class automod(commands.Cog, name="Automod"):
             if str(react) == f"{emotes.white_mark}":
                 await checkmsg.delete()
                 await self.bot.db.execute("DELETE FROM whitelist WHERE role_id is null AND guild_id = $1", ctx.guild.id)
+                self.bot.whitelisted_channels.pop(ctx.guild.id)
                 return await ctx.send(f"{emotes.white_mark} {len(db_check)} channel(s) were removed from the whitelist", delete_after=15)
             
             if str(react) == f"{emotes.red_mark}":
@@ -308,17 +349,25 @@ class automod(commands.Cog, name="Automod"):
 
         if str(role.id) not in str(db_check):
             await self.bot.db.execute("INSERT INTO whitelist(guild_id, role_id) VALUES ($1, $2)", ctx.guild.id, role.id)
+            try:
+                self.bot.whitelisted_roles[ctx.guild.id].append(role.id)
+            except:
+                self.bot.whitelisted_roles[ctx.guild.id] = [role.id]
             await ctx.send(f"{emotes.white_mark} {role.mention} was added to automod whitelist", delete_after=15, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False))
     
     @role.command(brief="Remove whitelisted role")
     @commands.has_permissions(manage_guild=True)
     async def remove(self, ctx, role: discord.Role):
-        """ Remove channels that aren't being moderated """
+        """ Remove roles that aren't being moderated """
 
         db_check = await self.bot.db.fetch("SELECT role_id FROM whitelist WHERE guild_id = $1 AND channel_id is null", ctx.guild.id)
 
         if str(role.id) in str(db_check):
             await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND role_id = $2", ctx.guild.id, role.id)
+            if len(self.bot.whitelisted_roles[ctx.guild.id]) > 1:
+                self.bot.whitelisted_roles[ctx.guild.id].remove(role.id)
+            else:
+                self.bot.whitelisted_roles.pop(ctx.guild.id)
             return await ctx.send(f"{emotes.white_mark} {role.mention} was removed from the whitelist", delete_after=15, allowed_mentions=discord.AllowedMentions(roles=False, everyone=False))
 
         if str(role.id) not in str(db_check):
@@ -346,6 +395,7 @@ class automod(commands.Cog, name="Automod"):
             if str(react) == f"{emotes.white_mark}":
                 await checkmsg.delete()
                 await self.bot.db.execute("DELETE FROM whitelist WHERE channel_id is null AND guild_id = $1", ctx.guild.id)
+                self.bot.whitelisted_roles.pop(ctx.guild.id)
                 return await ctx.send(f"{emotes.white_mark} {len(db_check)} role(s) were removed from the whitelist", delete_after=15)
             
             if str(react) == f"{emotes.red_mark}":
@@ -373,7 +423,7 @@ class automod(commands.Cog, name="Automod"):
                           author=ctx.author)
         await paginator.paginate()
 
-    @commands.command(brief='Automod warnings')
+    @commands.command(brief='Check users automod warnings')
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.has_permissions(manage_guild=True)
     async def autowarns(self, ctx, member: discord.Member):
@@ -390,7 +440,7 @@ class automod(commands.Cog, name="Automod"):
             mm = f"{res['mm']}"
             caps = f"{res['caps']}"
 
-        e = discord.Embed(color=self.bot.embed_color, title=f"**{member}'s** automod warnings")
+        e = discord.Embed(color=self.color['embed_color'], title=f"**{member}'s** automod warnings")
         e.description = f"""
 **Links:** {links} time(s)
 **Invites:** {inv} time(s)
@@ -400,7 +450,7 @@ class automod(commands.Cog, name="Automod"):
         return await ctx.send(embed=e)
 
 
-    @commands.command(brief='Clear member\'s automod warnings')
+    @commands.command(brief='Reset member\'s automod warnings')
     @commands.has_permissions(manage_guild=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def clearautowarns(self, ctx, member: discord.Member):
@@ -435,7 +485,7 @@ class automod(commands.Cog, name="Automod"):
             except Exception as e:
                 return
             
-    @commands.command(brief="Automod settings in guild", aliases=['autosettings', 'autoinfo'])
+    @commands.command(brief="Check the automod settings", aliases=['autosettings', 'autoinfo'])
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def automodsettings(self, ctx):
         """ Check automod settings in your server """
@@ -457,7 +507,7 @@ class automod(commands.Cog, name="Automod"):
         # logs += f"{f'{emotes.setting_no}' if db_check7 is None else f'{emotes.setting_yes}'} Whitelisted channels/Roles\n"
         logs += f"{f'{emotes.setting_no}' if db_check8 is None else f'{emotes.setting_yes}'} Monitoring automod actions\n"
 
-        e = discord.Embed(color=self.bot.embed_color, title=f"{emotes.log_settings} Automod settings", description=logs)
+        e = discord.Embed(color=self.color['embed_color'], title=f"{emotes.log_settings} Automod settings", description=logs)
         await ctx.send(embed=e)
 
 

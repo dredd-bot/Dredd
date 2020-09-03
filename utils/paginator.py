@@ -134,7 +134,7 @@ class Pages:
                 # we can't forbid it if someone ends up using it but remove
                 # it from the default set
                 continue
-            elif self.maximum_pages < 1 and reaction in ('\U000023ee\U0000fe0f', '\U000023ed\U0000fe0f', '\N{BLACK RIGHT-POINTING TRIANGLE}', '\N{BLACK LEFT-POINTING TRIANGLE}'):
+            if self.maximum_pages == 1 and reaction in ('\U000023ee\U0000fe0f', '\U000023ed\U0000fe0f', '\N{BLACK RIGHT-POINTING TRIANGLE}', '\N{BLACK LEFT-POINTING TRIANGLE}'):
                 continue
 
             await self.message.add_reaction(reaction)
