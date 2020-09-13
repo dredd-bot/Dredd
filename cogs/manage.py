@@ -276,9 +276,11 @@ class Managment(commands.Cog, name="Management"):
     async def togglemsg(self, ctx):
         """ Setup welcoming and leaving messages in your server. 
         `{{member.mention}}` - Mentions a member that joined/left
-        `{{member.name}}` - Displays name of member that joined/left
+        `{{member.name}}` - Displays name of a member that joined/left
+        `{{member.id}}` - Displays id of a member that joined/left 
+        `{{member.tag}}` - Displays username of a member that joined/left
         `{{server.name}}` - Displays server name
-        `{{server.members}}` - Displays how many members server has """
+        `{{server.members}}` - Displays how many members server has"""
         if ctx.invoked_subcommand is None:
             await ctx.send_help(ctx.command)
 

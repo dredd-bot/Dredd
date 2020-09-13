@@ -73,6 +73,8 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         for thing in emb_dict:
             if isinstance(emb_dict[thing], str):
                 emb_dict[thing] = emb_dict[thing].replace("{{member.name}}", member.name)
+                emb_dict[thing] = emb_dict[thing].replace("{{member.id}}", str(member.id))
+                emb_dict[thing] = emb_dict[thing].replace("{{member.tag}}", str(member))
                 emb_dict[thing] = emb_dict[thing].replace("{{member.mention}}", member.mention)
                 emb_dict[thing] = emb_dict[thing].replace("{{server.name}}", member.guild.name)
                 emb_dict[thing] = emb_dict[thing].replace("{{server.members}}", str(member.guild.member_count))
@@ -94,13 +96,22 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         if before.content == after.content:
             return
+        
+        if len(before.content) > 1000:
+            msg1 = f"{before.content[:1000]}..."
+        elif len(before.content) < 1000:
+            msg1 = f"{before.content}"
+        if len(after.content) > 1000:
+            msg2 = f"{after.content[:1000]}..."
+        elif len(after.content) < 1000:
+            msg2 = f"{after.content}"
 
         embed = discord.Embed(color=self.color['logging_color'],
                               description=f"{emotes.log_msgedit} Message edited! [Jump to message]({before.jump_url})",
                               timestamp=datetime.utcnow())
         embed.set_author(icon_url=before.author.avatar_url, name=before.author)
-        embed.add_field(name="From:", value=f"{before.content}", inline=True)
-        embed.add_field(name="To:", value=f"{after.content}", inline=False)
+        embed.add_field(name="From:", value=f"{msg1}", inline=True)
+        embed.add_field(name="To:", value=f"{msg2}", inline=False)
         embed.add_field(name="Channel:",
                          value=f"{before.channel.mention}", inline=True)
 
@@ -132,12 +143,20 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
         embed = discord.Embed(
             color=self.color['logging_color'], description=f"{emotes.log_msgdelete} Message deleted!", timestamp=datetime.utcnow())
         embed.set_author(icon_url=message.author.avatar_url, name=message.author)
-
+        msg = ''
+        if len(message.content) > 1000:
+            msg += f"{message.content[:1000]}..."
+        elif message.attachments and len(message.content) < 800:
+            msg += f'{message.content}\n\n{message.attachments[0].url}'
+        elif message.attachments and len(message.content) > 800:
+            msg += f'{message.content[:800]}...' + f'\n\n{message.attachments[0].url}'
+        else:
+            msg += f'{message.content}'
         if message.attachments:
                 attachment_url = message.attachments[0].url
-                embed.add_field(name="Message:", value=attachment_url, inline=False)
+                embed.add_field(name="Message:", value=msg, inline=False)
         else:
-            embed.add_field(name="Message:", value=message.content, inline=False)
+            embed.add_field(name="Message:", value=msg, inline=False)
         embed.add_field(name="Channel:",
                         value=message.channel.mention)
         embed.set_footer(text=f"ID: {message.id}")
@@ -220,6 +239,8 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             if db_check3['message'] and not db_check3['embed']:
                 joinmessage = str(db_check3['message'])
                 joinmessage = joinmessage.replace("{{member.mention}}", member.mention)
+                joinmessage = joinmessage.replace("{{member.tag}}", str(member))
+                joinmessage = joinmessage.replace("{{member.id}}", str(member.id))
                 joinmessage = joinmessage.replace("{{member.name}}", discord.utils.escape_markdown(member.name, as_needed=True))
                 joinmessage = joinmessage.replace("{{server.name}}", member.guild.name)
                 joinmessage = joinmessage.replace("{{server.members}}", str(member.guild.member_count))
@@ -355,6 +376,8 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
             if db_check1['message'] and not db_check1['embed']:
                 leavemessage = str(db_check1['message'])
                 leavemessage = leavemessage.replace("{{member.mention}}", member.mention)
+                leavemessage = leavemessage.replace("{{member.tag}}", str(member))
+                leavemessage = leavemessage.replace("{{member.id}}", str(member.id))
                 leavemessage = leavemessage.replace("{{member.name}}", discord.utils.escape_markdown(member.name, as_needed=True))
                 leavemessage = leavemessage.replace("{{server.name}}", member.guild.name)
                 leavemessage = leavemessage.replace("{{server.members}}", str(member.guild.member_count))
@@ -428,7 +451,7 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
                     deleted += f"{entry.user} ({entry.user.id})"
             except Exception as e:
                 print(e)
-                deleted = "Fail"
+                deleted = ""
             e = discord.Embed(
                 color=self.color['logging_color'],description=f"{emotes.log_memberedit} Nickname changed", timestamp=datetime.utcnow())
             e.set_author(name="Nickname changed", icon_url=before.avatar_url)
@@ -502,15 +525,15 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         if db_check1 is None:
             return
-        
+        deleted = ""
+        reason = ""
         try:
-            deleted = ""
-            reason = ""
-            async for entry in guild.audit_logs(action=discord.AuditLogAction.ban, limit=50):
-                if entry.target == user:
-                    if (datetime.utcnow() - entry.created_at).total_seconds() < 10:
-                        deleted += f"{entry.user} ({entry.user.id})"
-                        reason += f"{entry.reason}"
+            if guild.me.guild_permissions.view_audit_log:
+                async for entry in guild.audit_logs(action=discord.AuditLogAction.ban, limit=50):
+                    if entry.target == user:
+                        if (datetime.utcnow() - entry.created_at).total_seconds() < 10:
+                            deleted += f"{entry.user} ({entry.user.id})"
+                            reason += f"{entry.reason}"
         except Exception as e:
             print(e)
             pass
@@ -548,15 +571,15 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         if db_check1 is None:
             return
-
+        deleted = ""
+        reason = ""
         try:
-            deleted = ""
-            reason = ""
-            async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=50):
-                if entry.target == user:
-                    if (datetime.utcnow() - entry.created_at).total_seconds() < 10:
-                        deleted += f"{entry.user} ({entry.user.id})"
-                        reason += f"{entry.reason}"
+            if guild.me.guild_permissions.view_audit_log:
+                async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=50):
+                    if entry.target == user:
+                        if (datetime.utcnow() - entry.created_at).total_seconds() < 10:
+                            deleted += f"{entry.user} ({entry.user.id})"
+                            reason += f"{entry.reason}"
         except Exception as e:
             print(e)
             pass

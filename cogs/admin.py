@@ -31,7 +31,6 @@ class admin(commands.Cog, name="Staff"):
         self.bot = bot
         self.help_icon = "<:staff:706190137058525235>"
         self.big_icon = "https://cdn.discordapp.com/emojis/706190137058525235.png?v=1"
-        self._last_result = None
         self.color = color_picker('colors')
 
     async def cog_check(self, ctx: commands.Context):

@@ -183,17 +183,14 @@ class misc(commands.Cog, name="Misc"):
     @todo.command(aliases=['a'])
     async def add(self, ctx, *, todo: commands.clean_content):
         """ Add something to your todo list 
-        Time is in UTC """
-
-        if len(todo) > 200:
-            return await ctx.send(f"{emotes.red_mark} Your todo is too long! ({len(todo)}/200)")
-        
+        Time is in UTC """        
         todocheck = await self.bot.db.fetchval("SELECT todo FROM todolist WHERE user_id = $1 AND todo = $2", ctx.author.id, todo)
 
         if todocheck:
             return await ctx.send(f"{emotes.red_mark} You already have `{todo}` in your todo list")
         await self.bot.db.execute("INSERT INTO todolist(user_id, guild_id, todo, time, jump_to) VALUES ($1, $2, $3, $4, $5)", ctx.author.id, ctx.guild.id, todo, datetime.now(), ctx.message.jump_url)
-
+        if len(todo) > 200:
+            todo = todo[:200] + '...'
         await ctx.send(f"{emotes.white_mark} Added `{todo}` to your todo list")
     
     @todo.command(name='list', aliases=['l'])
@@ -201,7 +198,11 @@ class misc(commands.Cog, name="Misc"):
         """ Check your todo list """
         todos = []
         for num, todo, in enumerate(await self.bot.db.fetch('SELECT todo FROM todolist WHERE user_id = $1 ORDER BY time ASC', ctx.author.id), start=0):
-            todos.append(f"`[{num + 1}]` {todo['todo']}\n")
+            if len(todo['todo']) > 195:
+                yourtodo = todo['todo'][:190] + '...'
+            elif len(todo['todo']) < 195:
+                yourtodo = todo['todo']
+            todos.append(f"`[{num + 1}]` {yourtodo}\n")
 
         if len(todos) == 0:
             return await ctx.send(f"{emotes.red_mark} You don't have any todos")
@@ -242,18 +243,18 @@ class misc(commands.Cog, name="Misc"):
         for todo_id in todo_ids:
 
             if not todo_id.isdigit():
-                return await ctx.send(f'{emotes.red_mark} You\'ve provided wrong id')
+                return await ctx.send(f'{emotes.red_mark} You\'ve provided a wrong #')
             if todo_id not in todos.keys():
-                return await ctx.send(f'{emotes.red_mark} I can\'t find todo with id `{todo_id}` in your todo list list.')
+                return await ctx.send(f'{emotes.red_mark} I can\'t find todo `#{todo_id}` in your todo list list.')
             if todo_id in todos_to_remove:
-                return await ctx.send(f'{emotes.red_mark} You provided todo id `{todo_id}` more than once.')
+                return await ctx.send(f'{emotes.red_mark} You provided todo `#{todo_id}` more than once.')
             todos_to_remove.append(todo_id)
 
         query = 'DELETE FROM todolist WHERE user_id = $1 and time = $2'
         entries = [(todos[todo_id]['user_id'], todos[todo_id]['time']) for todo_id in todos_to_remove]
         await self.bot.db.executemany(query, entries)
-
-        contents = '\n• '.join([f'{escape_markdown(todos[todo_id]["todo"], as_needed=True)}' for todo_id in todos_to_remove])
+        dot = '...'
+        contents = '\n• '.join([f'{escape_markdown(todos[todo_id]["todo"][:150], as_needed=True)}' for todo_id in todos_to_remove])
         return await ctx.send(f"{emotes.white_mark} Removed **{len(todo_ids)}** todo from your todo list:\n• {contents}")
 
     @todo.command(aliases=['c'])
@@ -307,15 +308,19 @@ class misc(commands.Cog, name="Misc"):
         todos = {f'{index + 1}': todo for index, todo in enumerate(todos)}
 
         if not todoid.isdigit():
-            return await ctx.send(f'{emotes.red_mark} You\'ve provided wrong id')
+            return await ctx.send(f'{emotes.red_mark} You\'ve provided a wrong #')
         if todoid not in todos.keys():
-            return await ctx.send(f'{emotes.red_mark} I can\'t find todo with id `{todoid}` in your todo list list.')
+            return await ctx.send(f'{emotes.red_mark} I can\'t find todo `#{todoid}` in your todo list list.')
 
         todo = todos[todoid]
 
-        e = discord.Embed(color=self.color['embed_color'], title=f'Information on your todo with id: {todoid}')
+        e = discord.Embed(color=self.color['embed_color'], title=f'Information on your todo #{todoid}:')
+        if len(todo['todo']) > 1800:
+            thetodo = todo['todo'][:1800] + '...'
+        else:
+            thetodo = todo['todo']
         e.description = f"""
-**Todo content:** {todo['todo']}
+**Todo content:** {thetodo}
 
 **Added to the todo list:** {btime.human_timedelta(todo['time'])}
 {f"[Jump to original message]({todo['jump_to']})" if todo['jump_to'] is not None else "Unable to locate the message"}"""
@@ -338,9 +343,7 @@ class misc(commands.Cog, name="Misc"):
         if not todoid.isdigit():
             return await ctx.send(f'{emotes.red_mark} You\'ve provided wrong id')
         if todoid not in todos.keys():
-            return await ctx.send(f'{emotes.red_mark} I can\'t find todo with id `{todoid}` in your todo list list.')
-        if len(content) > 200:
-            return await ctx.send(f"{emotes.red_mark} Your todo is too long! ({len(content)}/200)")
+            return await ctx.send(f'{emotes.red_mark} I can\'t find todo `#{todoid}` in your todo list list.')
 
         todo_to_edit = todos[todoid]
 
@@ -352,7 +355,12 @@ class misc(commands.Cog, name="Misc"):
         query = 'UPDATE todolist SET todo = $1, jump_to = $2 WHERE user_id = $3 and time = $4'
         await self.bot.db.execute(query, content, ctx.message.jump_url, todo_to_edit['user_id'], todo_to_edit['time'])
 
-        return await ctx.send(f"{emotes.white_mark} Changed `{clean(todo_to_edit['todo'])}` to `{clean(content)}` in your todo list")
+        if len(todo_to_edit['todo']) > 150:
+            beforetodo = todo_to_edit['todo'][:150] + '...'
+        if len(content) > 150:
+            content = content[:150] + '...'
+
+        return await ctx.send(f"{emotes.white_mark} Changed `{clean(beforetodo)}` to `{clean(content)}` in your todo list")
 
 
     @commands.command(brief='Check yours or the users status')

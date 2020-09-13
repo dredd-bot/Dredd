@@ -19,6 +19,7 @@ import os
 import codecs
 import pathlib
 import json
+import typing
 
 from io import BytesIO
 from discord.ext import commands
@@ -281,9 +282,20 @@ __**Other Information:**__
 
     @commands.command(brief="Get user information", aliases=['user', 'ui'])
     @commands.guild_only()
-    async def userinfo(self, ctx, *, user: discord.User = None):
+    async def userinfo(self, ctx, *, user: typing.Union[discord.User, str] = None):
         """ Overview about the information of an user """
 
+        if isinstance(user, discord.User):
+            user = user
+            color = self.color['embed_color']
+
+        elif isinstance(user, str):
+            if not user.isdigit():
+                return await ctx.send(f"{emotes.red_mark} Couldn't find that user!")
+            else:
+                user = await self.bot.fetch_user(user)
+                color = self.color['fetch_color']                
+                
         user = user or ctx.author
         
         badges = {
@@ -421,7 +433,7 @@ __**Other Information:**__
             await ctx.send(embed=emb)
 
         elif not usercheck:
-            emb = discord.Embed(color=self.color['embed_color'])
+            emb = discord.Embed(color=color)
             emb.set_author(icon_url=user.avatar_url, name=f"{user}'s information")
             emb.add_field(name="__**General Info:**__", value=f"**Full name:** {user} {discord_badges}\n**User ID:** {user.id}\n**Account created:** {user.created_at.__format__('%A %d %B %Y, %H:%M')}\n**Bot:** {bot}\n**Avatar URL:** [Click here]({user.avatar_url})\n{acknowledgements}", inline=False)
             if user.is_avatar_animated() == False:

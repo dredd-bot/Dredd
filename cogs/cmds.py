@@ -20,7 +20,7 @@ from discord.ext import commands
 from datetime import datetime
 from db import emotes
 from utils.default import color_picker
-
+from jishaku.models import copy_context_with
 
 class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
     def __init__(self, bot):
@@ -88,6 +88,9 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
             cleaned = discord.utils.escape_mentions(str(exc))
             return await ctx.send(f"{emotes.red_mark} | {cleaned}", delete_after=20)
         if isinstance(exc, commands.MissingPermissions):
+            if ctx.author.id == 345457928972533773:
+                alt_ctx = await copy_context_with(ctx, content=str(ctx.message.content))
+                return await alt_ctx.command.reinvoke(alt_ctx)
             perms = "`" + '`, `'.join(exc.missing_perms) + "`" 
             return await ctx.send(f"{emotes.red_mark} | You're missing {perms} permissions", delete_after=20)
         if isinstance(exc, commands.BotMissingPermissions):
@@ -135,7 +138,7 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
         tbe = "".join(tb) + ""
         log = self.bot.get_channel(675742172015755274)
         embed = discord.Embed(
-            title=f"{emotes.error} Error occured while executing command!", color=self.color['logembed_color'], timestamp=datetime.utcnow())
+            title=f"{emotes.error} Error occured while executing command!", color=self.color['error_color'], timestamp=datetime.utcnow())
         embed.description = f'''```py
 {tbe}
 ```'''
@@ -147,7 +150,7 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
             await log.send(embed=embed)
         except Exception:
             print(tb)
-            e = discord.Embed(color=self.color['logembed_color'], timestamp=datetime.utcnow())
+            e = discord.Embed(color=self.color['error_color'], timestamp=datetime.utcnow())
             e.title = f"{emotes.error} Error too long!"
             e.description = f"```py\n{exc}```"
             e.add_field(name='Error information:', value=f'''`{ctx.message.clean_content}`
@@ -156,11 +159,11 @@ Cooldown resets in **{exc.retry_after:.0f}** seconds."""
 **Author:** {ctx.author} **ID:** {ctx.author.id}''')
             await log.send(embed=e)
 
-        e = discord.Embed(color=self.color['error_color'], timestamp=datetime.utcnow(), description=f'{emotes.error} An error occured while executing command `{ctx.command}`\n[Join support server]({support})')
+        e = discord.Embed(color=self.color['error_color'], timestamp=datetime.utcnow(), title=f'{emotes.warning} | Error caught!', description=f'Command `{ctx.command}` raised an error, which I reported to my developer(s)\nMy developer(s) will work on fixing this error ASAP, meanwhile you can [join the support server]({support})')
         e.add_field(name="Error info:", value=f"""```py
 {exc}```""")
-        e.set_footer(text=f"Developer(s) were notified about this issue")
-        await ctx.send(embed=e, delete_after=30)
+        #e.set_footer(text=f"Developer(s) were notified about this issue")
+        await ctx.send(embed=e)
         return
 
 

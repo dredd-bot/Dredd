@@ -170,27 +170,70 @@ class moderation(commands.Cog, name="Moderation"):
     @commands.guild_only()
     @commands.has_permissions(manage_nicknames=True)
     @commands.bot_has_permissions(manage_nicknames=True)
-    async def setnick(self, ctx, member: discord.Member, *, name: str = None):
+    async def setnick(self, ctx, members: commands.Greedy[discord.Member], *, name: str = None):
         """ Change or remove anyones nickname """
         
-        
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
+        if name and len(name) > 32:
+            return await ctx.send(f"{emotes.red_mark} Nickname is too long! You can't have nicknames longer than 32 characters")
+        error = '\n'
         try:
-            if member.top_role.position > ctx.author.top_role.position:
-                return await ctx.send("You can't change nickname of the member that is above you")
-            elif member.top_role.position >= ctx.guild.me.top_role.position:
-                return await ctx.send(f"I was unable to change {member.name}'s nickname")
-            if name and len(name) > 32:
-                return await ctx.send(f"{emotes.red_mark} Nickname is too long! You can't have nicknames longer than 32 characters")
-            await member.edit(nick=name)
-            if name is not None:
-                emb = discord.Embed(color=self.color['embed_color'], description=f"{emotes.white_mark} Changed **{member.name}'s** nickname to **{name}**.")
-                return await ctx.send(embed=emb)
-            elif name is None:
-                emb = discord.Embed(color=self.color['embed_color'], description=f"{emotes.white_mark} Removed **{member.name}'s** nickname")
-                return await ctx.send(embed=emb)
+            total = len(members)
+            if total > 10:
+                return await ctx.send("You can re-name only 10 members at once!")
+
+            failed = 0
+            failed_list = []
+            success_list = []
+            for member in members:
+                if member == ctx.author:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - you are the member?")
+                    continue
+                if member.top_role.position >= ctx.author.top_role.position:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above you in role hierarchy or has the same role.")
+                    continue
+                if member.top_role.position >= ctx.guild.me.top_role.position:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above me in role hierarchy or has the same role.")
+                    continue
+                try:
+                    await member.edit(nick=name)
+                    success_list.append(f"{member.mention} ({member.id})")
+                except discord.HTTPException as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+                except discord.Forbidden as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+            muted = ""
+            notmuted = ""
+            if success_list and not failed_list:
+                muted += "**I've successfully re-named {0} member(s):**\n".format(total)
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted)
+            if success_list and failed_list:
+                muted += "**I've successfully re-named {0} member(s):**\n".format(total - failed)
+                notmuted += f"**However I failed to re-name the following {failed} member(s):**\n"
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted + notmuted)
+            if not success_list and failed_list:  
+                notmuted += f"**I failed to re-name all the members:**\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(notmuted)
+                    
         except Exception as e:
             print(e)
-            await ctx.send(f"Something failed while trying to change **{member}**'s nickname.")
+            return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}")
 
     @commands.command(brief="Kick someone from the server")
     @commands.guild_only()
@@ -201,38 +244,66 @@ class moderation(commands.Cog, name="Moderation"):
         Kicks member from server.
         You can also provide multiple members to kick.
         """
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
+            
+        error = '\n'
         try:
             total = len(members)
-
-            if total == 0:
-                return await ctx.send("Please provide member(s) to kick.")
-
             if total > 10:
-                return await ctx.send("You can kick only 10 members at once!")             
-            
+                return await ctx.send("You can kick only 10 members at once!") 
+
             failed = 0
+            failed_list = []
+            success_list = []
             for member in members:
+                if member == ctx.author:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - you are the member?")
+                    continue
                 if member.top_role.position >= ctx.author.top_role.position:
                     failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above you in role hierarchy or has the same role.")
                     continue
-                elif member.top_role.position >= ctx.guild.me.top_role.position:
+                if member.top_role.position >= ctx.guild.me.top_role.position:
                     failed += 1
-                    continue
-                elif member == ctx.author:
-                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above me in role hierarchy or has the same role.")
                     continue
                 try:
-                    await member.guild.kick(member, reason=responsible(ctx.author, reason))
-                except discord.HTTPException:
+                    await ctx.guild.kick(member, reason=responsible(ctx.author, f"{reason or 'No reason'}"))
+                    success_list.append(f"{member.mention} ({member.id})")
+                except discord.HTTPException as e:
+                    print(e)
                     failed += 1
-
-            if failed == 0:
-                await ctx.send(f"{emotes.white_mark} Succesfully kicked **{total}** members.")
-            else:
-                await ctx.send(f"Successfully kicked **{total - failed}/{total}** members.")
+                    failed_list.append(f"{member.mention} - {e}")
+                except discord.Forbidden as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+            muted = ""
+            notmuted = ""
+            if success_list and not failed_list:
+                muted += "**I've successfully kicked {0} member(s):**\n".format(total)
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted)
+            if success_list and failed_list:
+                muted += "**I've successfully kicked {0} member(s):**\n".format(total - failed)
+                notmuted += f"**However I failed to kick the following {failed} member(s):**\n"
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted + notmuted)
+            if not success_list and failed_list:  
+                notmuted += f"**I failed to kick all the members:**\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(notmuted)
+                    
         except Exception as e:
             print(e)
-            await ctx.send(f"Something failed while trying to kick members.")
+            return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}")
 
     @commands.command(brief="Ban someone from the server")
     @commands.guild_only()
@@ -244,38 +315,66 @@ class moderation(commands.Cog, name="Moderation"):
         You can also provide multiple members to ban.
         """
 
-        if len(members) == 0:
-            raise commands.BadArgument("You're missing an argument - **members**") from None
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
 
+        error = '\n'
         try:
             total = len(members)
-
             if total > 10:
                 return await ctx.send("You can ban only 10 members at once!") 
 
             failed = 0
+            failed_list = []
+            success_list = []
             for member in members:
+                if member == ctx.author:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - you are the member?")
+                    continue
                 if member.top_role.position >= ctx.author.top_role.position:
                     failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above you in role hierarchy or has the same role.")
                     continue
-                elif member.top_role.position >= ctx.guild.me.top_role.position:
+                if member.top_role.position >= ctx.guild.me.top_role.position:
                     failed += 1
-                    continue
-                elif member == ctx.author:
-                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above me in role hierarchy or has the same role.")
                     continue
                 try:
-                    await member.guild.ban(member, reason=responsible(ctx.author, reason))
-                except discord.HTTPException:
+                    await ctx.guild.ban(member, reason=responsible(ctx.author, f"{reason or 'No reason'}"))
+                    success_list.append(f"{member.mention} ({member.id})")
+                except discord.HTTPException as e:
+                    print(e)
                     failed += 1
-
-            if failed == 0:
-                await ctx.send(f"{emotes.white_mark} Succesfully banned **{total}** members.")
-            else:
-                await ctx.send(f"Successfully banned **{total - failed}/{total}** members.")
+                    failed_list.append(f"{member.mention} - {e}")
+                except discord.Forbidden as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+            muted = ""
+            notmuted = ""
+            if success_list and not failed_list:
+                muted += "**I've successfully banned {0} member(s):**\n".format(total)
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted)
+            if success_list and failed_list:
+                muted += "**I've successfully banned {0} member(s):**\n".format(total - failed)
+                notmuted += f"**However I failed to ban the following {failed} member(s):**\n"
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted + notmuted)
+            if not success_list and failed_list:  
+                notmuted += f"**I failed to ban all the members:**\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(notmuted)
+                    
         except Exception as e:
             print(e)
-            await ctx.send(f"Something failed while trying to ban members.")
+            return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}")
 
     @commands.command(brief='Ban someone who\'s not in the server')
     @commands.guild_only()
@@ -296,7 +395,6 @@ class moderation(commands.Cog, name="Moderation"):
         except Exception as e:
             print(e)
             return await ctx.send(f"{emotes.error} Something failed!")
-
 
     @commands.command(brief="Unban someone from the server")
     @commands.guild_only()
@@ -387,32 +485,76 @@ class moderation(commands.Cog, name="Moderation"):
 
         except Exception as e:
             print(e)
-            return
-
-                
+            return                
 
     @commands.command(brief="Softban someone from the server", description="Softbans member from the server")
     @commands.guild_only()
     @commands.has_permissions(kick_members=True)
     @commands.bot_has_permissions(kick_members=True, manage_messages=True)
-    async def softban(self, ctx, user: discord.Member, reason: str = None):
+    async def softban(self, ctx, members: commands.Greedy[discord.Member], reason: str = None):
         """ Softbans member from the server """
 
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
+
+        error = '\n'
         try:
-            member = user
-            if user == ctx.author:
-                return await ctx.send("Are you seriously trying to ban yourself? That's stupid")
-            elif user.top_role.position >= ctx.author.top_role.position:
-                return await ctx.send("You can't ban user who's above or equal to you!")
-            elif member.top_role.position >= ctx.guild.me.top_role.position:
-                return await ctx.send(f"I was unable to soft-ban {user.name}")
-            obj = discord.Object(id=user.id)
-            await ctx.guild.ban(obj, reason=responsible(ctx.author, reason))
-            await ctx.guild.unban(obj, reason=responsible(ctx.author, reason))
-            await ctx.send(f"{emotes.white_mark} **{user}** was soft-banned successfully, with a reason: ``{reason}``", delete_after=15)
+            total = len(members)
+            if total > 10:
+                return await ctx.send("You can softban only 10 members at once!") 
+
+            failed = 0
+            failed_list = []
+            success_list = []
+            for member in members:
+                if member == ctx.author:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - you are the member?")
+                    continue
+                if member.top_role.position >= ctx.author.top_role.position:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above you in role hierarchy or has the same role.")
+                    continue
+                if member.top_role.position >= ctx.guild.me.top_role.position:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above me in role hierarchy or has the same role.")
+                    continue
+                try:
+                    await ctx.guild.ban(member, reason=responsible(ctx.author, f"{reason or 'No reason'}"))
+                    await ctx.guild.unban(member, reason=responsible(ctx.author, reason))
+                    success_list.append(f"{member.mention} ({member.id})")
+                except discord.HTTPException as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+                except discord.Forbidden as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+            muted = ""
+            notmuted = ""
+            if success_list and not failed_list:
+                muted += "**I've successfully soft-banned {0} member(s):**\n".format(total)
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted)
+            if success_list and failed_list:
+                muted += "**I've successfully soft-banned {0} member(s):**\n".format(total - failed)
+                notmuted += f"**However I failed to soft-ban the following {failed} member(s):**\n"
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted + notmuted)
+            if not success_list and failed_list:  
+                notmuted += f"**I failed to soft-ban all the members:**\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(notmuted)
+                    
         except Exception as e:
             print(e)
-            await ctx.send(f"Something failed while trying to soft-ban **{user}**.")
+            return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}")
     
     @commands.command(brief="Mute someone in the server")
     @commands.guild_only()
@@ -421,74 +563,8 @@ class moderation(commands.Cog, name="Moderation"):
     async def mute(self, ctx, members: commands.Greedy[discord.Member], *, reason: str = None):
         """ Mute someone in your server. 
         Make sure you have muted role in your server and properly configured."""
-        message = []
-
-        muterole = discord.utils.find(lambda r: r.name.lower() == "muted", ctx.guild.roles)
-
-        if muterole is None:
-            embed = discord.Embed(color=self.color['embed_color'], description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
-            return await ctx.send(embed=embed, delete_after=10)
-
-        if muterole.position > ctx.guild.me.top_role.position:
-            return await ctx.send(f"{emotes.warning} Mute role is higher than me and I cannot access it.")
-
-
-        try:
-            total = len(members)
-
-            if total == 0:
-                return await ctx.send("Please provide members to mute.")
-
-            if total > 10:
-                return await ctx.send("You can mute only 10 members at once!")                    
-            
-
-            failed = 0
-            failed_list = ""
-            for member in members:
-                if muterole in member.roles:
-                    failed += 1
-                    continue
-                if member.top_role.position >= ctx.author.top_role.position:
-                    failed += 1
-                    continue
-                if member.top_role.position >= ctx.guild.me.top_role.position:
-                    failed += 1
-                    continue
-                if member == ctx.author:
-                    failed += 1
-                    continue
-                try:
-                    await member.add_roles(muterole, reason=responsible(ctx.author, reason))
-                    await self.log_mute(ctx, member=member, reason=reason)
-                    await self.bot.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id, type) VALUES($1, $2, $3, $4, $5, $6, $7)", ctx.guild.id, member.id, ctx.author.id, responsible(ctx.author, reason), None, muterole.id, 'mute')
-                except discord.HTTPException as e:
-                    print(e)
-                    failed += 1
-                    failed_list += f"{member.mention} - {e}"
-                except discord.Forbidden as e:
-                    print(e)
-                    failed += 1
-                    failed_list += f"{member.mention} - {e}"
-
-            if failed == 0:
-                await ctx.send(f"{emotes.white_mark} Succesfully muted **{total}** members for: `{reason}`.")
-            elif failed != 0 and total - failed != 0:
-                await ctx.send(f"Successfully muted **{total - failed}/{total}** members for: `{reason}`.")
-            elif failed != 0 and total - failed == 0:
-                await ctx.send(f"{emotes.red_mark} Failed to mute all the members")
-        except Exception as e:
-            print(default.traceback_maker(e))
-            await ctx.send(f"Something failed while trying to mute members.")
-
-    @commands.command(brief="Temporarily mute someone in the server")
-    @commands.guild_only()
-    @commands.has_permissions(manage_roles=True)
-    @commands.bot_has_permissions(manage_roles=True)
-    async def tempmute(self, ctx, members: commands.Greedy[discord.Member], duration: btime.FutureTime, *, reason: str=None):
-        """ You can mute someone temporarily.
-        
-        Note: If you'll be getting time format error, put the time into \"time\" and it'll work just fine """
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
         muterole = discord.utils.find(lambda r: r.name.lower() == "muted", ctx.guild.roles)
 
         if muterole is None:
@@ -499,14 +575,91 @@ class moderation(commands.Cog, name="Moderation"):
         error = '\n'
         try:
             total = len(members)
-
-            if total == 0:
-                return await ctx.send("Please provide members to mute.")
-
             if total > 10:
                 return await ctx.send("You can mute only 10 members at once!")                    
             
+            failed = 0
+            failed_list = []
+            success_list = []
+            for member in members:
+                if member == ctx.author:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - you are the member?")
+                    continue
+                if muterole in member.roles:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is already muted.")
+                    continue
+                if member.top_role.position >= ctx.author.top_role.position:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above you in role hierarchy or has the same role.")
+                    continue
+                if member.top_role.position >= ctx.guild.me.top_role.position:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above me in role hierarchy or has the same role.")
+                    continue
+                try:
+                    await member.add_roles(muterole, reason=responsible(ctx.author, reason))
+                    await self.log_mute(ctx, member=member, reason=reason)
+                    await self.bot.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id, type) VALUES($1, $2, $3, $4, $5, $6, $7)", ctx.guild.id, member.id, ctx.author.id, responsible(ctx.author, reason), None, muterole.id, 'mute')
+                    success_list.append(f"{member.mention} ({member.id})")
+                except discord.HTTPException as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+                except discord.Forbidden as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+            muted = ""
+            notmuted = ""
+            if success_list and not failed_list:
+                muted += "**I've successfully muted {0} member(s):**\n".format(total)
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted)
+            if success_list and failed_list:
+                muted += "**I've successfully muted {0} member(s):**\n".format(total - failed)
+                notmuted += f"**However I failed to mute the following {failed} member(s):**\n"
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted + notmuted)
+            if not success_list and failed_list:  
+                notmuted += f"**I failed to mute all the members:**\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(notmuted)
+        
+        except Exception as e:
+            print(e)
+            return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}") 
 
+    @commands.command(brief="Temporarily mute someone in the server")
+    @commands.guild_only()
+    @commands.has_permissions(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    async def tempmute(self, ctx, members: commands.Greedy[discord.Member], duration: btime.FutureTime, *, reason: str=None):
+        """ You can mute someone temporarily.
+        
+        Note: If you'll be getting time format error, put the time into \"time\" and it'll work just fine """
+
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
+        muterole = discord.utils.find(lambda r: r.name.lower() == "muted", ctx.guild.roles)
+
+        if muterole is None:
+            return await ctx.send(f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
+
+        if muterole.position > ctx.guild.me.top_role.position:
+            return await ctx.send(f"{emotes.warning} Mute role is higher than me and I cannot access it.")
+        error = '\n'
+        try:
+            total = len(members)
+            if total > 10:
+                return await ctx.send("You can mute only 10 members at once!")                    
+            
             failed = 0
             failed_list = []
             success_list = []
@@ -572,15 +725,13 @@ class moderation(commands.Cog, name="Moderation"):
         """ You can ban someone temporarily.
         
         Note: If you'll be getting time format error, put the time into \"time\" and it'll work just fine """
-        muterole = discord.utils.find(lambda r: r.name.lower() == "muted", ctx.guild.roles)
+
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
 
         error = '\n'
         try:
             total = len(members)
-
-            if total == 0:
-                return await ctx.send("Please provide members to mute.")
-
             if total > 10:
                 return await ctx.send("You can ban only 10 members at once!") 
 
@@ -643,66 +794,78 @@ class moderation(commands.Cog, name="Moderation"):
     @commands.bot_has_permissions(manage_roles=True)
     async def unmute(self, ctx, members: commands.Greedy[discord.Member], *, reason: str = None):
         
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
         muterole = discord.utils.find(lambda r: r.name.lower() == "muted", ctx.guild.roles)
 
         if muterole is None:
-            embed = discord.Embed(color=self.color['embed_color'], description=f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
-            return await ctx.send(embed=embed, delete_after=10)
+            return await ctx.send(f"{emotes.red_mark} I can't find a role named `Muted` Are you sure you've made one?")
 
         if muterole.position > ctx.guild.me.top_role.position:
             return await ctx.send(f"{emotes.warning} Mute role is higher than me and I cannot access it.")
-
+        error = '\n'
         try:
             total = len(members)
-
-            if total == 0:
-                return await ctx.send("Please provide members to mute.")            
-
+            if total > 10:
+                return await ctx.send("You can unmute only 10 members at once!")                    
+            
             failed = 0
-            failed_list = ""
+            failed_list = []
+            success_list = []
             for member in members:
+                if member == ctx.author:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - you are the member?")
+                    continue
                 if muterole not in member.roles:
                     failed += 1
-                    failed_list += 's'
+                    failed_list.append(f"{member.mention} ({member.id}) - member is not muted.")
                     continue
                 if member.top_role.position >= ctx.author.top_role.position:
                     failed += 1
-                    failed_list += 'sx'
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above you in role hierarchy or has the same role.")
                     continue
                 if member.top_role.position >= ctx.guild.me.top_role.position:
                     failed += 1
-                    failed_list += 'sz'
-                    continue
-                if member == ctx.author:
-                    failed_list += 'sss'
-                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above me in role hierarchy or has the same role.")
                     continue
                 try:
                     await member.remove_roles(muterole, reason=responsible(ctx.author, reason))
                     await self.log_unmute(ctx, member=member, reason=reason)
                     await self.bot.db.execute("DELETE FROM moddata WHERE guild_id = $1 AND user_id = $2", ctx.guild.id, member.id)
-                    for g, u, m, r, t, ro in self.bot.temp_timer:
-                        if g == ctx.guild.id:
-                            if u == member.id:
-                                self.bot.temp_timer.remove((g, u, m, r, t, ro))
+                    success_list.append(f"{member.mention} ({member.id})")
                 except discord.HTTPException as e:
+                    print(e)
                     failed += 1
-                    failed_list += f"{member.mention} - {e}"
-                    await ctx.channel.send(e)
+                    failed_list.append(f"{member.mention} - {e}")
                 except discord.Forbidden as e:
+                    print(e)
                     failed += 1
-                    await ctx.channel.send(e)
-                    failed_list += f"{member.mention} - {e}"
-
-            if failed == 0:
-                await ctx.send(f"{emotes.white_mark} Succesfully unmuted **{total}** members for: `{reason}`.")
-            elif failed != 0 and total - failed != 0:
-                await ctx.send(f"Successfully unmuted **{total - failed}/{total}** members for: `{reason}`.")
-            elif failed != 0 and total - failed == 0:
-                await ctx.send(f"{emotes.red_mark} Failed to unmute all the members")
+                    failed_list.append(f"{member.mention} - {e}")
+            muted = ""
+            notmuted = ""
+            if success_list and not failed_list:
+                muted += "**I've successfully unmuted {0} member(s):**\n".format(total)
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted)
+            if success_list and failed_list:
+                muted += "**I've successfully unmuted {0} member(s):**\n".format(total - failed)
+                notmuted += f"**However I failed to unmute the following {failed} member(s):**\n"
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted + notmuted)
+            if not success_list and failed_list:  
+                notmuted += f"**I failed to unmute all the members:**\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(notmuted)
+        
         except Exception as e:
             print(e)
-            await ctx.send(f"Something failed while trying to unmute members.")
+            return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}") 
             
     @commands.command(brief="Dehoist members in the server")
     @commands.guild_only()
@@ -972,40 +1135,66 @@ class moderation(commands.Cog, name="Moderation"):
     async def voicemute(self, ctx, members: commands.Greedy[discord.Member], reason: str=None):
         """ Voice mute member in the server """
 
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
+            
+        error = '\n'
         try:
             total = len(members)
-
-            if total == 0:
-                return await ctx.send("Please provide members to voice mute.")
-
-            if total > 5:
-                return await ctx.send("You can voicemute only 5 members at once.")            
+            if total > 10:
+                return await ctx.send("You can voice mute only 10 members at once!") 
 
             failed = 0
+            failed_list = []
+            success_list = []
             for member in members:
+                if member == ctx.author:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - you are the member?")
+                    continue
                 if member.top_role.position >= ctx.author.top_role.position:
                     failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above you in role hierarchy or has the same role.")
                     continue
                 if member.top_role.position >= ctx.guild.me.top_role.position:
                     failed += 1
-                    continue
-                if member == ctx.author:
-                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above me in role hierarchy or has the same role.")
                     continue
                 try:
                     await member.edit(mute=True, reason=responsible(ctx.author, reason))
+                    success_list.append(f"{member.mention} ({member.id})")
                 except discord.HTTPException as e:
+                    print(e)
                     failed += 1
-                except discord.Forbidden:
+                    failed_list.append(f"{member.mention} - {e}")
+                except discord.Forbidden as e:
+                    print(e)
                     failed += 1
-
-            if failed == 0:
-                await ctx.send(f"{emotes.white_mark} Succesfully voice muted **{total}** members.")
-            else:
-                await ctx.send(f"Successfully voice muted **{total - failed}/{total}** members.")
+                    failed_list.append(f"{member.mention} - {e}")
+            muted = ""
+            notmuted = ""
+            if success_list and not failed_list:
+                muted += "**I've successfully voice muted {0} member(s):**\n".format(total)
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted)
+            if success_list and failed_list:
+                muted += "**I've successfully voice muted {0} member(s):**\n".format(total - failed)
+                notmuted += f"**However I failed to voice mute the following {failed} member(s):**\n"
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted + notmuted)
+            if not success_list and failed_list:  
+                notmuted += f"**I failed to voice mute all the members:**\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(notmuted)
+                    
         except Exception as e:
             print(e)
-            await ctx.send(f"Something failed while trying to voice mute members.")
+            return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}")
 
 
     @commands.command(brief="Voice unmute someone in the server", aliases=["vunmute"])
@@ -1015,38 +1204,66 @@ class moderation(commands.Cog, name="Moderation"):
     async def voiceunmute(self, ctx, members: commands.Greedy[discord.Member], reason: str=None):
         """ Voice unmute member in the server """
 
+        if not members:
+            return await ctx.send(f"{emotes.red_mark} | You're missing an argument - **members**")
+            
+        error = '\n'
         try:
             total = len(members)
-
-            if total == 0:
-                return await ctx.send("Please provide members to voice unmute.")
-
-            if total > 5:
-                return await ctx.send("You can voice unmute only 5 members at once.")            
+            if total > 10:
+                return await ctx.send("You can voice unmute only 10 members at once!") 
 
             failed = 0
+            failed_list = []
+            success_list = []
             for member in members:
+                if member == ctx.author:
+                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - you are the member?")
+                    continue
                 if member.top_role.position >= ctx.author.top_role.position:
                     failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above you in role hierarchy or has the same role.")
                     continue
                 if member.top_role.position >= ctx.guild.me.top_role.position:
                     failed += 1
-                    continue
-                if member == ctx.author:
-                    failed += 1
+                    failed_list.append(f"{member.mention} ({member.id}) - member is above me in role hierarchy or has the same role.")
                     continue
                 try:
                     await member.edit(mute=False, reason=responsible(ctx.author, reason))
-                except discord.HTTPException:
+                    success_list.append(f"{member.mention} ({member.id})")
+                except discord.HTTPException as e:
+                    print(e)
                     failed += 1
-
-            if failed == 0:
-                await ctx.send(f"{emotes.white_mark} Succesfully voice unmuted **{total}** members.")
-            else:
-                await ctx.send(f"Successfully voice unmuted **{total - failed}/{total}** members.")
+                    failed_list.append(f"{member.mention} - {e}")
+                except discord.Forbidden as e:
+                    print(e)
+                    failed += 1
+                    failed_list.append(f"{member.mention} - {e}")
+            muted = ""
+            notmuted = ""
+            if success_list and not failed_list:
+                muted += "**I've successfully voice unmuted {0} member(s):**\n".format(total)
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted)
+            if success_list and failed_list:
+                muted += "**I've successfully voice unmuted {0} member(s):**\n".format(total - failed)
+                notmuted += f"**However I failed to voice unmute the following {failed} member(s):**\n"
+                for num, res in enumerate(success_list, start=0):
+                    muted += f"`[{num+1}]` {res}\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(muted + notmuted)
+            if not success_list and failed_list:  
+                notmuted += f"**I failed to voice unmute all the members:**\n"
+                for num, res in enumerate(failed_list, start=0):
+                    notmuted += f"`[{num+1}]` {res}\n"
+                await ctx.send(notmuted)
+                    
         except Exception as e:
             print(e)
-            await ctx.send(f"Something failed while trying to voice unmute members.")
+            return await ctx.send(f"{emotes.warning} Something failed! Error: (Please report it to my developers):\n- {e}")
     
     @commands.command(brief="Get a list of newest users")
     @commands.guild_only()

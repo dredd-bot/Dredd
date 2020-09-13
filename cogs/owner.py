@@ -50,8 +50,6 @@ class owner(commands.Cog, name="Owner"):
         self.api.set_auth("mythicalbots.xyz",  config.MYTH_TOKEN)
         self.api.set_auth("botsfordiscord.com", config.BFD_TOKEN)
         self.api.set_auth("botlist.space", config.BOTSPACE_TOKEN)
-        # self.api.set_auth("dblista.pl", config.DBLIST_TOKEN)
-        # self.api.set_auth("bots.discordbotlabs.org", config.DLABS_TOKEN)
         self.api.start_loop()
         self.color = color_picker('colors')
 
@@ -102,7 +100,7 @@ class owner(commands.Cog, name="Owner"):
                           title=f"__Users:__ `[{len(user_lists)}]`",
                           entries=user_lists,
                           per_page = 10,
-                          embed_color=self.bot.embed_color,
+                          embed_color=self.color['embed_color'],
                           show_entry_count=False,
                           author=ctx.author)
 
@@ -122,7 +120,7 @@ class owner(commands.Cog, name="Owner"):
                           title=f"{user} [{user.id}]",
                           entries=nicks,
                           per_page = 10,
-                          embed_color=self.bot.embed_color,
+                          embed_color=self.color['embed_color'],
                           show_entry_count=False,
                           author=ctx.author)
 
@@ -336,7 +334,7 @@ class owner(commands.Cog, name="Owner"):
         with open('db/badges.json', 'w') as f:
             data = json.dump(data, f, indent=4)
 
-        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
+        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev, time) VALUES ($1, $2, $3, $4)", user.id, reason, ctx.author.id, datetime.now())
         self.bot.blacklisted_users[user.id] = [reason]
 
         try:
@@ -439,32 +437,25 @@ class owner(commands.Cog, name="Owner"):
             pass
 
         user_list = []
-        for user_id, in await self.bot.db.fetch("SELECT user_id FROM blacklist"):
-            user_list.append(user_id)  
+        for num, res, in enumerate(await self.bot.db.fetch("SELECT * FROM blacklist"), start=0):
+            if res['time']:
+                time = btime.human_timedelta(res['time'])
+            else:
+                time = 'Unknwon'
+            user_list.append(f"`[{num + 1}]`\n**User:** {await self.bot.fetch_user(res['user_id'])} ({res['user_id']})\n**Reason:** {res['reason']}\n**Issued:** {time}\n**Issued by:** {await self.bot.fetch_user(res['dev'])} ({res['dev']})\n")
 
-        m = self.bot.get_channel(697938394663223407)
-        await m.edit(name=f"Watching {len(user_list)} blacklisted users")
+        if not user_list:
+            return await ctx.send(f"There are no blacklisted users!")
 
+        paginator = Pages(ctx,
+                          title=f"Blacklisted users:",
+                          entries=user_list,
+                          per_page = 5,
+                          embed_color=self.color['embed_color'],
+                          show_entry_count=False,
+                          author=ctx.author)
 
-        guild_count = len(user_list)
-        items_per_page = 10
-        pages = math.ceil(guild_count / items_per_page)
-
-        start = (page - 1) * items_per_page
-        end = start + items_per_page
-
-        if pages == 0:
-            return await ctx.send("I don't see anyone in my blacklist")
-
-        user_lists = []  # Let's list the guilds
-        for num, user in enumerate(user_list[start:end], start=start):
-            user_lists.append(f'`[{num + 1}]`**{await self.bot.fetch_user(str(user))}** ({str(user)})\n**────────────────────────**\n')
- 
-        embed = discord.Embed(color=self.color['embed_color'],
-                              title="Blacklisted users:", description="".join(user_lists))
-        embed.set_footer(text=f"Viewing page {page}/{pages}")
-
-        await ctx.send(embed=embed, delete_after=60)
+        await paginator.paginate()
 
 # ! Bot managment
 
@@ -688,7 +679,7 @@ class owner(commands.Cog, name="Owner"):
                           thumbnail=None,
                           entries=guild_list,
                           per_page = 10,
-                          embed_color=self.bot.embed_color,
+                          embed_color=self.color['embed_color'],
                           show_entry_count=False,
                           author=ctx.author)
 

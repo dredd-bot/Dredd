@@ -79,7 +79,7 @@ class EditingContext(commands.Context):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=discord.AllowedMentions(users=False, everyone=False, roles=False)):
+    async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=discord.AllowedMentions.none()):
         if file or files:
             return await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
         reply = None
@@ -104,7 +104,7 @@ class Bot(commands.AutoShardedBot):
             case_insensitive = True,
             owner_id = 345457928972533773,
             reconnect = True,
-            allowed_mentions = discord.AllowedMentions(roles=False, users=False, everyone=False),
+            allowed_mentions = discord.AllowedMentions.none(),
             max_messages=10000
         )
         for extension in config.EXTENSIONS:
@@ -155,6 +155,7 @@ class Bot(commands.AutoShardedBot):
         self.snipes = {}
         self.status_op_out = {}
         self.snipes_op_out = {}
+        self.test_cache = {}
 
         self.automod = {}
         self.automod_actions = {}
