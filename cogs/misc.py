@@ -312,17 +312,14 @@ class misc(commands.Cog, name="Misc"):
         if todoid not in todos.keys():
             return await ctx.send(f'{emotes.red_mark} I can\'t find todo `#{todoid}` in your todo list list.')
 
-        todo_to_edit = todos[todoid]
+        todo = todos[todoid]
 
         e = discord.Embed(color=self.color['embed_color'], title=f'Information on your todo #{todoid}:')
-        if len(todo_to_edit['todo']) > 150:
-            beforetodo = todo_to_edit['todo'][:150] + '...'
+        
+        if len(todo['todo']) > 1800:
+            thetodo = todo['todo'][:1800] + '...'
         else:
-            beforetodo = todo_to_edit['todo']
-        if len(content) > 150:
-            content = content[:150] + '...'
-        else:
-            content = content
+            thetodo = todo['todo']
         e.description = f"""
 **Todo content:** {thetodo}
 
@@ -361,8 +358,12 @@ class misc(commands.Cog, name="Misc"):
 
         if len(todo_to_edit['todo']) > 150:
             beforetodo = todo_to_edit['todo'][:150] + '...'
+        else:
+            beforetodo = todo_to_edit['todo']
         if len(content) > 150:
             content = content[:150] + '...'
+        else:
+            content = content
 
         return await ctx.send(f"{emotes.white_mark} Changed `{clean(beforetodo)}` to `{clean(content)}` in your todo list")
 
