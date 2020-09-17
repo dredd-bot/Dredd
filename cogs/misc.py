@@ -315,10 +315,14 @@ class misc(commands.Cog, name="Misc"):
         todo = todos[todoid]
 
         e = discord.Embed(color=self.color['embed_color'], title=f'Information on your todo #{todoid}:')
-        if len(todo['todo']) > 1800:
-            thetodo = todo['todo'][:1800] + '...'
+        if len(todo_to_edit['todo']) > 150:
+            beforetodo = todo_to_edit['todo'][:150] + '...'
         else:
-            thetodo = todo['todo']
+            beforetodo = todo_to_edit['todo']
+        if len(content) > 150:
+            content = content[:150] + '...'
+        else:
+            content = content
         e.description = f"""
 **Todo content:** {thetodo}
 
