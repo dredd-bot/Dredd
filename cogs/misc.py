@@ -312,7 +312,7 @@ class misc(commands.Cog, name="Misc"):
         if todoid not in todos.keys():
             return await ctx.send(f'{emotes.red_mark} I can\'t find todo `#{todoid}` in your todo list list.')
 
-        todo = todos[todoid]
+        todo_to_edit = todos[todoid]
 
         e = discord.Embed(color=self.color['embed_color'], title=f'Information on your todo #{todoid}:')
         if len(todo_to_edit['todo']) > 150:
