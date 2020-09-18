@@ -32,6 +32,8 @@ class StatcordPost(commands.Cog):
 
     @commands.Cog.listener()
     async def on_command(self,ctx):
+        if await self.bot.is_owner(ctx.author):
+            return
         self.api.command_run(ctx)
 
 

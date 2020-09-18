@@ -23,13 +23,11 @@ from utils.default import color_picker
 from utils.caches import CacheManager as cm
 
 class Managment(commands.Cog, name="Management"):
-
     def __init__(self, bot):
         self.bot = bot
         self.help_icon = "<:settingss:695707235833085982>"
         self.big_icon = "https://cdn.discordapp.com/emojis/695707235833085982.png?v=1"
         self.color = color_picker('colors')
-
     
     async def bot_check(self, ctx):
         
@@ -166,9 +164,7 @@ class Managment(commands.Cog, name="Management"):
             #e.set_footer(text=f"© {self.bot.user}")
             return await ctx.send(embed=e)
 
-
         db_check = await self.bot.db.fetchval(f"SELECT guild_id FROM {option} WHERE guild_id = $1", ctx.guild.id)           
-
             
         if channel is None:
             await self.bot.db.execute(f"DELETE FROM {option} WHERE guild_id = $1", ctx.guild.id)

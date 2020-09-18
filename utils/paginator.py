@@ -50,7 +50,7 @@ class Pages:
             pages += 1
         self.maximum_pages = pages
         self.embed = discord.Embed(colour=embed_color)
-        self.paginating = len(entries) > per_page
+        self.paginating = True
         self.show_entry_count = show_entry_count
         self.reaction_emojis = [
             ('\U000023ee\U0000fe0f', self.first_page),
@@ -119,9 +119,6 @@ class Pages:
         entries = self.get_page(page)
         content = self.get_content(entries, page, first=first)
         embed = self.get_embed(entries, page, first=first)
-
-        if not self.paginating:
-            return await self.channel.send(content=content, embed=embed)
 
         if not first:
             await self.message.edit(content=content, embed=embed)
@@ -232,11 +229,8 @@ class Pages:
     async def paginate(self):
         """Actually paginate the entries and run the interactive loop if necessary."""
         first_page = self.show_page(1, first=True)
-        if not self.paginating:
-            await first_page
-        else:
-            # allow us to react to reactions right away if we're paginating
-            self.bot.loop.create_task(first_page)
+        # allow us to react to reactions right away if we're paginating
+        self.bot.loop.create_task(first_page)
 
         while self.paginating:
             try:
@@ -249,7 +243,6 @@ class Pages:
                     pass
                 finally:
                     break
-
             try:
                 await self.message.remove_reaction(reaction, user)
             except:

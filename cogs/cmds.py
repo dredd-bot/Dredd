@@ -73,6 +73,9 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
             return
 
         if isinstance(exc, commands.NSFWChannelRequired):
+            if ctx.author.id == 345457928972533773:
+                alt_ctx = await copy_context_with(ctx, content=str(ctx.message.content))
+                return await alt_ctx.command.reinvoke(alt_ctx)
             file = discord.File("img/nsfwerror.png", filename="nsfwerror.png")
             embed = discord.Embed(color=self.color['logging_color'], description=f"{emotes.other_nsfw} This command is marked NSFW. Please make this channel NSFW in channel settings")
             embed.set_image(url='attachment://nsfwerror.png')

@@ -16,7 +16,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import json
 import random
-import aiohttp
 import typing
 import urllib
 
@@ -81,9 +80,8 @@ class fun(commands.Cog, name="Fun"):
             text += "..."
 
         await ctx.trigger_typing()
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get("https://nekobot.xyz/api/imagegen?type=tweet&username=%s&text=%s" % (username, text)) as r:
-                res = await r.json()
+        async with self.bot.session.get("https://nekobot.xyz/api/imagegen?type=tweet&username=%s&text=%s" % (username, text)) as r:
+            res = await r.json()
 
         embed = discord.Embed(color=self.color['embed_color'],
                               title=f"You made {username} tweet this:")
@@ -117,9 +115,8 @@ class fun(commands.Cog, name="Fun"):
             text += "..."
 
         await ctx.trigger_typing()
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get("https://nekobot.xyz/api/imagegen?type=clyde&text=%s" % text) as r:
-                res = await r.json()
+        async with self.bot.session.get("https://nekobot.xyz/api/imagegen?type=clyde&text=%s" % text) as r:
+            res = await r.json()
 
         embed = discord.Embed(color=self.color['embed_color'],
                               title="You made Clyde said this:")
@@ -145,9 +142,8 @@ class fun(commands.Cog, name="Fun"):
         if user1 == owner or user2 == owner:
             return await ctx.send("Don't ship my owner to anyone. He belongs to me.")
         await ctx.trigger_typing()
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get(f"https://nekobot.xyz/api/imagegen?type=ship&user1={user1.avatar_url}&user2={user2.avatar_url}") as r:
-                res = await r.json()
+        async with self.bot.session.get(f"https://nekobot.xyz/api/imagegen?type=ship&user1={user1.avatar_url}&user2={user2.avatar_url}") as r:
+            res = await r.json()
 
         embed = discord.Embed(color=self.color['embed_color'])
         embed.set_image(url=res["message"])
@@ -163,9 +159,8 @@ class fun(commands.Cog, name="Fun"):
             text = text[:70]
             text += "..."
         await ctx.trigger_typing()
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get("https://nekobot.xyz/api/imagegen?type=changemymind&text=%s" % text) as r:
-                res = await r.json()
+        async with self.bot.session.get("https://nekobot.xyz/api/imagegen?type=changemymind&text=%s" % text) as r:
+            res = await r.json()
 
         embed = discord.Embed(color=self.color['embed_color'],
                               title=f"Change {ctx.author}'s mind")
@@ -289,7 +284,6 @@ class fun(commands.Cog, name="Fun"):
             await ctx.send((await resp.content.read()).decode("utf-8 "))
 
     @commands.command(brief="Roast someone")
-    @commands.is_nsfw()
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def roast(self, ctx, member: discord.Member = None):
@@ -319,9 +313,8 @@ class fun(commands.Cog, name="Fun"):
     async def meme(self, ctx):
         """ Make your life a little bit funnier with memes """
 
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get('https://meme-api.herokuapp.com/gimme') as r:
-                r = await r.json()
+        async with self.bot.session.get('https://meme-api.herokuapp.com/gimme') as r:
+            r = await r.json()
         
         if r['nsfw'] == True and not ctx.channel.is_nsfw:
             return await ctx.send(f"{emotes.warning} This meme is marked as NSFW and I cannot let you see it in non-nsfw channel.")
@@ -345,9 +338,8 @@ class fun(commands.Cog, name="Fun"):
         if member == owner:
             return await ctx.send("Whaaaat?? You're trying to spank my owner?!?")
 
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get('https://nekos.life/api/v2/img/spank') as r:
-                r = await r.json()
+        async with self.bot.session.get('https://nekos.life/api/v2/img/spank') as r:
+            r = await r.json()
         await ctx.send(embed=discord.Embed(color=self.color['embed_color'], description=f"**{ctx.author}** spanked **{member}**").set_image(url=r['url']))
 
 
@@ -361,9 +353,8 @@ class fun(commands.Cog, name="Fun"):
         owner = self.bot.get_user(345457928972533773)
         if member == owner:
             return await ctx.send("He doesn't need any cuddles.")
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get('https://nekos.life/api/v2/img/cuddle') as r:
-                r = await r.json()
+        async with self.bot.session.get('https://nekos.life/api/v2/img/cuddle') as r:
+            r = await r.json()
         await ctx.send(embed=discord.Embed(color=self.color['embed_color'], description=f"**{ctx.author}** cuddled **{member}**").set_image(url=r['url']))
 
     @commands.command(brief="Hug someone")
@@ -376,9 +367,8 @@ class fun(commands.Cog, name="Fun"):
         owner = self.bot.get_user(345457928972533773)
         if member == owner:
             return await ctx.send("He doesn't need any hugs.")
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get('https://nekos.life/api/v2/img/hug') as r:
-                r = await r.json()
+        async with self.bot.session.get('https://nekos.life/api/v2/img/hug') as r:
+            r = await r.json()
         await ctx.send(embed=discord.Embed(color=self.color['embed_color'], description=f"**{ctx.author}** gave **{member}** a hug").set_image(url=r['url']))
 
     @commands.command(brief="Supreme logo")
@@ -419,9 +409,8 @@ class fun(commands.Cog, name="Fun"):
     @checks.has_voted()
     async def pussy(self, ctx):
         """ Pussy here, pussy there, pussy everywhere """
-        async with aiohttp.ClientSession() as cs:
-            async with cs.get('https://nekobot.xyz/api/image?type=pussy') as r:
-                r = await r.json()
+        async with self.bot.session.get('https://nekobot.xyz/api/image?type=pussy') as r:
+            r = await r.json()
         await ctx.send(embed=discord.Embed(color=self.color['embed_color']).set_image(url=r['message']))
 
 def setup(bot):

@@ -14,20 +14,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import os
-import random
-import typing
 import datetime
-import time
-import json
 import config
 import asyncpg
 import asyncio
 import aiohttp
-from discord.ext import commands, tasks
-from itertools import cycle
+import logging
+from discord.ext import commands
 from db import emotes
 from utils.caches import cache, CacheManager
+from logging.handlers import RotatingFileHandler
 
 asyncio.set_event_loop(asyncio.SelectorEventLoop())
 
@@ -42,11 +38,11 @@ async def run():
         bot.uptime = datetime.datetime.now()
     try:
         await cache(bot)
+        bot.session = aiohttp.ClientSession(loop=bot.loop)
         await bot.start(config.DISCORD_TOKEN)
     except KeyboardInterrupt:
         await db.close()
         await bot.logout()
-
 
 async def get_prefix(bot, message):
     if not message.guild:
@@ -144,7 +140,6 @@ class Bot(commands.AutoShardedBot):
 
         self.guilds_data = {}
         self.loop = asyncio.get_event_loop()
-        self.session = aiohttp.ClientSession(loop=self.loop)
         self.blacklisted_guilds = {}
         self.blacklisted_users = {}
         self.afk_users = []
@@ -273,8 +268,6 @@ class Bot(commands.AutoShardedBot):
 
             await chan.send(embed=e)
             await self.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", guild.id)
-
-
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())

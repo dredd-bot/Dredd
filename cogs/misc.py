@@ -315,7 +315,6 @@ class misc(commands.Cog, name="Misc"):
         todo = todos[todoid]
 
         e = discord.Embed(color=self.color['embed_color'], title=f'Information on your todo #{todoid}:')
-        
         if len(todo['todo']) > 1800:
             thetodo = todo['todo'][:1800] + '...'
         else:
@@ -347,9 +346,7 @@ class misc(commands.Cog, name="Misc"):
             return await ctx.send(f'{emotes.red_mark} I can\'t find todo `#{todoid}` in your todo list list.')
 
         todo_to_edit = todos[todoid]
-
         todocheck = await self.bot.db.fetchval("SELECT todo FROM todolist WHERE user_id = $1 AND todo = $2", ctx.author.id, content)
-
         if todocheck:
             return await ctx.send(f"{emotes.red_mark} You already have `{clean(content)}` in your todo list")
 

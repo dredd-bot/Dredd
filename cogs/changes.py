@@ -23,10 +23,10 @@ CHANGE_LOG = {
     'V1.3.0': '1. lockchannel and unlockchannel will take the current channel as default. They are also kinda rewritten\n2. Removed wallpaper command\n3. Rewrote command briefs you see in `-help <category>`\n4. Suggestion embeds now have brand new design\n5. Welcoming and leaving messages can now be embedded\n6. Suggestions can now be longer by 3 times (384 characters)\n7. User badges are now being cached so JSON file wouldn\'t get opened every time user invokes `userinfo` and possibly corrupted\n8. Uptime is now more advanced\n9. Partner badges are now <:partner:748833273383485440> instead of <:partners:683288926940823598>\n10. If you are blacklisted bot will not respond to you anymore at all since we changed the system a bit.\n11. Improved purge command\n12. Members can now be automatically dehoisted when you enable antidehoist logs. They\'ll get dehoisted 60 seconds after they change their nick or join the server\n12. Rewrote cache\n13. Snipes are now being logged in cache.\n14. Updated privacy policy\n15. Deleted images are now being properly logged\n16. Added temp ban\n17. Instead of `togglemsg bots` there are now 2 separate commands: `togglemsg joinbots` and `togglemsg leavebots`\n18. Added a members limit for ban, kick commands',
     'V1.4.0': '1. users that don\'t share servers with a bot will be fetched now.\n2. Welcoming and leaving messages now have ability to display user\'s tag and id\n3. Changed how todo list ids are displayed`\n4. Updated character limits for todo lists.\n5. Fixed logging not logging deleted/edited messages over 1024 characters\n6. Moderation commands have a new format\n7. Added owner-exclusive features\n8. Changed error handler format',
     'V1.4.1': '1. Fixed issue where you couldn\'t edit your todo if it was shorter than 150 characters.',
-    'V1.5.0': '...'
+    'V1.5.0': '1. Fixed where bot wouldn\'t react with ⏹️ when paginating 1 page only\n2. Added more roasts.\n3. Added competing activity status to `userinfo` command\n4. Fixed fun commands opening a new session each time.\n5. You can now use roast outside NSFW channels'
     }
 
-version = '1.4.1'
+version = '1.5.0'
 most_recent = CHANGE_LOG["V"+version]
 
 def setup(bot):

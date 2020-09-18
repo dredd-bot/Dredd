@@ -184,7 +184,7 @@ async def cache(bot):
     print("[STATUS] Opted in users laoded")
 
 class CacheManager:
-    def __init__(self, bot, *, id: int, data: str):
+    def __init__(self, bot):
         self.bot = bot
 
     def get_cache(self, id: int, data: str):
@@ -202,75 +202,21 @@ class CacheManager:
         return d
     
     def delete_cache(self, id: int):
-        try:
-            self.prefixes.pop(id)
-        except:
-            pass
-        try:
-            self.automod.pop(id)
-        except:
-            pass
-        try:
-            self.raidmode.pop(id)
-        except:
-            pass
-        try:
-            self.case_num.pop(id)
-        except:
-            pass
-        try:
-            self.moderation.pop(id)
-        except:
-            pass
-        try:
-            self.msgedit.pop(id)
-        except:
-            pass
-        try:
-            self.msgdelete.pop(id)
-        except:
-            pass
-        try:
-            self.joinlog.pop(id)
-        except:
-            pass
-        try:
-            self.invites.pop(id)
-        except:
-            pass
-        try:
-            self.links.pop(id)
-        except:
-            pass
-        try:
-            self.masscaps.pop(id)
-        except:
-            pass
-        try:
-            self.massmentions.pop(id)
-        except:
-            pass
-        try:
-            self.memberupdate.pop(id)
-        except:
-            pass
-        try:
-            self.joinmsg.pop(id)
-        except:
-            pass
-        try:
-            self.leavemsg.pop(id)
-        except:
-            pass
-        try:
-            self.antidehoist.pop(id)
-        except:
-            pass
-        try:
-            self.whitelisted_channels.pop(id)
-        except:
-            pass
-        try:
-            self.whitelisted_roles.pop(id)
-        except:
-            pass
+        self.prefixes.pop(id, None)
+        self.automod.pop(id, None)
+        self.raidmode.pop(id, None)
+        self.case_num.pop(id, None)
+        self.moderation.pop(id, None)
+        self.msgedit.pop(id, None)
+        self.msgdelete.pop(id, None)
+        self.joinlog.pop(id, None)
+        self.invites.pop(id, None)
+        self.links.pop(id, None)
+        self.masscaps.pop(id, None)
+        self.massmentions.pop(id, None)
+        self.memberupdate.pop(id, None)
+        self.joinmsg.pop(id, None)
+        self.leavemsg.pop(id, None)
+        self.antidehoist.pop(id, None)
+        self.whitelisted_channels.pop(id, None)
+        self.whitelisted_roles.pop(id, None)

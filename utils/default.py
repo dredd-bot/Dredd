@@ -120,6 +120,16 @@ def member_activity(member):
                 message += "\n"
             else:
                 message += f"{emotes.music_presence} Listening to **{clean(activity.name)}**\n"
+        
+        elif activity.type == 5:
+            if activity.url is None:
+                message += f"{emotes.rich_presence} Competing in **{clean(activity.name)}**\n"
+                if activity.emoji:
+                    message += f" {activity.emoji}\n"
+            elif activity.url is not None:
+                message += f"{emotes.rich_presence} Competing in **[{clean(activity.name)}]({activity.url})**\n"
+                if activity.emoji:
+                    message += f" {activity.emoji}\n"
 
     return message
 
