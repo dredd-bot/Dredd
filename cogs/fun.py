@@ -18,6 +18,7 @@ import json
 import random
 import typing
 import urllib
+import aiohttp
 
 from discord.ext import commands
 from utils import default, argparser, http, checks
