@@ -293,8 +293,11 @@ __**Other Information:**__
             if not user.isdigit():
                 return await ctx.send(f"{emotes.red_mark} Couldn't find that user!")
             else:
-                user = await self.bot.fetch_user(user)
-                color = self.color['fetch_color']                
+                try:
+                    user = await self.bot.fetch_user(user)
+                    color = self.color['fetch_color']
+                except:
+                    return await ctx.send(f"{emotes.red_mark} Unknown user!")
                 
         user = user or ctx.author
         
