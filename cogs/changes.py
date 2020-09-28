@@ -25,10 +25,11 @@ CHANGE_LOG = {
     'V1.4.1': '1. Fixed issue where you couldn\'t edit your todo if it was shorter than 150 characters.',
     'V1.5.0': '1. Fixed where bot wouldn\'t react with ⏹️ when paginating 1 page only\n2. Added more roasts.\n3. Added competing activity status to `userinfo` command\n4. Fixed fun commands opening a new session each time.\n5. You can now use roast outside NSFW channels',
     'V1.5.1': '1. Imported aiohttp module where I should\'ve had it',
-    'V1.5.2': '1. Fixed `userinfo` command throwing an error when fetched user is unknown'
+    'V1.5.2': '1. Fixed `userinfo` command throwing an error when fetched user is unknown',
+    'V1.5.3': '1. Fixed `snipe` showing content sniped from NSFW channels in SFW channels.'
     }
 
-version = '1.5.2'
+version = '1.5.3'
 most_recent = CHANGE_LOG["V"+version]
 
 def setup(bot):

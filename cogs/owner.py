@@ -1269,11 +1269,11 @@ class owner(commands.Cog, name="Owner"):
         with open('db/badges.json', 'r') as f:
             data = json.load(f)
         badge = emotes.bot_partner
-        try:
-            if badge in data['Users'][f'{partner.id}']["Badges"]:
-                return await ctx.send(f"{emotes.warning} User is already our partner!")
-        except KeyError:
-            pass
+        # try:
+        #     if badge in data['Users'][f'{partner.id}']["Badges"]:
+        #         return await ctx.send(f"{emotes.warning} User is already our partner!")
+        # except KeyError:
+        #     pass
         try:
             def check(m):
                 return m.author == ctx.author and m.channel.id == ctx.channel.id
@@ -1334,7 +1334,7 @@ class owner(commands.Cog, name="Owner"):
                     await msg.clear_reactions()
                 except:
                     pass
-                await self.bot.db.execute("INSERT INTO partners(user_id, partner_type, partner_message, partnered_since) VALUES($1, $2, $3, $4)", partner.id, ptype, msg, datetime.now())
+                await self.bot.db.execute("INSERT INTO partners(user_id, partner_type, partner_message, partnered_since) VALUES($1, $2, $3, $4)", partner.id, ptype, message.content, datetime.now())
                 return await msg.edit(content="OK!", embed=None)
                 
             elif str(react) == f"{emotes.red_mark}":

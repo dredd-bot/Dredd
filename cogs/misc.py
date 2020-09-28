@@ -452,6 +452,8 @@ class misc(commands.Cog, name="Misc"):
         check = cm.get_cache(self.bot, channel.id, 'snipes')
         if check is None:
             return await ctx.send(f"{emotes.red_mark} Haven't logged anything yet")
+        if check['nsfw']:
+            return await ctx.send(f"{emotes.other_nsfw} This channel needs to be NSFW in order for you to see the sniped content")
         content = check['message']
         if len(content) > 2000:
             content = content[:2000]

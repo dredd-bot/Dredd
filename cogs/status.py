@@ -118,7 +118,7 @@ class Eventss(commands.Cog, name="Eventss", command_attrs=dict(hidden=True)):
             return
         
         if message.webhook_id is None:
-            self.bot.snipes[message.channel.id] = {'message': message.content, 'deleted_at': datetime.now(), 'author': message.author.id}
+            self.bot.snipes[message.channel.id] = {'message': message.content, 'deleted_at': datetime.now(), 'author': message.author.id, 'nsfw': message.channel.is_nsfw()}
 
 def setup(bot):
     bot.add_cog(Eventss(bot))
