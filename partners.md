@@ -19,6 +19,7 @@ And a lot more besides that!
 Join support server to get latest news!
 
 **Invite:** <https://discord.com/oauth2/authorize?client_id=667117267405766696&scope=bot&permissions=477588727&redirect_uri=https%3A%2F%2Fdiscord.gg%2Ff3MaASW&response_type=code>
-**Support server:** <https://discord.gg/f3MaASW>```
+**Support server:** <https://discord.gg/f3MaASW>
+```
 
 #### Message must **not** be in a code block.
