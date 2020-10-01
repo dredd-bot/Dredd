@@ -1,4 +1,4 @@
-This is the message out partners need to publish:
+This is the message out partners need to publish in their #partners (or whatever they call it) channel:
 
 ```
 Dredd is quite new discord bot that is still under development process. His default prefix is **-** or @Dredd and it's made by **Moksej#3335** using **discord.py** library. You can have any prefix you want by typing **-prefix [newprefix]**
