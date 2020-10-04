@@ -25,6 +25,9 @@ from db import emotes
 from utils.caches import cache, CacheManager
 from logging.handlers import RotatingFileHandler
 
+# this section is for the new gateway (latest discord.py version)
+intents = discord.Intents.all()
+
 asyncio.set_event_loop(asyncio.SelectorEventLoop())
 
 async def run():
@@ -101,8 +104,9 @@ class Bot(commands.AutoShardedBot):
             owner_id = 345457928972533773,
             reconnect = True,
             allowed_mentions = discord.AllowedMentions.none(),
-            max_messages=10000
-        )
+            max_messages=10000,
+            intents=intents)
+        
         for extension in config.EXTENSIONS:
             try:
                 self.load_extension(extension)
