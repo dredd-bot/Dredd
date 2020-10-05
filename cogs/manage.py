@@ -382,7 +382,7 @@ class Managment(commands.Cog, name="Management"):
     async def togglemsg_joinembed(self, ctx):
         """ Enable or disable embedded welcoming messages """
         check = await self.bot.db.fetchval("SELECT embed FROM joinmsg WHERE guild_id = $1", ctx.guild.id)
-        checks = await self.bot.db.fetchval('SELECT * FROM leavemsg WHERE guild_id = $1', ctx.guild.id)
+        checks = await self.bot.db.fetchval('SELECT * FROM joinmsg WHERE guild_id = $1', ctx.guild.id)
         if not checks:
             return await ctx.send(f"{emotes.warning} Please enable welcoming messages first!")
         if not check:

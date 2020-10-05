@@ -578,8 +578,8 @@ __**Other Information:**__
     async def vote(self, ctx):
         """ Give me a vote, please. Thanks... """
 
-        if len(self.bot.guilds) >= 100 <= 110:
-            return await ctx.send(f"{emotes.bot_vip} We reached 100 servers! The voting will be disabled until we get 110 servers!")
+        # if len(self.bot.guilds) >= 100 <= 110:
+        #     return await ctx.send(f"{emotes.bot_vip} We reached 100 servers! The voting will be disabled until we get 110 servers!")
 
         e = discord.Embed(color=self.color['embed_color'], description=f"{emotes.pfp_normal} You can vote for me [here](https://discord.boats/bot/667117267405766696/vote)")
         await ctx.send(embed=e)

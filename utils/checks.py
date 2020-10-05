@@ -12,7 +12,7 @@ def has_voted():
     async def predicate(ctx):
         if await ctx.bot.is_booster(ctx.author):
             return True
-        if len(ctx.bot.guilds) >= 100 <= 110:
+        if 100 <= len(ctx.bot.guilds) <= 110:
             return True
         async with aiohttp.ClientSession() as session:
             async with session.get(f'https://discord.boats/api/bot/667117267405766696/voted?id={ctx.author.id}') as r:

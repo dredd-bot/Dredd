@@ -26,7 +26,8 @@ CHANGE_LOG = {
     'V1.5.0': '1. Fixed where bot wouldn\'t react with ⏹️ when paginating 1 page only\n2. Added more roasts.\n3. Added competing activity status to `userinfo` command\n4. Fixed fun commands opening a new session each time.\n5. You can now use roast outside NSFW channels',
     'V1.5.1': '1. Imported aiohttp module where I should\'ve had it',
     'V1.5.2': '1. Fixed `userinfo` command throwing an error when fetched user is unknown',
-    'V1.5.3': '1. Fixed `snipe` showing content sniped from NSFW channels in SFW channels.'
+    'V1.5.3': '1. Fixed `snipe` showing content sniped from NSFW channels in SFW channels.',
+    'V1.5.4': '1. Added intents\n2. Fixed `togglemsg joinembed` not enabling embeds when joinlogs are on.'
     }
 
 version = '1.5.3'
