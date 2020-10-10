@@ -30,7 +30,7 @@ CHANGE_LOG = {
     'V1.5.4': '1. Added intents\n2. Fixed `togglemsg joinembed` not enabling embeds when joinlogs are on.'
     }
 
-version = '1.5.3'
+version = '1.5.4'
 most_recent = CHANGE_LOG["V"+version]
 
 def setup(bot):
