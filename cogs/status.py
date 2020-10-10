@@ -23,7 +23,6 @@ from datetime import datetime
 from db import emotes
 from utils.caches import CacheManager as cm
 
-#test
 class Eventss(commands.Cog, name="Eventss", command_attrs=dict(hidden=True)):
     def __init__(self, bot):
         self.bot = bot
