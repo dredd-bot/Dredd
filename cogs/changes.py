@@ -27,7 +27,8 @@ CHANGE_LOG = {
     'V1.5.1': '1. Imported aiohttp module where I should\'ve had it',
     'V1.5.2': '1. Fixed `userinfo` command throwing an error when fetched user is unknown',
     'V1.5.3': '1. Fixed `snipe` showing content sniped from NSFW channels in SFW channels.',
-    'V1.5.4': '1. Added intents\n2. Fixed `togglemsg joinembed` not enabling embeds when joinlogs are on.'
+    'V1.5.4': '1. Added intents\n2. Fixed `togglemsg joinembed` not enabling embeds when joinlogs are on.',
+    'V1.5.5': '1. Fixed ability for people to hyperlink in DM logs'
     }
 
 version = '1.5.4'
