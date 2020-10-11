@@ -236,7 +236,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 dmid = total_dms + 1
             
             msgembed = discord.Embed(
-                description=message.content, color=discord.Color.blurple(), timestamp=datetime.utcnow())
+                description=escape_markdown(message.content, as_needed=False), color=discord.Color.blurple(), timestamp=datetime.utcnow())
             msgembed.set_author(name=f"New DM from: {message.author} | #{dmid}", icon_url=message.author.avatar_url)
             # They've sent a image/gif/file
             if message.attachments:
