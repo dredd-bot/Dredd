@@ -26,7 +26,7 @@ from utils.caches import CacheManager as cm
 
 CAPS = re.compile(r"[ABCDEFGHIJKLMNOPQRSTUVWXYZ]")
 LINKS = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
-INVITE = re.compile(r"(?:https?://)?discord(?:app\.com/invite|\.gg)/?[a-zA-Z0-9]+/?")
+INVITE = re.compile(r"(?:https?://)?discord(?:\.com/invite|app\.com/invite|\.gg)/?[a-zA-Z0-9]+/?")
 
 class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidden=True)):
     def __init__(self, bot):
