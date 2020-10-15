@@ -31,7 +31,7 @@ CHANGE_LOG = {
     'V1.5.5': '1. Fixed automod not allowing to mention anyone when anti-massmention is enabled'
     }
 
-version = '1.5.4'
+version = '1.5.5'
 most_recent = CHANGE_LOG["V"+version]
 
 def setup(bot):
