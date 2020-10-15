@@ -334,7 +334,7 @@ class owner(commands.Cog, name="Owner"):
         with open('db/badges.json', 'w') as f:
             data = json.dump(data, f, indent=4)
 
-        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev, time) VALUES ($1, $2, $3, $4)", user.id, reason, ctx.author.id, datetime.now())
+        await self.bot.db.execute("INSERT INTO blacklist(user_id, reason, dev) VALUES ($1, $2, $3)", user.id, reason, ctx.author.id)
         self.bot.blacklisted_users[user.id] = [reason]
 
         try:
