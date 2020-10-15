@@ -295,7 +295,9 @@ class logs(commands.Cog, name="Logs", command_attrs=dict(hidden=True)):
 
         await self.bot.db.execute("DELETE FROM warnings WHERE user_id = $1 AND guild_id = $2", member.id, member.guild.id)
         await self.bot.db.execute("DELETE FROM autowarns WHERE user_id = $1 AND guild_id = $2", member.id, member.guild.id)
-        await self.bot.db.execute("DELETE FROM useractivity WHERE user_id = $1", member.id)
+        shared_server = len([x for x in self.bot.guilds if x.id != member.guild.id and x.get_member(member)])
+        if shared_server == 0:
+            await self.bot.db.execute("DELETE FROM useractivity WHERE user_id = $1", member.id)
 
         db_check1 = cm.get_cache(self.bot, member.guild.id, 'leavemsg')
         db_check2 = cm.get_cache(self.bot, member.guild.id, 'joinlog')
