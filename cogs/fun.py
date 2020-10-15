@@ -302,7 +302,7 @@ class fun(commands.Cog, name="Fun"):
         if member == owner:
             return await ctx.send("I'm not going to do that.")
 
-        with open("db/lines.json", "r") as f:
+        with open("db/lines.json", "r", encoding='utf8') as f:
             data = json.load(f)
 
         roasts = data["roasts"]
