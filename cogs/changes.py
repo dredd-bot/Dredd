@@ -28,7 +28,7 @@ CHANGE_LOG = {
     'V1.5.2': '1. Fixed `userinfo` command throwing an error when fetched user is unknown',
     'V1.5.3': '1. Fixed `snipe` showing content sniped from NSFW channels in SFW channels.',
     'V1.5.4': '1. Added intents\n2. Fixed `togglemsg joinembed` not enabling embeds when joinlogs are on.',
-    'V1.5.5': '1. Fixed ability for people to hyperlink in DM logs'
+    'V1.5.5': '1. Fixed automod not allowing to mention anyone when anti-massmention is enabled'
     }
 
 version = '1.5.4'
