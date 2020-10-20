@@ -105,7 +105,6 @@ class Bot(commands.AutoShardedBot):
             reconnect = True,
             allowed_mentions = discord.AllowedMentions.none(),
             max_messages=10000,
-            chunk_guilds_at_startup=False,
             intents=intents)
         
         for extension in config.EXTENSIONS:
