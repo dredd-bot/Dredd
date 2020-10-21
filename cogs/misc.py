@@ -465,7 +465,7 @@ class misc(commands.Cog, name="Misc"):
         if a is None:
             return await ctx.send(f"{emotes.warning} Couldn't get that member.")
         e.set_author(name=f"Deleted by {a}", icon_url=a.avatar_url)
-        e.description = f"{content}"
+        e.description = f"{escape_markdown(content, as_needed=False)}"
         e.set_footer(text=f"Deleted {btime.human_timedelta(check['deleted_at'])} in #{channel.name}")
 
         await ctx.send(embed=e)
