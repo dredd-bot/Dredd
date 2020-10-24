@@ -317,7 +317,7 @@ class fun(commands.Cog, name="Fun"):
         async with self.bot.session.get('https://meme-api.herokuapp.com/gimme') as r:
             r = await r.json()
         
-        if r['nsfw'] == True and not ctx.channel.is_nsfw:
+        if r['nsfw'] == True and not ctx.channel.is_nsfw():
             return await ctx.send(f"{emotes.warning} This meme is marked as NSFW and I cannot let you see it in non-nsfw channel.")
         embed = discord.Embed(color=self.color['embed_color'], title=f"**{r['title']}**", url=r['postLink'])
         embed.set_image(url=r['url'])
