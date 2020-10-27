@@ -75,7 +75,7 @@ class Managment(commands.Cog, name="Management"):
             await ctx.send(f"Changed server prefix to `{prefix}`!")
         elif prefix and len(prefix) < 6 and ctx.author.guild_permissions.manage_guild or await self.bot.is_owner(ctx.author):
             await ctx.send(f"{emotes.warning} Prefix is too long!")
-        elif prefix anf not ctx.author.guild_permissions.manage_guild or not await self.bot.is_owner(ctx.author):
+        elif prefix and not ctx.author.guild_permissions.manage_guild or not await self.bot.is_owner(ctx.author):
             await ctx.send("Looks like you dont have `Manage Server` permissions")
 
     @commands.command(brief="Check the server settings", aliases=['guildsettings', 'settings'])
