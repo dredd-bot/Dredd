@@ -49,7 +49,7 @@ class fun(commands.Cog, name="Fun"):
             bio = BytesIO(req)
             bio.seek(0)
             await ctx.send(content=content, file=discord.File(bio, filename=filename))
-    
+
     async def __get_image(self, ctx, user=None):
         if user:
             try:
@@ -105,10 +105,12 @@ class fun(commands.Cog, name="Fun"):
         rating = f"{num}.{deci}"
         await ctx.send(f"I'd give {clean(thing)} a rating **{rating}** of **100**")
 
-    @commands.command(brief="A random duck image command.", description="A random duck image command.\nPowered by random-d.uk", aliases=['randomduck', 'rd', '\U0001f986'])
+    @commands.command(brief="A random duck image command.", aliases=['randomduck', 'rd', '\U0001f986'])
     @commands.cooldown(1, 5, BucketType.user)
     async def duck(self, ctx):
-        embed = discord.Embed(title='Quack :duck:', color=discord.Colour.green())
+        """ A random duck image command.
+        Powered by random-d.uk """
+        embed = discord.Embed(title='Quack :duck:', color=self.color['embed_color'])
         embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
         embed.set_footer(text='Powered by random-d.uk', icon_url="https://cdn.discordapp.com/avatars/426787835044036610/795ed0c0b2da8d6c37c071dc61e0c77f.png")
         file = random.choice(['jpg', 'gif'])
@@ -135,14 +137,14 @@ class fun(commands.Cog, name="Fun"):
                               title="You made Clyde said this:")
         embed.set_image(url=res["message"])
         await ctx.send(embed=embed)
-    
+
     @commands.command(brief="F in the chat", aliases=['f'])
     async def pressf(self, ctx, *, text: commands.clean_content = None):
         """ Press F to pay respect """
         hearts = ['❤', '💛', '💚', '💙', '💜']
         reason = f"for **{text}** " if text else ""
         await ctx.send(f"**{ctx.author.name}** has paid their respect {reason}{random.choice(hearts)}")
-    
+
     @commands.command(brief="Ship someone together")
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def ship(self, ctx, user1: discord.User, user2: discord.User):
@@ -161,8 +163,8 @@ class fun(commands.Cog, name="Fun"):
         embed = discord.Embed(color=self.color['embed_color'])
         embed.set_image(url=res["message"])
         await ctx.send(embed=embed)
-    
-    
+
+
     @commands.command(brief="Change my mind", description="Make someone change your mind", aliases=["cmm"])
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def changemymind(self, ctx, *, text: commands.clean_content):
@@ -192,7 +194,7 @@ class fun(commands.Cog, name="Fun"):
         responses = data["eightball"]
 
         embed = discord.Embed(color=self.color['embed_color'], title=f"🎱 You've asked the 8ball", description=f"``Question:`` {question}\n``Answer:`` {random.choice(responses)}")
-        
+
         await ctx.send(embed=embed)
 
     @commands.command(description='Reverse any text you want', brief="Reverse something")
@@ -207,7 +209,7 @@ class fun(commands.Cog, name="Fun"):
             t_rev = text[::-1].replace("@", "@\u200B").replace("&", "&\u200B")
             if word in t_rev:
                 return await ctx.channel.send('You cannot use blacklisted words!')
-        
+
         embed = discord.Embed(color=self.color['embed_color'], title='Text was reversed!',
                         description=f"**Input:** {text}\n**Output:** {t_rev}")
         await ctx.send(embed=embed)
@@ -318,7 +320,7 @@ class fun(commands.Cog, name="Fun"):
             data = json.load(f)
 
         roasts = data["roasts"]
-        
+
         await ctx.send(f"{member.name}, {random.choice(roasts)}")
 
     @commands.command(brief="Random memes")
@@ -328,14 +330,14 @@ class fun(commands.Cog, name="Fun"):
 
         async with self.bot.session.get('https://meme-api.herokuapp.com/gimme') as r:
             r = await r.json()
-        
+
         if r['nsfw'] == True and not ctx.channel.is_nsfw():
             return await ctx.send(f"{emotes.warning} This meme is marked as NSFW and I cannot let you see it in non-nsfw channel.")
         embed = discord.Embed(color=self.color['embed_color'], title=f"**{r['title']}**", url=r['postLink'])
         embed.set_image(url=r['url'])
 
         await ctx.send(embed=embed)
-    
+
     @commands.command(brief="Spank someone")
     @commands.guild_only()
     @commands.is_nsfw()
