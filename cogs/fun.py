@@ -105,10 +105,12 @@ class fun(commands.Cog, name="Fun"):
         rating = f"{num}.{deci}"
         await ctx.send(f"I'd give {clean(thing)} a rating **{rating}** of **100**")
 
-    @commands.command(brief="A random duck image command." description="A random duck image command.\nPowered by random-d.uk", aliases=['randomduck', 'rd', '\U0001f986'])
+    @commands.command(brief="A random duck image command.", aliases=['randomduck', 'rd', '\U0001f986'])
     @commands.cooldown(1, 5, BucketType.user)
     async def duck(self, ctx):
-        embed = discord.Embed(title='Quack :duck:', color=discord.Colour.green())
+        """ A random duck image command.
+        Powered by random-d.uk """
+        embed = discord.Embed(title='Quack :duck:', color=self.color['embed_color'])
         embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
         embed.set_footer(text='Powered by random-d.uk', icon_url="https://cdn.discordapp.com/avatars/426787835044036610/795ed0c0b2da8d6c37c071dc61e0c77f.png")
         file = random.choice(['jpg', 'gif'])
