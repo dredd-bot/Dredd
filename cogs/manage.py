@@ -69,13 +69,13 @@ class Managment(commands.Cog, name="Management"):
         if prefix is None and not ctx.author.guild_permissions.manage_guild:
             return await ctx.send(f"This server prefix is `{prefixs}`")
 
-        elif prefix and len(prefix) < 6 and ctx.author.guild_permissions.manage_guild:
+        elif prefix and len(prefix) <= 6 and ctx.author.guild_permissions.manage_guild:
             await self.bot.db.execute("UPDATE guilds SET prefix = $1 WHERE guild_id = $2", prefix, ctx.guild.id)
             self.bot.prefixes[ctx.guild.id] = prefix
             await ctx.send(f"Changed server prefix to `{prefix}`!")
-        elif prefix and len(prefix) > 6 and ctx.author.guild_permissions.manage_guild:
+        elif prefix and len(prefix) >= 7 and ctx.author.guild_permissions.manage_guild:
             await ctx.send(f"{emotes.warning} Prefix is too long!")
-        else:
+        elif prefix and not ctx.author.guild_permissions.manage_guild:
             await ctx.send(f"{emotes.red_mark} You're missing `manage_guild` permissions")  # lazy to raise error also this is temp
 
     @commands.command(brief="Check the server settings", aliases=['guildsettings', 'settings'])
