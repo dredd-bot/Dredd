@@ -106,7 +106,7 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(f"I'd give {clean(thing)} a rating **{rating}** of **100**")
 
     @commands.command(brief="A random duck image command.", aliases=['randomduck', 'rd', '\U0001f986'])
-    @commands.cooldown(1, 5, BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def duck(self, ctx):
         """ A random duck image command.
         Powered by random-d.uk """
