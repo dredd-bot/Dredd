@@ -212,7 +212,7 @@ class misc(commands.Cog, name="Misc"):
                           entries=todos,
                           thumbnail=None,
                           per_page = 10,
-                          embed_color=ctx.bot.embed_color,
+                          embed_color=self.colors['embed_color'],
                           show_entry_count=True)
         try:
             await paginator.paginate()
@@ -222,7 +222,7 @@ class misc(commands.Cog, name="Misc"):
                           entries=todos,
                           thumbnail=None,
                           per_page = 5,
-                          embed_color=ctx.bot.embed_color,
+                          embed_color=self.colors['embed_color'],
                           show_entry_count=True)
             await paginators.paginate()
     
