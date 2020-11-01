@@ -177,7 +177,7 @@ class Bot(commands.AutoShardedBot):
         self.whitelisted_channels = {}
         self.whitelisted_roles = {}
 
-        self.owners = {}
+        self.devs = {}
         self.admins = {}
         self.boosters = {}
         self.lockdown = 'False'
@@ -189,7 +189,7 @@ class Bot(commands.AutoShardedBot):
         return self.categories.get(name)
 
     async def is_owner(self, user):
-        if CacheManager.get_cache(self, user.id, 'owners'):
+        if CacheManager.get_cache(self, user.id, 'devs'):
             return True
     
     async def is_admin(self, user):
