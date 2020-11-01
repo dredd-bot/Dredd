@@ -20,6 +20,7 @@ import asyncpg
 import asyncio
 import aiohttp
 import logging
+import traceback
 from discord.ext import commands
 from db import emotes
 from utils.caches import cache, CacheManager
@@ -112,7 +113,9 @@ class Bot(commands.AutoShardedBot):
                 self.load_extension(extension)
                 print(f'[EXTENSION] {extension} was loaded successfully!')
             except Exception as e:
-                print(f'[WARNING] Could not load extension {extension}: {e}')
+                tb = traceback.format_exception(type(e), e, e.__traceback__) 
+                tbe = "".join(tb) + ""
+                print(f'[WARNING] Could not load extension {extension}: {tbe}')
 
         self.db = kwargs.pop("db")
         self.counter = 0
