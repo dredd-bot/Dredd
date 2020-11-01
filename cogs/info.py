@@ -45,7 +45,7 @@ class info(commands.Cog, name="Info"):
         self.bot = bot
         self.help_icon = "<:tag:686251889586864145>"
         self.big_icon = "https://cdn.discordapp.com/emojis/686251889586864145.png?v=1"
-        self.help_command.cog = self
+        self.bot.help_command.cog = self
         self.color = color_picker('colors')
 
     async def bot_check(self, ctx):
