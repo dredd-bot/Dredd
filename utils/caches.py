@@ -4,7 +4,7 @@ from utils.default import traceback_maker
 async def cache(bot):
     owners = await bot.db.fetch("SELECT * FROM owners")
     for res in owners:
-        bot.owners[res['user_id']] = 'my owner'
+        bot.devs[res['user_id']] = 'my owner'
     print(f'[OWNERS] Owners loaded')
 
     admins = await bot.db.fetch("SELECT * FROM admins")
