@@ -44,7 +44,6 @@ class moderation(commands.Cog, name="Moderation"):
         self.bot = bot
         self.big_icon = "https://cdn.discordapp.com/emojis/747192603640070237.png?v=1"
         self.help_icon = "<:bann:747192603640070237>"
-        self.bot.embed_color = 0x0058D6
         self.color = color_picker('colors')
 
 # ! Commands
