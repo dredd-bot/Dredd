@@ -80,33 +80,6 @@ class Eventss(commands.Cog, name="Eventss", command_attrs=dict(hidden=True)):
                 elif check2 is None:
                     await self.bot.db.execute("INSERT INTO useractivity(user_id, activity_title, time) VALUES($1, $2, $3)", before.id, str(after.status.name), datetime.now())
 
-    # @commands.Cog.listener('on_member_update')
-    # async def presence_log(self, before, after):
-    #     check = await self.bot.db.fetchval("SELECT * FROM presence_check WHERE user_id = $1", before.id)
-
-    #     if before.bot:
-    #         return
-
-    #     if not check:
-    #         return
-
-    #     if before.activity != after.activity:
-    #         if after.activity and after.activity.type == discord.ActivityType.playing:
-    #             if after.activity.start is not None:
-    #                 try:
-    #                     await self.bot.db.execute('INSERT INTO presence_start(user_id, title, time) VALUES($1, $2, $3)', after.id, after.activity.name, after.activity.start)
-    #                     print(after.id, after.activity.name, after.activity.start)
-    #                 except:
-    #                     return 
-    #         if after.activity != before.activity and before.activity.name == await self.bot.db.fetchval("SELECT title FROM presence_start WHERE title = $1", before.activity.name):
-    #             print(before.activity.name)
-    #             time = await self.bot.db.fetchval("SELECT time FROM presence_start WHERE title = $1", before.activity.name)
-    #             check = await self.bot.db.fetchval("SELECT activity_name FROM presence WHERE user_id = $1 AND activity_name = $2", before.id, before.activity.name) 
-    #             if not check:
-    #                 await self.bot.db.execute('INSERT INTO presence(user_id, activity_name, time) VALUES($1, $2, $3)', after.id, before.activity.name, btime.human_timedelta(time, suffix=None))
-    #             elif check:
-    #                 return
-
     @commands.Cog.listener('on_message_delete')
     async def snipe_messages(self, message):
         await self.bot.wait_until_ready()
