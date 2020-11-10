@@ -539,7 +539,7 @@ class misc(commands.Cog, name="Misc"):
                           entries=partner,
                           thumbnail=None,
                           per_page = 1,
-                          embed_color=ctx.bot.embed_color,
+                          embed_color=self.color['embed_color'],
                           show_entry_count=True)
         await paginator.paginate()
 
