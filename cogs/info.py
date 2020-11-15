@@ -679,7 +679,7 @@ __**Other Information:**__
                           entries=perm,
                           thumbnail=None,
                           per_page = 20,
-                          embed_color=ctx.bot.embed_color,
+                          embed_color=self.color['embed_color'],
                           show_entry_count=False,
                           author=ctx.author)
         await paginator.paginate()
