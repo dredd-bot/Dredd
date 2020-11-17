@@ -404,7 +404,7 @@ class admin(commands.Cog, name="Staff"):
 
 # ! System information
     
-    @admin.command(brief="System information", description="Check system information")
+    @admin.command(brief="System information", description="Check system information", aliases=['sysinfo'])
     async def systeminfo(self, ctx):
         """ Check system information bot's running on """
 
