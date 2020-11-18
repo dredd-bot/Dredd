@@ -50,6 +50,7 @@ class owner(commands.Cog, name="Owner"):
         self.api.set_auth("mythicalbots.xyz",  config.MYTH_TOKEN)
         self.api.set_auth("botsfordiscord.com", config.BFD_TOKEN)
         self.api.set_auth("botlist.space", config.BOTSPACE_TOKEN)
+        self.api.set_auth("discordbots.co", config.DISCORD_BOTS_TOKEN)
         self.api.start_loop()
         self.color = color_picker('colors')
 
