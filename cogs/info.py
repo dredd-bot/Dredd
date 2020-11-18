@@ -705,7 +705,7 @@ __**Other Information:**__
     async def privacypolicy(self, ctx):
         """ View Dredd's privacy policy """
         
-        await ctx.send(f"{emotes.discord_privacy} You can view my privacy policy at: {bot.privacy}")
+        await ctx.send(f"{emotes.discord_privacy} You can view my privacy policy at: {self.bot.privacy}")
 
 def setup(bot):
     bot.add_cog(info(bot))
