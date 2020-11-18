@@ -81,6 +81,7 @@ class info(commands.Cog, name="Info"):
         await ctx.send(f"\U0001f3d3 Pong   |   {discord_ms}")
 
     @commands.command(brief="Information about the bot", aliases=["botinfo"])
+    @commands.cooldown(1, 5, commands.BucketType.member)
     async def about(self, ctx):
         """ Displays basic information about the bot """
 
@@ -115,6 +116,7 @@ __**Other Information:**__
         await ctx.send(file=file, embed=embed)
     
     @commands.command(aliases=['lc'], brief="Lines count of the code")
+    @commands.cooldown(1, 5, commands.BucketType.member)
     async def linecount(self, ctx):
         """ Lines count of the code used creating Dredd """
         pylines = 0
@@ -136,6 +138,7 @@ __**Other Information:**__
         await ctx.send(embed=e)
 
     @commands.command(brief="List of all the server staff", aliases=['guildstaff'])
+    @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     async def serverstaff(self, ctx):
         """ Check which server staff are online in the server """
@@ -169,6 +172,7 @@ __**Other Information:**__
         await ctx.send(embed=e)
 
     @commands.command(brief="List of all the server roles")
+    @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     async def roles(self, ctx):
         """ List of all the roles in the server """
@@ -195,6 +199,7 @@ __**Other Information:**__
 
 
     @commands.command(brief="Get server information", aliases=['server', 'si'])
+    @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     async def serverinfo(self, ctx):
         """ Overview about the information of a server """
@@ -280,6 +285,7 @@ __**Other Information:**__
 
 
     @commands.command(brief="Get user information", aliases=['user', 'ui'])
+    @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     async def userinfo(self, ctx, *, user: typing.Union[discord.User, str] = None):
         """ Overview about the information of an user """
@@ -449,12 +455,14 @@ __**Other Information:**__
             await ctx.send(embed=emb)
 
     @commands.command(aliases=['source'], brief="Bot's source code")
+    @commands.cooldown(1, 5, commands.BucketType.member)
     async def sourcecode(self, ctx):
         """ View the bot's source code
         Keep in mind it is [licensed](https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md)"""
         await ctx.send(f"{emotes.other_python} You can find my source code at: https://github.com/TheMoksej/Dredd")
 
     @commands.command(aliases=['pfp'], brief="Get users avatar")
+    @commands.cooldown(1, 5, commands.BucketType.member)
     async def avatar(self, ctx, user: discord.User = None):
         """ Displays what avatar user is using """
 
@@ -476,6 +484,7 @@ __**Other Information:**__
             await ctx.send(embed=embed)
         
     @commands.group(brief="Get a list of old member nicknames", aliases=['nicks'], invoke_without_command=True)
+    @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     async def nicknames(self, ctx, member: discord.Member = None):
         """ Check someones nicknames or opt out """
@@ -504,6 +513,7 @@ __**Other Information:**__
         await ctx.send(embed=e)
 
     @nicknames.command(name='opt', brief="Disable or enable nickname tracking", aliases=['optout', 'optin'])
+    @commands.cooldown(1, 5, commands.BucketType.member)
     async def nicknames_optout(self, ctx):
         """ Opt out if you want the bot to stop logging your nicknames. You can also opt in by invoking this command.
         By opting out I'll stop logging your nicknames in any server we share. """
@@ -556,6 +566,7 @@ __**Other Information:**__
                 return
             
     @commands.command(brief="Support server invite")
+    @commands.cooldown(1, 5, commands.BucketType.member)
     async def support(self, ctx):
         """ A link to this bot's support server """
 
@@ -574,6 +585,7 @@ __**Other Information:**__
         await ctx.send(embed=embed)
     
     @commands.command(brief='Vote for the bot')
+    @commands.cooldown(1, 5, commands.BucketType.member)
     async def vote(self, ctx):
         """ Give me a vote, please. Thanks... """
 
@@ -584,6 +596,7 @@ __**Other Information:**__
         await ctx.send(embed=e)
     
     @commands.command(brief="Credits to people helped", description="All the people who helped with creating this bot are credited")
+    @commands.cooldown(1, 5, commands.BucketType.member)
     async def credits(self, ctx):
         """ Credits for all the people that worked with this bot """
         # return await ctx.send("test")
@@ -604,6 +617,7 @@ __**Other Information:**__
         await ctx.send(embed=semb)
     
     @commands.command(brief="Get a list of all the server emotes", aliases=['se', 'emotes'])
+    @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     async def serveremotes(self, ctx):
         """ Get a list of all the emotes in the server """
@@ -626,6 +640,7 @@ __**Other Information:**__
         await paginator.paginate()
     
     @commands.command(brief='Disabled commands list', aliases=['disabledcmds', 'discmd'])
+    @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     async def disabledcommands(self, ctx):
         """ List of globally disabled commands and guild disabled commands """
@@ -655,6 +670,7 @@ __**Other Information:**__
         await ctx.send(embed=e)
     
     @commands.command(brief='User permissions in the server', aliases=['perms'])
+    @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     async def permissions(self, ctx, member: discord.Member = None):
         """ See what permissions member has in the server. """
@@ -683,6 +699,13 @@ __**Other Information:**__
                           show_entry_count=False,
                           author=ctx.author)
         await paginator.paginate()
+
+    @commands.command(brief="View Dredd's privacy policy", aliases=['privacy', 'policy'])
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    async def privacypolicy(self, ctx):
+        """ View Dredd's privacy policy """
+        
+        await ctx.send(f"{emotes.discord_privacy} You can view my privacy policy at: {bot.privacy}")
 
 def setup(bot):
     bot.add_cog(info(bot))
