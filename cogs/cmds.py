@@ -35,11 +35,11 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
         try:
             if ctx.guild is not None:
                 try:
-                    print(f"{ctx.guild.name} | {ctx.author} > {ctx.message.clean_content}")
+                    print(f"{datetime.now().__format__('%a %d %b %y, %H:%M')} - {ctx.guild.name} | {ctx.author} > {ctx.message.clean_content}")
                 except:
-                    print(f"{ctx.guild.id} | {ctx.author.id} > {ctx.message.clean_content}")
+                    print(f"{datetime.now().__format__('%a %d %b %y, %H:%M')} - {ctx.guild.id} | {ctx.author.id} > {ctx.message.clean_content}")
             else:
-                print(f"DM channel | {ctx.author} > {ctx.message.content}")
+                print(f"{datetime.now().__format__('%a %d %b %y, %H:%M')} - DM channel | {ctx.author} > {ctx.message.content}")
         except:
             pass
     
