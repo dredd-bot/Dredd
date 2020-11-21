@@ -325,7 +325,7 @@ class automod(commands.Cog, name="Automod"):
                           entries=channelids,
                           thumbnail=None,
                           per_page = 15,
-                          embed_color=ctx.bot.embed_color,
+                          embed_color=self.color['embed_color'],
                           show_entry_count=True,
                           author=ctx.author)
         await paginator.paginate()
@@ -418,7 +418,7 @@ class automod(commands.Cog, name="Automod"):
                           entries=roleids,
                           thumbnail=None,
                           per_page = 15,
-                          embed_color=ctx.bot.embed_color,
+                          embed_color=self.color['embed_color'],
                           show_entry_count=True,
                           author=ctx.author)
         await paginator.paginate()
