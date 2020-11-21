@@ -338,6 +338,54 @@ class fun(commands.Cog, name="Fun"):
 
         await ctx.send(embed=embed)
 
+    @commands.command(brief="Spank someone")
+    @commands.guild_only()
+    @commands.is_nsfw()
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    @checks.has_voted()
+    async def spank(self, ctx, member: discord.Member):
+        """ Spank those naughty users """
+
+        bot = self.bot.get_user(667117267405766696)
+        if member == bot:
+            return await ctx.send("Don't spank me!")
+        owner = self.bot.get_user(345457928972533773)
+        if member == owner:
+            return await ctx.send("Whaaaat?? You're trying to spank my owner?!?")
+
+        async with self.bot.session.get('https://nekos.life/api/v2/img/spank') as r:
+            r = await r.json()
+        await ctx.send(embed=discord.Embed(color=self.color['embed_color'], description=f"**{ctx.author}** spanked **{member}**").set_image(url=r['url']))
+
+
+    @commands.command(brief="Cuddle someone")
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def cuddle(self, ctx, member: discord.Member):
+        """ Cuddle someone you want UwU """
+        bot = self.bot.get_user(667117267405766696)
+        if member == bot:
+            return await ctx.send("I don't need any cuddles, kthnxbye.")
+        owner = self.bot.get_user(345457928972533773)
+        if member == owner:
+            return await ctx.send("He doesn't need any cuddles.")
+        async with self.bot.session.get('https://nekos.life/api/v2/img/cuddle') as r:
+            r = await r.json()
+        await ctx.send(embed=discord.Embed(color=self.color['embed_color'], description=f"**{ctx.author}** cuddled **{member}**").set_image(url=r['url']))
+
+    @commands.command(brief="Hug someone")
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def hug(self, ctx, member: discord.Member):
+        """ Give someone a hug """
+        bot = self.bot.get_user(667117267405766696)
+        if member == bot:
+            return await ctx.send("I don't need any hugs, kthnxbye.")
+        owner = self.bot.get_user(345457928972533773)
+        if member == owner:
+            return await ctx.send("He doesn't need any hugs.")
+        async with self.bot.session.get('https://nekos.life/api/v2/img/hug') as r:
+            r = await r.json()
+        await ctx.send(embed=discord.Embed(color=self.color['embed_color'], description=f"**{ctx.author}** gave **{member}** a hug").set_image(url=r['url']))
+
     @commands.command(brief="Supreme logo")
     async def supreme(self, ctx, *, text: commands.clean_content(fix_channel_mentions=True)):
         """ Make a fake Supreme logo

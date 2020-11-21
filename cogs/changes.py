@@ -29,11 +29,10 @@ CHANGE_LOG = {
     'V1.5.3': '1. Fixed `snipe` showing content sniped from NSFW channels in SFW channels.',
     'V1.5.4': '1. Added intents\n2. Fixed `togglemsg joinembed` not enabling embeds when joinlogs are on.',
     'V1.5.5': '1. Fixed automod not allowing to mention anyone when anti-massmention is enabled',
-    'V1.5.6': '1. Added `duck` command\n2. You can now view prefix with `prefix` command without needing to have manage server permissions',
-    'v1.5.7': '1. Removed `nekos.life` powered commands (`spank`, `cuddle`, `hug`).\n2. add privacy policy command'
+    'V1.5.6': '1. Added `duck` command\n2. You can now view prefix with `prefix` command without needing to have manage server permissions'
     }
 
-version = '1.5.7'
+version = '1.5.6'
 most_recent = CHANGE_LOG["V"+version]
 
 def setup(bot):
