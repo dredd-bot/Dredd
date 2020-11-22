@@ -35,7 +35,7 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
     @commands.Cog.listener()
     async def on_dbl_test(self, data):
         c = await self.bot.fetch_channel(780066719645040651)
-        await c.send("A vote test has ran succesfully!")
+        await c.send(f"A vote test has ran succesfully!\n{data}")
 
     @commands.Cog.listener()
     async def on_dbl_vote(self, data):
