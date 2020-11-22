@@ -36,11 +36,12 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
     @commands.Cog.listener()
     async def on_dbl_test(self, data):
         c = await self.bot.fetch_channel(780066719645040651)
+        user = await self.bot.fetch_user(int(data['user']))
         e = discord.Embed(title='Upvote received', 
                           url="https://top.gg/bot/667117267405766696/vote",
                           color=0x5E82AC)
-        e.set_author(name=author, icon_url=author.avatar_url)
-        e.description = f"**{author}** has test voted for me on {datetime.datetime.now().__format__('%c')}"
+        e.set_author(name=user, icon_url=user.avatar_url)
+        e.description = f"**{user}** has test voted for me on {datetime.datetime.now().__format__('%c')}"
         e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
         await c.send(f"A vote test has ran succesfully!", embed=e)
 
@@ -51,8 +52,8 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
         e = discord.Embed(title='Upvote received', 
                           url="https://top.gg/bot/667117267405766696/vote",
                           color=0x5E82AC)
-        e.set_author(name=author, icon_url=author.avatar_url)
-        e.description = f"**{author}** has voted for me on {datetime.datetime.now().__format__('%c')}"
+        e.set_author(name=user, icon_url=user.avatar_url)
+        e.description = f"**{user}** has voted for me on {datetime.datetime.now().__format__('%c')}"
         e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
         await channel.send(embed=e)
 
