@@ -43,6 +43,7 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
         e.set_author(name=user, icon_url=user.avatar_url)
         e.description = f"**{user}** has test voted for me on {datetime.datetime.now().__format__('%c')}"
         e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
+        e.set_footer(text=f'User ID: {user.id}')
         await c.send(f"A vote test has ran succesfully!", embed=e)
 
     @commands.Cog.listener()
@@ -55,6 +56,7 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
         e.set_author(name=user, icon_url=user.avatar_url)
         e.description = f"**{user}** has voted for me on {datetime.datetime.now().__format__('%c')}"
         e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
+        e.set_footer(text=f'User ID: {user.id}')
         await channel.send(embed=e)
 
     @commands.Cog.listener()
