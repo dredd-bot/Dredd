@@ -34,23 +34,23 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
 
     @commands.Cog.listener()
     async def on_dbl_test(self, data):
-        c = await self.bot.fetch_channel(679647378210291832)
+        c = await self.bot.fetch_channel(780066719645040651)
         await c.send("A vote test has ran succesfully!")
 
-    # @commands.Cog.listener()
-    # async def on_dbl_vote(self, data):
-    #     channel = await self.bot.fetch_channel(679647378210291832)
-    #     user = await self.bot.fetch_user(int(data['user']))
-    #     e = discord.Embed(color=0x5E82AC, 
-    #                       title="Received Upvote!",
-    #                       description=f"New upvote received from **{user}**!")
-    #     e.set_author(icon_url=user.avatar_url, name=str(user))
-    #     e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
-    #     await channel.send(embed=e)
+    @commands.Cog.listener()
+    async def on_dbl_vote(self, data):
+        channel = self.bot.get_channel(780066719645040651)
+        user = await self.bot.fetch_user(int(data['user']))
+        e = discord.Embed(color=0x5E82AC, 
+                          title="Received Upvote!",
+                          description=f"New upvote received from **{user}**!")
+        e.set_author(icon_url=user.avatar_url, name=str(user))
+        e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
+        await channel.send(embed=e)
 
-    # @commands.Cog.listener()
-    # async def on_guild_post():
-    #     print("Server count posted successfully")
+    @commands.Cog.listener()
+    async def on_guild_post():
+        print("Server count posted successfully")
 
 def setup(bot):
     bot.add_cog(DiscordBotsOrgAPI(bot))
