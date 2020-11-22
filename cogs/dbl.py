@@ -32,10 +32,10 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
         self.help_icon = ""
         self.big_icon = ""
 
-    # @commands.Cog.listener()
-    # async def on_dbl_test(self, data):
-    #     c = await self.bot.fetch_channel(679647378210291832)
-    #     await c.send("A vote test has ran succesfully!")
+    @commands.Cog.listener()
+    async def on_dbl_test(self, data):
+        c = await self.bot.fetch_channel(679647378210291832)
+        await c.send("A vote test has ran succesfully!")
 
     # @commands.Cog.listener()
     # async def on_dbl_vote(self, data):
