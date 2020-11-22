@@ -18,3 +18,4 @@ Requirements:
 [Join my discord server](https://discord.gg/f3MaASW)
 
 [![time tracker](https://wakatime.com/badge/github/TheMoksej/Dredd.svg)](https://wakatime.com/badge/github/TheMoksej/Dredd) (this is by far not everything)
+[![Bots for Discord](https://botsfordiscord.com/api/bot/667117267405766696/widget)](https://botsfordiscord.com/bots/667117267405766696)
