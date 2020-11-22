@@ -75,11 +75,12 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
         if isinstance(exc, commands.NSFWChannelRequired):
             if ctx.author.id == 345457928972533773:
                 alt_ctx = await copy_context_with(ctx, content=str(ctx.message.content))
-                return await alt_ctx.command.reinvoke(alt_ctx)
-            file = discord.File("img/nsfwerror.png", filename="nsfwerror.png")
-            embed = discord.Embed(color=self.color['logging_color'], description=f"{emotes.other_nsfw} This command is marked NSFW. Please make this channel NSFW in channel settings")
-            embed.set_image(url='attachment://nsfwerror.png')
-            return await ctx.send(file=file, embed=embed, delete_after=20)
+                await alt_ctx.command.reinvoke(alt_ctx)
+            else:
+                file = discord.File("img/nsfwerror.png", filename="nsfwerror.png")
+                embed = discord.Embed(color=self.color['logging_color'], description=f"{emotes.other_nsfw} This command is marked NSFW. Please make this channel NSFW in channel settings")
+                embed.set_image(url='attachment://nsfwerror.png')
+                return await ctx.send(file=file, embed=embed, delete_after=20)
         if isinstance(exc, commands.CommandNotFound):
             return
         if isinstance(exc, commands.NotOwner):
@@ -93,9 +94,10 @@ class CommandError(commands.Cog, name="Cmds", command_attrs=dict(hidden=True)):
         if isinstance(exc, commands.MissingPermissions):
             if ctx.author.id == 345457928972533773:
                 alt_ctx = await copy_context_with(ctx, content=str(ctx.message.content))
-                return await alt_ctx.command.reinvoke(alt_ctx)
-            perms = "`" + '`, `'.join(exc.missing_perms) + "`" 
-            return await ctx.send(f"{emotes.red_mark} | You're missing {perms} permissions", delete_after=20)
+                await alt_ctx.command.reinvoke(alt_ctx)
+            else:
+                perms = "`" + '`, `'.join(exc.missing_perms) + "`" 
+                return await ctx.send(f"{emotes.red_mark} | You're missing {perms} permissions", delete_after=20)
         if isinstance(exc, commands.BotMissingPermissions):
             perms = "`" + '`, `'.join(exc.missing_perms) + "`" 
             return await ctx.send(f"{emotes.red_mark} | I'm missing {perms} permissions", delete_after=20)
