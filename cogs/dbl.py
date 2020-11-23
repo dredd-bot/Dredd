@@ -58,6 +58,16 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
         e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
         e.set_footer(text=f'User ID: {user.id}')
         await channel.send(embed=e)
+    
+    @tasks.loop(minutes=30.0)
+    async def update_stats(self):
+        """This function runs every 30 minutes to automatically update your server count"""
+        print('Attempting to post server count')
+        try:
+            await self.dblpy.post_guild_count()
+            print('Posted server count ({})'.format(self.dblpy.guild_count()))
+        except Exception as e:
+            print('Failed to post server count\n{}: {}'.format(type(e).__name__, e))
 
     @commands.Cog.listener()
     async def on_guild_post():
