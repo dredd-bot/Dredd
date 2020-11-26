@@ -345,29 +345,6 @@ class fun(commands.Cog, name="Fun"):
                               "this command will not be available for use and is "
                               "getting removed in rewrite. Thanks for using my commands!")
 
-        parser = argparser.Arguments()
-        parser.add_argument('input', nargs="+", default=None)
-        parser.add_argument('-d', '--dark', action='store_true')
-        parser.add_argument('-l', '--light', action='store_true')
-
-        args, valid_check = parser.parse_args(text)
-        if not valid_check:
-            return await ctx.send(args)
-
-        inputText = urllib.parse.quote(' '.join(args.input))
-        if len(inputText) > 500:
-            return await ctx.send(f"**{ctx.author.name}**, the Supreme API is limited to 500 characters, sorry.")
-
-        darkorlight = ""
-        if args.dark:
-            darkorlight = "dark=true"
-        if args.light:
-            darkorlight = "light=true"
-        if args.dark and args.light:
-            return await ctx.send(f"**{ctx.author.name}**, you can't define both --dark and --light, sorry..")
-
-        await self.api_img_creator(ctx, f"https://api.alexflipnote.dev/supreme?text={inputText}&{darkorlight}", "supreme.png")
-
     @commands.command(brief="Pussy images")
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
