@@ -339,13 +339,12 @@ class fun(commands.Cog, name="Fun"):
         await ctx.send(embed=embed)
 
     @commands.command(brief="Supreme logo")
-    async def supreme(self, ctx, *, text: commands.clean_content(fix_channel_mentions=True)):
-        """ Make a fake Supreme logo
+    async def supreme(self, ctx):
 
-        Arguments:
-            --dark / -d | Make the background dark
-            --light / -l | Make the background light and the text dark
-        """
+        return await ctx.send("Hey! Sorry, but due to recent changes to API unfortunately "
+                              "this command will not be available for use and is "
+                              "getting removed in rewrite. Thanks for using my commands!")
+
         parser = argparser.Arguments()
         parser.add_argument('input', nargs="+", default=None)
         parser.add_argument('-d', '--dark', action='store_true')
