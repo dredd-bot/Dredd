@@ -249,7 +249,7 @@ class HelpCommand(commands.HelpCommand):
         emb.title = self.get_command_signature(command)
         emb.add_field(name="Usage:\n", value=f"{self.clean_prefix}{command.qualified_name} {command.signature}")
         emb.add_field(name="Aliases:\n", value=aliases)
-        emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/679705242124025897/680397954699231259/dredd_em.png')
+        emb.set_thumbnail(url=self.context.bot.user.avatar_url)
            
         await self.context.send(embed=emb)
   
@@ -293,7 +293,7 @@ class HelpCommand(commands.HelpCommand):
         emb.add_field(name="Usage:\n", value=f"{self.clean_prefix}{cmdsignature}")
         emb.add_field(name="Aliases:\n", value=aliases)
         emb.add_field(name=f"Subcommands: ({len(group.commands)})", value=sub_cmd_list[:-2], inline=False)
-        emb.set_thumbnail(url='https://cdn.discordapp.com/attachments/679705242124025897/680397954699231259/dredd_em.png')
+        emb.set_thumbnail(url=self.context.bot.user.avatar_url)
         
        
         await self.context.send(embed=emb)
@@ -338,8 +338,6 @@ class HelpCommand(commands.HelpCommand):
 
         await paginator.paginate()
 
-    
-    
 
     def command_not_found(self, string):
         return 'No command called "{}" found.'.format(string)
