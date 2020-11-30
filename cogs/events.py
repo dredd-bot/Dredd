@@ -137,7 +137,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         else:
             if to_send.permissions_for(guild.me).embed_links:  # We can embed!
                 e = discord.Embed(
-                    color=self.color['join_color'], title="A cool bot has spawned in!")
+                    color=self.color['embed_color'], title="A cool bot has spawned in!")
                 e.description = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also [join support server]({support})\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
                 e.set_thumbnail(url='https://media.discordapp.net/attachments/756847192945459201/783075230922702848/Comp_1.gif?width=461&height=461')
                 try:
