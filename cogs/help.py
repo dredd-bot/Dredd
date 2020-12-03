@@ -34,8 +34,7 @@ class HelpCommand(commands.HelpCommand):
                 'brief': 'See cog/command help',
                 'usage': '[category / command]',
                 'cooldown': commands.Cooldown(1, 3, commands.BucketType.user),
-                'name': 'help',
-		'aliases': ['h']})
+                'name': 'help'})
         self.verify_checks = True
         self.color = color_picker('colors')
         
