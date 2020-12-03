@@ -359,6 +359,8 @@ __**Other Information:**__
                 medias += f"{emotes.social_steam} "
             elif media['media_type'] == "snapchat":
                 medias += f"{emotes.social_snapchat} "
+            elif media['media_type'] == "discord":
+                medias += f"{emotes.social_discord} "
             medias += f"[{media['media_type'].title()}]({media['media_link']}) \n"
         
         if len(medias) > 1024:
