@@ -391,10 +391,10 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         log_channel = self.bot.get_channel(786658498175828058)
         if before.status != after.status:
             time = datetime.utcnow()
-            if before.status != discord.Status.offline and after.status == discord.Status.offline:
-                await log_channel.send(f"**{after.mention}** ({after.id}) is now offline! - {time} UTC")
+            if after.status == discord.Status.offline:
+                await log_channel.send(f"**{after.mention}** ({after.id}) is offline! - {time} UTC")
             elif before.status == discord.Status.offline and after.status != discord.Status.offline:
-                await log_channel.send(f"**{after.mention}** ({after.id}) is now online! - {time} UTC")
+                await log_channel.send(f"**{after.mention}** ({after.id}) is online! - {time} UTC")
             
 def setup(bot):
     bot.add_cog(Events(bot))
