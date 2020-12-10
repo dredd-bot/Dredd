@@ -377,6 +377,24 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             await self.gain_early(member=member)
         else:
             return
+
+    @commands.Cog.listener('on_member_update')
+    async def del_status_logging(self, before, after):  # this event is for DEL server.
+        await self.bot.wait_until_ready()
+
+        if before.guild.id != 632908146305925129:
+            return
+
+        if not before.bot:
+            return
+
+        log_channel = self.bot.get_channel(786658498175828058)
+        if before.status != after.status:
+            time = datetime.utcnow()
+            if before.status != discord.Status.offline and after.status == discord.Status.offline:
+                await log_channel.send(f"**{after.mention}** ({after.id}) is now offline! - {time} UTC")
+            elif before.status == discord.Status.offline and after.status != discord.Status.offline:
+                await log_channel.send(f"**{after.mention}** ({after.id}) is now online! - {time} UTC")
             
 def setup(bot):
     bot.add_cog(Events(bot))
