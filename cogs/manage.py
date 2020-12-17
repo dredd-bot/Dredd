@@ -66,7 +66,7 @@ class Managment(commands.Cog, name="Management"):
         """ Change bot's prefix in the server """
 
         prefixs = await self.bot.db.fetchval("SELECT prefix FROM guilds WHERE guild_id = $1", ctx.guild.id)
-        if prefix is None and not ctx.author.guild_permissions.manage_guild:
+        if not prefix:
             return await ctx.send(f"This server prefix is `{prefixs}`")
 
         elif prefix and len(prefix) <= 6 and ctx.author.guild_permissions.manage_guild:
