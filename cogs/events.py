@@ -98,16 +98,15 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                     guild.me).send_messages and isinstance(chan, discord.TextChannel)], key=lambda x: x.position)[0]
             except IndexError:
                 pass
-            else:
-                reason = ''.join(data)
-                e = discord.Embed(color=self.color['deny_color'], description=f"Hello!\nThis server has been blacklisted for: **{reason}**\n\nThus why I'll be leaving this server.\nIf you wish to appeal feel free to join the [support server]({self.bot.support})\nOnly server owner can appeal, unless their account is terminated.", timestamp=datetime.utcnow())
-                e.set_author(name=f"Blacklist issue occured!", icon_url=self.bot.user.avatar_url)
-                e.set_thumbnail(url='https://media.discordapp.net/attachments/756847192945459201/783075230922702848/Comp_1.gif?width=461&height=461')
-                try:
-                    await to_send.send(embed=e)
-                except:
-                    pass
-                await guild.leave()
+            reason = ''.join(data)
+            e = discord.Embed(color=self.color['deny_color'], description=f"Hello!\nThis server has been blacklisted for: **{reason}**\n\nThus why I'll be leaving this server.\nIf you wish to appeal feel free to join the [support server]({self.bot.support})\nOnly server owner can appeal, unless their account is terminated.", timestamp=datetime.utcnow())
+            e.set_author(name=f"Blacklist issue occured!", icon_url=self.bot.user.avatar_url)
+            e.set_thumbnail(url='https://media.discordapp.net/attachments/756847192945459201/783075230922702848/Comp_1.gif?width=461&height=461')
+            try:
+                await to_send.send(embed=e)
+            except:
+                pass
+            await guild.leave()
             
             # Send it to the log channel
             chan = self.bot.get_channel(676419533971652633)
