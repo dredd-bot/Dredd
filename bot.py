@@ -27,7 +27,9 @@ from utils.caches import cache, CacheManager
 from logging.handlers import RotatingFileHandler
 
 # this section is for the new gateway (latest discord.py version)
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.members = True
+intents.presences = False
 
 asyncio.set_event_loop(asyncio.SelectorEventLoop())
 
