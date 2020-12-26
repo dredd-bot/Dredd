@@ -29,7 +29,7 @@ from logging.handlers import RotatingFileHandler
 # this section is for the new gateway (latest discord.py version)
 intents = discord.Intents.default()
 intents.members = True
-intents.presences = False
+intents.presences = True
 
 asyncio.set_event_loop(asyncio.SelectorEventLoop())
 
