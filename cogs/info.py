@@ -111,7 +111,7 @@ __**Other Information:**__
 **Created:** {default.date(self.bot.user.created_at)} ({default.timeago(datetime.utcnow() - self.bot.user.created_at)})\n**Total:**\nCommands: **{totcmd:,}**\nMembers: **{mems:,}**\nServers: **{len(self.bot.guilds):,}**\nChannels: {emotes.other_unlocked} **{text:,}** | {emotes.other_vcunlock} **{voice:,}**\n
 """
         embed.set_image(
-            url='avatars/dreddthumbnail.png')     
+            url='attachment://dreddthumbnailxmas.png')     
 
         await ctx.send(file=file, embed=embed)
     
