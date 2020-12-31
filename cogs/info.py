@@ -99,7 +99,7 @@ class info(commands.Cog, name="Info"):
 
         mems = len(self.bot.users)
 
-        file = discord.File("avatars/dreddthumbnail.png", filename="dreddthumbnailxmas.png")
+        file = discord.File("avatars/dreddthumbnail.png", filename="dreddthumbnail.png")
         Moksej = self.bot.get_user(345457928972533773)
 
         embed = discord.Embed(color=self.color['embed_color'])
