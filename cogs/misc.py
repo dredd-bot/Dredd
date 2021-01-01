@@ -527,7 +527,7 @@ class misc(commands.Cog, name="Misc"):
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def partnerslist(self, ctx):
         """ Displays a list of partners """
-        partners = await self.bot.db.fetch("SELECT * FROM partners")
+        partners = await self.bot.db.fetch("SELECT * FROM partners ORDER BY partnered_since ASC")
 
         partner = []
         for res in partners:
