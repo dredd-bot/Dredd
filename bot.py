@@ -110,7 +110,7 @@ class Bot(commands.AutoShardedBot):
             case_insensitive = True,
             owner_id = 345457928972533773,
             reconnect = True,
-            chunk_guilds_at_startup=False,
+            chunk_guilds_at_startup=True,
             allowed_mentions = discord.AllowedMentions.none(),
             max_messages=10000,
             intents=intents)
