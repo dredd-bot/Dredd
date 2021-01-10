@@ -44,23 +44,23 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             return False
         return True
     
-    async def gain_early(self, member):
-        with open('db/badges.json', 'r') as f:
-            data = json.load(f)
-        try:
-            if emotes.bot_early_supporter not in data['Users'][f'{member.id}']['Badges']:
-                data['Users'][f"{member.id}"]['Badges'] += [emotes.bot_early_supporter]
-                self.bot.user_badges[f"{member.id}"]["Badges"] += [emotes.bot_early_supporter]
-            else:
-                return
-        except KeyError:
-            data['Users'][f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
-            self.bot.user_badges[f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
+#     async def gain_early(self, member):
+#         with open('db/badges.json', 'r') as f:
+#             data = json.load(f)
+#         try:
+#             if emotes.bot_early_supporter not in data['Users'][f'{member.id}']['Badges']:
+#                 data['Users'][f"{member.id}"]['Badges'] += [emotes.bot_early_supporter]
+#                 self.bot.user_badges[f"{member.id}"]["Badges"] += [emotes.bot_early_supporter]
+#             else:
+#                 return
+#         except KeyError:
+#             data['Users'][f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
+#             self.bot.user_badges[f"{member.id}"] = {"Badges": [emotes.bot_early_supporter]}
         
-        await member.add_roles(discord.Object(679642623107137549))
+#         await member.add_roles(discord.Object(679642623107137549))
         
-        with open('db/badges.json', 'w') as f:
-            data = json.dump(data, f, indent=4)
+#         with open('db/badges.json', 'w') as f:
+#             data = json.dump(data, f, indent=4)
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -368,14 +368,14 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
         else:
             return
     
-    @commands.Cog.listener('on_member_join')
-    async def badges_sync(self, member):
-        if member.guild.id == 671078170874740756:
-            if member.bot:
-                return
-            await self.gain_early(member=member)
-        else:
-            return
+#     @commands.Cog.listener('on_member_join')
+#     async def badges_sync(self, member):
+#         if member.guild.id == 671078170874740756:
+#             if member.bot:
+#                 return
+#             await self.gain_early(member=member)
+#         else:
+#             return
 
     @commands.Cog.listener('on_member_update')
     async def del_status_logging(self, before, after):  # this event is for DEL server.
