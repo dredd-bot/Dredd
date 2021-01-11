@@ -26,10 +26,10 @@ from db import emotes
 from utils.caches import cache, CacheManager
 from logging.handlers import RotatingFileHandler
 
-# this section is for the new gateway (latest discord.py version)
+# this section is for the new gateway (discord.py>=1.5)
 intents = discord.Intents.default()
 intents.members = True
-intents.presences = True
+intents.presences = False
 
 asyncio.set_event_loop(asyncio.SelectorEventLoop())
 
@@ -110,7 +110,7 @@ class Bot(commands.AutoShardedBot):
             case_insensitive = True,
             owner_id = 345457928972533773,
             reconnect = True,
-            chunk_guilds_at_startup=False,
+            chunk_guilds_at_startup=True,
             allowed_mentions = discord.AllowedMentions.none(),
             max_messages=10000,
             intents=intents)
