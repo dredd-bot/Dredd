@@ -221,8 +221,8 @@ class AutomodEvents(commands.Cog, name="AutomodEvents", command_attrs=dict(hidde
         return False
 
     async def mass_mentions(self, message):
-        punishment = cm.get_cache(self.bot, message.guild.id, 'mentionslimit')
-        chech = cm.get_cache(self.bot, message.guild.id, 'massmentions')
+        punishment = cm.get_cache(self.bot, message.guild.id, 'massmentions')
+        chech = cm.get_cache(self.bot, message.guild.id, 'mentionslimit')
 
         if punishment is None or punishment == 0:
             return
