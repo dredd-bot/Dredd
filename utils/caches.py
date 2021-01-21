@@ -81,12 +81,12 @@ async def cache(bot):
 
     mentions = await bot.db.fetch("SELECT * FROM massmention")
     for res in mentions:
-        bot.mentionslimit[res['guild_id']] = res['punishment']
+        bot.massmentions[res['guild_id']] = res['punishment']
     print(f"[MENTIONS LIMIT AUTOMOD] Loaded!")
 
     mentions2 = await bot.db.fetch("SELECT * FROM mentions")
     for res in mentions2:
-        bot.massmentions[res['guild_id']] = res['mentions']
+        bot.mentionslimit[res['guild_id']] = res['mentions']
     print(f"[MENTIONS AUTOMOD] Loaded!")
 
     raid_mode = await bot.db.fetch("SELECT * FROM raidmode")
