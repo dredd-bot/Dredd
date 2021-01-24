@@ -123,7 +123,6 @@ class Background(commands.Cog, name="BG"):
         file = discord.File('backups/{0}.sql'.format(name))
         mok = self.bot.get_user(345457928972533773)
         await mok.send(file=file, content="Auto backup made on - `{0}`".format(datetime.utcnow().__format__("%D @ %H:%M")))
-        os.remove('backups/{0}.sql'.format(name))
 
     @temp_mute.before_loop
     async def before_change_lmao(self):
