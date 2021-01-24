@@ -122,7 +122,7 @@ class Background(commands.Cog, name="BG"):
         await asyncio.sleep(10)
         file = discord.File('backups/{0}.sql'.format(name))
         mok = self.bot.get_user(345457928972533773)
-        await mok.send(file=file, content="Auto backup {0}".format(name))
+        await mok.send(file=file, content="Auto backup made on - `{0}`".format(datetime.utcnow().__format__("%D @ %H:%M")))
 
     @temp_mute.before_loop
     async def before_change_lmao(self):
