@@ -112,7 +112,7 @@ class Background(commands.Cog, name="BG"):
                 await self.bot.db.execute("DELETE FROM moddata WHERE user_id = $1 AND guild_id = $2 AND type = $3", user, guild, ban)
                 self.bot.temp_bans.remove((guild, user, mod, reason, timed, ban))
 
-    @tasks.loop(hours=24)
+    @tasks.loop(hours=12)
     async def auto_backup(self):
         name = datetime.utcnow().__format__("%d%m%y-%H:%M")          
         SHELL = os.getenv("SHELL") or "/bin/bash"
@@ -123,6 +123,7 @@ class Background(commands.Cog, name="BG"):
         file = discord.File('backups/{0}.sql'.format(name))
         mok = self.bot.get_user(345457928972533773)
         await mok.send(file=file, content="Auto backup made on - `{0}`".format(datetime.utcnow().__format__("%D @ %H:%M")))
+        os.remove('backups/{0}.sql'.format(name))
 
     @temp_mute.before_loop
     async def before_change_lmao(self):
