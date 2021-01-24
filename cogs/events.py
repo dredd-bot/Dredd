@@ -140,11 +140,11 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 e.description = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also [join support server]({support})\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
                 e.set_thumbnail(url='https://media.discordapp.net/attachments/711557890934177832/794348153981632612/Comp_1_5.gif?width=461&height=461')
                 try:
-                    await to_send.send(embed=e)
+                    await to_send.send(content="This message was sent, because of the maintenance that affected your guilds data, all the data in your server has been reset, sorry for this inconvenience. You can read more here: <https://dredd.statuspage.io/>", embed=e)
                 except:
                     pass
             else:  # We were invited without embed perms...
-                msg = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also join support server: {support}\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
+                msg = f"This message was sent, because of the maintenance that affected your guilds data, all the data in your server has been reset, sorry for this inconvenience. You can read more here: <https://dredd.statuspage.io/>\n\nThank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also join support server: {support}\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
                 try:
                     await to_send.send(msg)
                 except:
