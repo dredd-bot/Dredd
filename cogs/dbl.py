@@ -28,7 +28,7 @@ class DiscordBotsOrgAPI(commands.Cog, name="DBL"):
     def __init__(self, bot):
         self.bot = bot
         self.token = config.DBLToken # set this to your DBL token
-        self.bot.dblpy = dbl.DBLClient(self.bot, self.token, webhook_path='/dblwebhook', webhook_auth=config.DBL_password, webhook_port=5000)
+        self.bot.dblpy = dbl.DBLClient(self.bot, self.token, webhook_path='/dblwebhook', webhook_auth=config.DBL_password, webhook_port=5000, autopost=True)
 
         self.help_icon = ""
         self.big_icon = ""
