@@ -242,7 +242,7 @@ __**Other Information:**__
         else:
             acknowledgements = ''
         embed.add_field(name="__**General Information**__", value=f"**Guild name:** {ctx.guild.name}\n**Guild ID:** {ctx.guild.id}\n**Guild Owner:** {ctx.guild.owner}\n**Guild Owner ID:** {ctx.guild.owner.id}\n**Created at:** {default.date(ctx.guild.created_at)}\n**Region:** {str(ctx.guild.region).title()}\n**MFA:** {mfa}\n**Verification level:** {str(ctx.guild.verification_level).capitalize()}\n{acknowledgements}", inline=True)
-        embed.add_field(name="__**Other**__", value=f"**Members:**\n{emotes.online_status} **{unique_online:,}**\n{emotes.idle_status} **{unique_idle:,}**\n{emotes.dnd_status} **{unique_dnd:,}**\n{emotes.streaming_status} **{unique_streaming:,}**\n{emotes.offline_status} **{unique_offline:,}**\n*Everyone is offline because presences intent is turned off*\n**Total:** {tot_mem:,} ({humann:,} Humans/{botts:,} Bots)\n**Channels:** {emotes.other_unlocked} {len(ctx.guild.text_channels)}/{emotes.other_vcunlock} {len(ctx.guild.voice_channels)}\n**Roles:** {len(ctx.guild.roles)}", inline=True)
+        embed.add_field(name="__**Other**__", value=f"**Members:**\n{emotes.online_status} **{unique_online:,}**\n{emotes.idle_status} **{unique_idle:,}**\n{emotes.dnd_status} **{unique_dnd:,}**\n{emotes.streaming_status} **{unique_streaming:,}**\n{emotes.offline_status} **{unique_offline:,}**\n**Total:** {tot_mem:,} ({humann:,} Humans/{botts:,} Bots)\n**Channels:** {emotes.other_unlocked} {len(ctx.guild.text_channels)}/{emotes.other_vcunlock} {len(ctx.guild.voice_channels)}\n**Roles:** {len(ctx.guild.roles)}", inline=True)
         embed.add_field(name='__**Server boost status**__',
                         value=nitromsg, inline=False)
         info = []
@@ -385,7 +385,7 @@ __**Other Information:**__
             "online": f"{f'{emotes.online_mobile}' if usercheck.is_on_mobile() else f'{emotes.online_status}'}",
             "idle": f"{f'{emotes.idle_mobile}' if usercheck.is_on_mobile() else f'{emotes.idle_status}'}",
             "dnd": f"{f'{emotes.dnd_mobile}' if usercheck.is_on_mobile() else f'{emotes.dnd_status}'}",
-            "offline": f"{emotes.offline_status} *Presence intent is disabled*"
+            "offline": f"{emotes.offline_status}"
             }
             
             if usercheck.activities:
