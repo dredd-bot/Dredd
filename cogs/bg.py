@@ -17,6 +17,7 @@ import discord
 import time
 import subprocess
 import os
+import asyncio
 
 from discord.ext import commands, tasks
 from datetime import datetime
@@ -113,14 +114,15 @@ class Background(commands.Cog, name="BG"):
 
     @tasks.loop(hours=24)
     async def auto_backup(self):
-        name = datetime.utcnow().__format__("%d%m%Y-%H:%M")          
+        name = datetime.utcnow().__format__("%d%m%y-%H:%M")          
         SHELL = os.getenv("SHELL") or "/bin/bash"
         sequence = [SHELL, '-c', 'pg_dump -U dredd -h localhost dredd > "backups/{0}.sql"'.format(name)]
         subprocess.Popen(sequence, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
+        await asyncio.sleep(10)
         file = discord.File('backups/{0}.sql'.format(name))
         mok = self.bot.get_user(345457928972533773)
-        await mok.send(file=file, content="Backup {0}".format(name))
+        await mok.send(file=file, content="Auto backup {0}".format(name))
 
     @temp_mute.before_loop
     async def before_change_lmao(self):
