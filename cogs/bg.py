@@ -15,6 +15,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import discord
 import time
+import subprocess
+import os
+
 from discord.ext import commands, tasks
 from datetime import datetime
 from db import emotes
@@ -27,6 +30,7 @@ class Background(commands.Cog, name="BG"):
         self.bot = bot
         self.temp_mute.start()
         self.temp_ban.start()
+        self.auto_backup.start()
         self.help_icon = ""
         self.big_icon = ""
         self.color = color_picker('colors')
@@ -59,6 +63,7 @@ class Background(commands.Cog, name="BG"):
     def cog_unload(self):
         self.temp_mute.cancel()
         self.temp_ban.cancel()
+        self.auto_backup.cancel()
 
     # yes this is unprofessional way, but don't blame me ok. Thanks
     @tasks.loop(seconds=1)
@@ -106,6 +111,17 @@ class Background(commands.Cog, name="BG"):
                 await self.bot.db.execute("DELETE FROM moddata WHERE user_id = $1 AND guild_id = $2 AND type = $3", user, guild, ban)
                 self.bot.temp_bans.remove((guild, user, mod, reason, timed, ban))
 
+    @tasks.loop(hours=24)
+    async def auto_backup(self):
+        name = datetime.utcnow().__format__("%d%m%Y-%H:%M")          
+        SHELL = os.getenv("SHELL") or "/bin/bash"
+        sequence = [SHELL, '-c', 'pg_dump -U dredd -h localhost dredd > "backups/{0}.sql"'.format(name)]
+        subprocess.Popen(sequence, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        file = discord.File('backups/{0}.sql'.format(name))
+        mok = self.bot.get_user(345457928972533773)
+        await mok.send(file=file, content="Backup {0}".format(name))
+
     @temp_mute.before_loop
     async def before_change_lmao(self):
 
@@ -117,6 +133,11 @@ class Background(commands.Cog, name="BG"):
 
         await self.bot.wait_until_ready()
         print('\n[BACKGROUND] Started temp ban punishments task.')
+
+    @auto_backup.before_loop
+    async def before_auto_backup(self):
+        await self.bot.wait_until_ready()
+        print('\n[BACKGROUND] Started auto backups task.')
 
 def setup(bot):
     bot.add_cog(Background(bot))
