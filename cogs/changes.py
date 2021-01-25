@@ -31,10 +31,11 @@ CHANGE_LOG = {
     'V1.5.5': '1. Fixed automod not allowing to mention anyone when anti-massmention is enabled',
     'V1.5.6': '1. Added `duck` command\n2. You can now view prefix with `prefix` command without needing to have manage server permissions',
     'V1.5.7': '1. Removed `nekos.life` powered commands (`spank`, `cuddle`, `hug`).\n2. added privacy policy command',
-    'V1.5.7.1': '1. Fixed prefix command not displaying current prefix when user has manage server permissions'
+    'V1.5.7.1': '1. Fixed prefix command not displaying current prefix when user has manage server permissions',
+    'V2.5.8': '1. Adding auto backup\n2. Bumping version to `2.5.8` cause technically v3 will be coming out this year'
     }
 
-version = '1.5.7.1'
+version = '2.5.8'
 most_recent = CHANGE_LOG["V"+version]
 
 def setup(bot):
