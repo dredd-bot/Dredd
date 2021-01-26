@@ -553,6 +553,12 @@ class misc(commands.Cog, name="Misc"):
 
         ice = self.bot.get_user(302604426781261824)
         await ctx.send(f"**{ice}** said `lmao` **{numla}** times, and `lmfao` **{numlf}** times.")
+
+    @commands.command(brief="Make bot say something for you", hidden=True)
+    @is_guild(632908146305925129)
+    async def say(self, ctx, *, message: str):
+        """ This command is hidden """
+        await ctx.send(message, allowed_mentions=discord.AllowedMentions(users=True))
     
 
 def setup(bot):
