@@ -362,6 +362,8 @@ __**Other Information:**__
                 medias += f"{emotes.social_discord} "
             elif media['media_type'] == "instagram":
                 medias += f"{emotes.social_instagram} "
+            elif media['media_type'] == 'spotify':
+                medias += f"<:spotify:759328463739682818> "
             medias += f"[{media['media_type'].title()}]({media['media_link']}) \n"
         
         if len(medias) > 1024:
