@@ -101,7 +101,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
             reason = ''.join(data)
             e = discord.Embed(color=self.color['deny_color'], description=f"Hello!\nThis server has been blacklisted for: **{reason}**\n\nThus why I'll be leaving this server.\nIf you wish to appeal feel free to join the [support server]({self.bot.support})\nOnly server owner can appeal, unless their account is terminated.", timestamp=datetime.utcnow())
             e.set_author(name=f"Blacklist issue occured!", icon_url=self.bot.user.avatar_url)
-            e.set_thumbnail(url='https://media.discordapp.net/attachments/711557890934177832/794348153981632612/Comp_1_5.gif?width=461&height=461')
+            e.set_thumbnail(url=self.bot.user.avatar_url)
             try:
                 await to_send.send(embed=e)
             except:
@@ -138,7 +138,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
                 e = discord.Embed(
                     color=self.color['embed_color'], title="A cool bot has spawned in!")
                 e.description = f"Thank you for adding me to this server! If you'll have any questions you can contact `{Moksej}` or `{Zenpa}`. You can also [join support server]({support})\nTo get started, you can use my commands with my prefix: `{prefix}`, and you can also change the prefix by typing `{prefix}prefix [new prefix]`"
-                e.set_thumbnail(url='https://media.discordapp.net/attachments/711557890934177832/794348153981632612/Comp_1_5.gif?width=461&height=461')
+                e.set_thumbnail(url=self.bot.user.avatar_url)
                 try:
                     await to_send.send(embed=e)
                 except:
