@@ -22,7 +22,7 @@
 ##### • No one, besides you. (not including bot developer(s))
 
 ### 3. How can I get rid of the data stored?
-#### To clear your nicknames you can opt-out which will also stop logging your nicknames by invoking `<serverprefix>nicks opt-out`. That will fully erase your nicknames you had in the past and will stop logging your future nicknames.
+#### To clear your nicknames you can opt-out which will also stop logging your nicknames by invoking `<serverprefix>nicks opt`. That will fully erase your nicknames you had in the past and will stop logging your future nicknames.
 #### To clear your todo list you can invoke `<serverprefix>todo clear`
 #### To clear your warnings do one of the following:
 ##### • You must leave the server
@@ -31,7 +31,7 @@
 ##### • You must kick the bot from the server
 ##### • If it's temporary mute - unmute the member.
 #### To clear snipes:
-##### • You can op out by invoking `<serverprefix>snipes op-out`
+##### • You can op out by invoking `<serverprefix>snipe op-out`
 ##### • It stores only 1 message per channel
 ##### • Snipes are being logged in a cache, that means it will automatically erase after a reboot
 
