@@ -389,6 +389,7 @@ class Events(commands.Cog, name="Events", command_attrs=dict(hidden=True)):
 
         log_channel = self.bot.get_channel(786658498175828058)
         if before.status != after.status:
+            return
             time = datetime.utcnow()
             if after.status == discord.Status.offline:
                 await log_channel.send(f"<:offline:715050614366928906> **{after.mention}** - {after.name} ({after.id}) is offline! - {time} UTC")
