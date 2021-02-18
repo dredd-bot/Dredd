@@ -112,7 +112,7 @@ class Background(commands.Cog, name="BG"):
                 await self.bot.db.execute("DELETE FROM moddata WHERE user_id = $1 AND guild_id = $2 AND type = $3", user, guild, ban)
                 self.bot.temp_bans.remove((guild, user, mod, reason, timed, ban))
 
-    @tasks.loop(hours=12)
+    @tasks.loop(hours=6)
     async def auto_backup(self):
         name = datetime.utcnow().__format__("%d%m%y-%H:%M")          
         SHELL = os.getenv("SHELL") or "/bin/bash"
