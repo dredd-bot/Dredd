@@ -95,7 +95,8 @@ class EditingContext(commands.Context):
             pass
         if reply:
             try:
-                return await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions)
+                msg = await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions)
+                return msg
             except:
                 return
         msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
