@@ -99,7 +99,7 @@ class info(commands.Cog, name="Info"):
 
         mems = len(self.bot.users)
 
-        file = discord.File("avatars/valentinethumb.png", filename="valentinethumb.png")
+        file = discord.File("avatars/dreddthumbnail.png", filename="dreddthumbnail.png")
         Moksej = self.bot.get_user(345457928972533773)
 
         embed = discord.Embed(color=self.color['embed_color'])
@@ -110,7 +110,7 @@ __**General Information:**__
 __**Other Information:**__
 **Created:** {default.date(self.bot.user.created_at)} ({default.timeago(datetime.utcnow() - self.bot.user.created_at)})\n**Total:**\nCommands: **{totcmd:,}**\nMembers: **{mems:,}**\nServers: **{len(self.bot.guilds):,}**\nChannels: {emotes.other_unlocked} **{text:,}** | {emotes.other_vcunlock} **{voice:,}**\n
 """
-        embed.set_image(url='attachment://valentinethumb.png')   
+        embed.set_image(url='attachment://dreddthumbnail.png')   
 
         await ctx.send(file=file, embed=embed)
     
