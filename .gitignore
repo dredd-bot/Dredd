@@ -130,6 +130,7 @@ dmypy.json
 
 cogs/test.py
 db/
+backups/
 config.py
 img/
 .vscode/
