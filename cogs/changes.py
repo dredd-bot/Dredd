@@ -1,3 +1,18 @@
+"""
+Dredd, discord bot
+Copyright (C) 2021 Moksej
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 CHANGE_LOG = {
     'V0.1.0': "Unlogged",
     'V0.1.5': "Added `deposit`, `withdraw`, `unregister`, `job`, `changelog`, `shop`, `buy` commands.\nImproved `account`, `balance`, `leaderboard`, `help` commands and logging system.",
