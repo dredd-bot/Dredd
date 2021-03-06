@@ -582,7 +582,6 @@ class owner(commands.Cog, name="Owner"):
                 await ctx.send(f"Changed nickname to **{name}**")
             else:
                 await ctx.send("Removed nickname")
-                await ctx.message.delete()
         except Exception as err:
             await ctx.send(err)
 
