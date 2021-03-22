@@ -20,7 +20,7 @@ body:
 - type: textarea
   attributes:
     label: What Happened?
-    description: Also tell us how can we reproduce these steps?
+    description: Also tell us how can we reproduce the bug?
     value: |
       1.
       2.
