@@ -4,7 +4,7 @@ title: "[Bug]: "
 labels: [bug, triage]
 assignees:
 - TheMoksej
-issue_body: true
+issue_body: false
 body:
 - type: markdown
   attributes:
@@ -19,12 +19,14 @@ body:
     required: false
 - type: textarea
   attributes:
-    label: What happened?
-    description: Also tell us, what did you expect to happen?
-    placeholder: Tell us what you see!
-    value: "A bug happened!"
+    label: What Happened?
+    description: Also tell us how can we reproduce these steps?
+    value: |
+      1.
+      2.
+      ....
   validations:
-    required: true 
+    required: true
 - type: checkboxes
   attributes:
     label: Code of Conduct
