@@ -1,0 +1,36 @@
+name: Feature Request
+description: File a feature request
+title: "[Feature Request]: "
+labels: [feature request]
+assignees:
+- TheMoksej
+issue_body: true
+body:
+- type: markdown
+  attributes:
+    value: |
+      Thanks for taking the time to fill out this feature request!
+- type: input
+  attributes:
+    label: Contact Details
+    description: How can we get in touch with you if we need more info?
+    placeholder: ex. email@example.com, user#1234
+  validations:
+    required: false
+- type: textarea
+  attributes:
+    label: What feature would you like to see?
+    description: Also describe it as detailed as possible?
+    value: |
+      1.
+      2.
+      ....
+  validations:
+    required: true
+- type: checkboxes
+  attributes:
+    label: Code of Conduct
+    description: By submitting this issue, you agree to follow our [Code of Conduct](https://example.com)
+    options:
+    - label: I agree to follow this project's Code of Conduct
+      required: true
