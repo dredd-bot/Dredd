@@ -193,6 +193,7 @@ class owner(commands.Cog, name="Owner"):
 
         acks = default.bot_acknowledgements(ctx, user, True)
         suggestions = await self.bot.db.fetch("SELECT suggestion_id FROM suggestions WHERE user_id = $1", user.id)
+        commands = await self.bot.db.fetch("SELECT count(*) FROM command_logs WHERE user_id = $1", user.id)
         ids = []
         for id in suggestions:
             ids.append(f"{id['suggestion_id']}")
@@ -207,6 +208,7 @@ class owner(commands.Cog, name="Owner"):
 **Full username:** [{user}](https://discord.com/users/{user.id}) {acks if acks else ''}
 **Avatar URL:** [Click here]({user.avatar_url})
 **Shared servers:** {len([x for x in self.bot.guilds if x.get_member(user.id)])}
+**Commands Used:** {commands}
 **Suggestions suggested:** {len(suggestions)} {f'**IDs:** {", ".join(ids)}' if len(suggestions) != 0 else ''}
 **Blacklisted?** {bl}{dm_check}
 **Been blacklisted?** {f"Yes. {len(past)} time(s)" if past != [] else "No"}
