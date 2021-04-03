@@ -135,7 +135,7 @@ def moderator(**perms):
             mod_role = None
 
         if not mod_role or mod_role not in ctx.author.roles:
-            permissions = ctx.channel.permissions_for(ctx.author)
+            permissions = ctx.channel.permissions_for(ctx.author) or ctx.author.guild_permissions
             missing_perms = [perm for perm, value in perms.items() if getattr(permissions, perm) != value]
 
             if not missing_perms:
@@ -163,7 +163,7 @@ def admin(**perms):
             admin_role = None
 
         if not admin_role or admin_role not in ctx.author.roles:
-            permissions = ctx.channel.permissions_for(ctx.author)
+            permissions = ctx.channel.permissions_for(ctx.author) or ctx.author.guild_permissions
             missing_perms = [perm for perm, value in perms.items() if getattr(permissions, perm) != value]
 
             if not missing_perms:
