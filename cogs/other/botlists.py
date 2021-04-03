@@ -78,7 +78,7 @@ class ShitGG(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.token = bot.config.DBL_TOKEN
-        self.bot.dblpy = dbl.DBLClient(self.bot, self.token, webhook_path='/dblwebhook', webhook_auth=bot.config.DBL_password, webhook_port=5435)
+        self.bot.dblpy = dbl.DBLClient(self.bot, self.token, webhook_path='/dblwebhook', webhook_auth=bot.config.DBL_password, webhook_port=5435, autopost=True)
 
         self.help_icon = ""
         self.big_icon = ""
