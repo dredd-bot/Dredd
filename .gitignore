@@ -130,16 +130,13 @@ dmypy.json
 
 cogs/test.py
 db/
-backups/
 config.py
-img/
 .vscode/
+/img
 cogs/__pycache__/
 utils/__pycache__/
 avatars/
-jishaku.txt
-old/
-temp/
-website/
-dredd.py
-cogs/music.py
+locale/
+generate_po
+generate_mo
+old_features.py

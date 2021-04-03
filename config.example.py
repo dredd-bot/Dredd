@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2020 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -17,8 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 DISCORD_TOKEN = ""
 
 # DBL token
-# TopGG
-DBLToken = ''
+DBL_TOKEN = ''
 
 # discord.bots.gg
 DBGG_TOKEN = ''
@@ -27,7 +26,7 @@ DBGG_TOKEN = ''
 DEL_TOKEN = ''
 
 # Discord boats
-DBoats_TOKEN = ''
+DBOATS_TOKEN = ''
 
 # Wonderlist
 WONDER_TOKEN = ''
@@ -49,31 +48,25 @@ STAT_TOKEN = ''
 
 WEBHOOK_URL = ''
 
+CB_TOKEN = ''
+
 # PSQL
 DB_CONN_INFO = {
     "user": "",
     "password": "",
-    "host": "127.0.0.1",
+    "host": "",
     "database": ""
 }
 
+BACKUP_USER = ''
+BACKUP_PASSWORD = ''
+BACKUP_RECEIVER = ''
+
+MUSIC_PASSWORD = ''
+MUSIC_PORT = 0000  # change to your port
+MUSIC_ID = ''
+
 # Extensions
 EXTENSIONS = [
-    'cogs.help',
-    'jishaku',
-    'cogs.events',
-    'cogs.info',
-    'cogs.misc',
-    'cogs.fun',
-    'cogs.manage',
-    'cogs.moderation',
-    'cogs.automod',
-    'cogs.cmds',
-    'cogs.owner',
-    'cogs.admin',
-    'cogs.logs',
-    'cogs.changes',
-    'cogs.dbl',
-    'cogs.bg',
-    'cogs.statcord'
+    'cogs.extension'
 ]

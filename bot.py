@@ -14,24 +14,33 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import datetime
-import config
-import asyncpg
 import asyncio
+import asyncpg
+import config
+import datetime
 import aiohttp
 import logging
-import traceback
+import sys
+import psutil
+import sr_api
+import async_cleverbot as ac
+
+
 from discord.ext import commands
-from db import emotes
-from utils.caches import cache, CacheManager
-from logging.handlers import RotatingFileHandler
+from db.cache import LoadCache, CacheManager
+from utils import i18n
+from cogs.music import Player
+from collections import Counter
 
-# this section is for the new gateway (discord.py>=1.5)
-intents = discord.Intents.default()
-intents.members = True
-intents.presences = True
+if sys.version_info < (3, 5):
+    raise Exception('Your python is outdated. Please update to at least 3.5')
 
-asyncio.set_event_loop(asyncio.SelectorEventLoop())
+logger = logging.getLogger('discord')
+logger.setLevel(logging.DEBUG)
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)
+
 
 async def run():
     description = "A bot written in Python that uses asyncpg to connect to a postgreSQL database."
@@ -43,49 +52,35 @@ async def run():
     if not hasattr(bot, 'uptime'):
         bot.uptime = datetime.datetime.now()
     try:
-        await cache(bot)
+        await LoadCache.start(bot)
         bot.session = aiohttp.ClientSession(loop=bot.loop)
-        await bot.start(config.DISCORD_TOKEN)
+        # await bot.start(config.DISCORD_TOKEN)
+        await bot.start(config.MAIN_TOKEN)
     except KeyboardInterrupt:
         await db.close()
         await bot.logout()
 
+
 async def get_prefix(bot, message):
-    if not message.guild:
-        if await bot.is_booster(message.author):
-            cprefix = bot.boosters[message.author.id]['custom_prefix']
-            custom_prefix = [cprefix, '!']
-            return custom_prefix
-        else:
-            custom_prefix = ['!']
-            return custom_prefix
-    elif message.guild:
-        try:
-            prefix = bot.prefixes[message.guild.id]
-            if not await bot.is_admin(message.author) and not await bot.is_booster(message.author):
-                custom_prefix = prefix
-                return commands.when_mentioned_or(custom_prefix)(bot, message)
-            elif await bot.is_admin(message.author) and await bot.is_booster(message.author):
-                booster_prefix = bot.boosters[message.author.id]['custom_prefix']
-                custom_prefix = [booster_prefix, prefix, 'd ']
-                return commands.when_mentioned_or(*custom_prefix)(bot, message)
-            elif await bot.is_admin(message.author):
-                custom_prefix = ['d ', prefix]
-                return commands.when_mentioned_or(*custom_prefix)(bot, message)
-            elif await bot.is_booster(message.author):
-                cprefix = bot.boosters[message.author.id]['custom_prefix']
-                custom_prefix = [cprefix, prefix]
-                return commands.when_mentioned_or(*custom_prefix)(bot, message)
-        except TypeError:
-            return
-    else:
-        return
+    if message.guild:
+        prefix = bot.prefix[message.guild.id]
+    elif not message.guild:
+        prefix = '!'
+    custom_prefix = [prefix]
+    if await bot.is_booster(message.author):
+        boosters_prefix = CacheManager.get(bot, 'boosters', message.author.id) or 'dredd '
+        custom_prefix.append(boosters_prefix)
+    if await bot.is_admin(message.author):
+        custom_prefix.append('d ')
+
+    return commands.when_mentioned_or(*custom_prefix)(bot, message)
+
 
 class EditingContext(commands.Context):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=discord.AllowedMentions.none()):
+    async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=discord.AllowedMentions(users=False, roles=False, everyone=False, replied_user=True)):
         if file or files:
             return await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
         reply = None
@@ -94,12 +89,12 @@ class EditingContext(commands.Context):
         except KeyError:
             pass
         if reply:
-            try:
-                msg = await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions)
-                return msg
-            except:
-                return
-        msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
+            return await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions)
+        reference = self.message.reference
+        if reference and isinstance(reference.resolved, discord.Message):
+            msg = await reference.resolved.reply(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
+        else:
+            msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
         self.bot.cmd_edits[self.message.id] = msg
         return msg
 
@@ -107,134 +102,164 @@ class EditingContext(commands.Context):
 class Bot(commands.AutoShardedBot):
     def __init__(self, **kwargs):
         super().__init__(
-            command_prefix = get_prefix,
-            case_insensitive = True,
-            owner_id = 345457928972533773,
-            reconnect = True,
-            chunk_guilds_at_startup=True,
-            allowed_mentions = discord.AllowedMentions.none(),
+            command_prefix=get_prefix,
+            case_insensitive=True,
+            # case_insensitive_prefix=True,
+            status=discord.Status.dnd,
+            activity=discord.Activity(type=discord.ActivityType.competing, name='a boot up challenge'),
+            owner_id=345457928972533773,
+            reconnect=True,
+            allowed_mentions=discord.AllowedMentions(users=False, roles=False, everyone=False, replied_user=True),
             max_messages=10000,
-            intents=intents)
-        
+            chunk_guilds_at_startup=True,  # this is here for easy access. In case I need to switch it fast to False I won't need to look at docs.
+            intents=discord.Intents(
+                guilds=True,  # guild/channel join/remove/update
+                members=True,  # member join/remove/update
+                bans=True,  # member ban/unban
+                emojis=False,  # emoji update
+                integrations=False,  # integrations update
+                webhooks=False,  # webhook update
+                invites=False,  # invite create/delete
+                voice_states=True,  # voice state update
+                presences=True,  # member/user update for games/activities
+                guild_messages=True,  # message create/update/delete
+                dm_messages=True,  # message create/update/delete
+                guild_reactions=True,  # reaction add/remove/clear
+                dm_reactions=True,  # reaction add/remove/clear
+                guild_typing=False,  # on typing
+                dm_typing=False,  # on typing
+            )
+        )
+
+        self.config = config
+
         for extension in config.EXTENSIONS:
             try:
                 self.load_extension(extension)
                 print(f'[EXTENSION] {extension} was loaded successfully!')
             except Exception as e:
-                tb = traceback.format_exception(type(e), e, e.__traceback__) 
-                tbe = "".join(tb) + ""
-                print(f'[WARNING] Could not load extension {extension}: {tbe}')
+                print(f'[WARNING] Could not load extension {extension}: {e}')
 
         self.db = kwargs.pop("db")
-        self.counter = 0
         self.cmdUsage = {}
         self.cmdUsers = {}
         self.guildUsage = {}
-
-        # self.embed_color = 0x0058D6 #0058D6
-        # self.logembed_color = 0xD66060 #D66060
-        # self.log_color = 0x1EA2B4 #1EA2B4
-        # self.error_color = 0xD12312 #D12312
-        # self.update_color = 0xCCE021 #CCE021
-        # self.automod_color = 0xb54907 #b54907
-        # self.logging_color = 0xE08C0B #E08C0B
-        # self.memberlog_color = 0x55d655 #55d655
-        # self.join_color = 0x0B145B #0B145B
+        self.process = psutil.Process()
 
         self.support = 'https://discord.gg/f3MaASW'
-        self.invite = '<https://discord.com/oauth2/authorize?client_id=667117267405766696&scope=bot&permissions=477588727&redirect_uri=https%3A%2F%2Fdiscord.gg%2Ff3MaASW&response_type=code>'
-        self.privacy = '<https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md>'
+        self.invite = 'https://dredd-bot.xyz/invite'
+        self.privacy = '<https://gist.github.com/TheMoksej/02671c21451843d8186e718065b731ee>'
         self.license = '<https://github.com/TheMoksej/Dredd/blob/master/LICENSE>'
-        
-        self.e = emotes
-        self.config = config
-        self.cache = CacheManager.get_cache
+        self.gif_pfp = 'https://cdn.discordapp.com/attachments/667077166789558288/747132112099868773/normal_3.gif'
+        self.vote = '<https://discord.boats/bot/667117267405766696/vote>'
+        self.source = '<https://github.com/TheMoksej/Dredd/>'
+        self.statuspage = '<https://status.dredd-bot.xyz>'
+        self.bot_lists = {'dbots': "[Discord Bot Labs](https://dbots.cc/dredd 'bots.discordlabs.org')", 'dboats': "[Discord Boats](https://discord.boats/bot/667117267405766696/vote 'discord.boats')",
+                          'dbl': "[Discord Bot list](https://discord.ly/dredd/upvote 'discordbotlist.com')", 'shitgg': "[Top.GG](https://top.gg/bot/667117267405766696/vote 'top.gg')"}
+        self.cleverbot = ac.Cleverbot(config.CB_TOKEN)
+        self.join_counter = Counter()  # counter for anti raid so the bot would ban the user if they try to join more than 5 times in short time span
+
+        self.cache = CacheManager
         self.cmd_edits = {}
-        self.prefixes = {}
-        self.vip_prefixes = {}
+        self.dm = {}
+        self.dms = {}  # cache for checks if user was already informed about dm logging
+        self.updates = {}
+        self.snipes = {}
+        self.sr_api = sr_api.Client()
 
         self.guilds_data = {}
         self.loop = asyncio.get_event_loop()
-        self.blacklisted_guilds = {}
-        self.blacklisted_users = {}
-        self.afk_users = []
-        self.temp_timer = []
-        self.temp_bans = []
-        self.dm = {}
-        self.user_badges = {}
-        self.snipes = {}
-        self.status_op_out = {}
-        self.snipes_op_out = {}
-        self.test_cache = {}
+        self.guild_loop = {}
+        self.to_dispatch = {}
+        self.music_guilds = {}
 
-        self.automod = {}
-        self.automod_actions = {}
-        self.case_num = {}
-        self.raidmode = {}
-        self.moderation = {}
-        self.joinlog = {}
-        self.msgedit = {}
-        self.msgdelete = {}
-        self.joinmsg = {}
-        self.leavemsg = {}
-        self.antidehoist = {}
-        self.memberupdate = {}
-        self.masscaps = {}
-        self.invites = {}
-        self.massmentions = {}
-        self.links = {}
-        self.joinrole = {}
-        self.mentionslimit = {}
-        self.whitelisted_channels = {}
-        self.whitelisted_roles = {}
-
+        # ranks
         self.devs = {}
         self.admins = {}
         self.boosters = {}
-        self.lockdown = 'False'
+        self.lockdown = False
+        self.auto_reply = True
+        self.settings = {}
+        self.blacklist = {}
+        self.check_duration = {}
+
+        # guilds / moderation
+        self.prefix = {}
+        self.moderation = {}
+        self.memberlog = {}
+        self.joinlog = {}
+        self.leavelog = {}
+        self.guildlog = {}
+        self.joinrole = {}
+        self.joinmessage = {}
+        self.leavemessage = {}
+        self.messageedits = {}
+        self.messagedeletes = {}
+        self.antihoist = {}
+        self.automod = {}
+        self.massmention = {}
+        self.masscaps = {}
+        self.invites = {}
+        self.links = {}
+        self.spam = {}
+        self.modlog = {}
+        self.raidmode = {}
+        self.temp_bans = {}
+        self.temp_mutes = {}
+        self.mute_role = {}
+        self.mod_role = {}
+        self.admin_role = {}
+        self.channels_whitelist = {}
+        self.roles_whitelist = {}
+        self.guild_disabled = {}
+        self.cog_disabled = {}
+        self.case_num = {}
+        self.rr = {}
+
+        # other
+        self.afk = {}
+        self.status_op = {}
+        self.snipes_op = {}
+        self.nicks_op = {}
+        self.badges = {}
+        self.disabled_commands = {}
+        self.translations = {}
+        self.reminders = {}
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)
 
-    def get_category(self, name):
-        return self.categories.get(name)
-
-    async def is_owner(self, user):
-        if CacheManager.get_cache(self, user.id, 'devs'):
-            return True
-    
-    async def is_admin(self, user):
-        if await self.is_owner(user):
-            return True
-        if CacheManager.get_cache(self, user.id, 'admins'):
-            return True
-    
-    async def is_booster(self, user):
-        if CacheManager.get_cache(self, user.id, 'boosters'):
-            return True
-
     async def close(self):
         await self.session.close()
         await super().close()
-    
-    def create_task_and_count(self, coro):
-        self.counter += 1
 
-        async def do_stuff():
-            await coro
-            self.counter -= 1
+    async def is_owner(self, user):
+        return CacheManager.get(self, 'devs', user.id)
 
-        self.loop.create_task(do_stuff())
+    async def is_admin(self, user):
+        if CacheManager.get(self, 'devs', user.id):
+            return True
+        return CacheManager.get(self, 'admins', user.id)
+
+    async def is_booster(self, user):
+        if CacheManager.get(self, 'devs', user.id):
+            return True
+        return CacheManager.get(self, 'boosters', user.id)
+
+    async def is_blacklisted(self, user):
+        return CacheManager.get(self, 'blacklist', user.id)
 
     async def on_message(self, message):
         if message.author.bot:
             return
-
         try:
             ctx = await self.get_context(message, cls=EditingContext)
+            if message.guild:
+                i18n.current_locale.set(self.translations.get(message.guild.id, 'en_US'))
             if ctx.valid:
-                msg = await self.invoke(ctx)
-        except:
+                await self.invoke(ctx)
+        except Exception as e:
+            print(e)
             return
 
     async def on_message_edit(self, before, after):
@@ -245,44 +270,17 @@ class Bot(commands.AutoShardedBot):
         if after.content != before.content:
             try:
                 ctx = await self.get_context(after, cls=EditingContext)
+                if after.guild:
+                    i18n.current_locale.set(self.translations.get(after.guild.id, 'en_US'))
                 if ctx.valid:
-                    msg = await self.invoke(ctx)
+                    await self.invoke(ctx)
             except discord.NotFound:
                 return
 
-    async def temp_punishment(self, guild: int, user: int, mod: int, reason: str, time, role: int, type: str):
-        await self.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id, type) VALUES($1, $2, $3, $4, $5, $6, $7)", guild, user, mod, reason, time, role, type)
+    @property
+    def music_player(self):
+        return Player
 
-        self.temp_timer.append((guild, user, mod, reason, time, role, type))
-    
-    async def temp_ban_log(self, guild:int, user: int, mod: int, reason: str, time, type:str):
-        await self.db.execute("INSERT INTO moddata(guild_id, user_id, mod_id, reason, time, role_id, type) VALUES($1, $2, $3, $4, $5, $6, $7)", guild, user, mod, reason, time, None, type)
-
-        self.temp_bans.append((guild, user, mod, reason, time, type))
-    
-    async def log_temp_unmute(self, guild=None, mod=None, member=None, reason=None):
-        check = await self.db.fetchval("SELECT * FROM moderation WHERE guild_id = $1", guild.id)
-
-        if check is None:
-            return
-        elif check is not None:
-            channel = await self.db.fetchval("SELECT channel_id FROM moderation WHERE guild_id = $1", guild.id)
-            case = await self.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", guild.id)
-            chan = self.get_channel(channel)
-
-            if case is None:
-                await self.db.execute("INSERT INTO modlog(guild_id, case_num) VALUES ($1, $2)", guild.id, 1)
-
-            casenum = await self.db.fetchval("SELECT case_num FROM modlog WHERE guild_id = $1", guild.id)
-
-            e = discord.Embed(color=self.logging_color, description=f"{emotes.log_memberedit} **{member}** unmuted `[#{casenum}]`")
-            e.add_field(name="Previously muted by:", value=f"{mod} ({mod.id})", inline=False)
-            e.add_field(name="Reason:", value=f"{reason}", inline=False)
-            e.set_thumbnail(url=member.avatar_url_as(format='png'))
-            e.set_footer(text=f"Member ID: {member.id}")
-
-            await chan.send(embed=e)
-            await self.db.execute("UPDATE modlog SET case_num = case_num + 1 WHERE guild_id = $1", guild.id)
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(run())
