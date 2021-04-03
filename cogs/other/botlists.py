@@ -122,7 +122,7 @@ class DiscordLists(commands.Cog):
         self.api.set_auth("botlist.space", bot.config.BOTSPACE_TOKEN)
         self.api.set_auth("discordbots.co", bot.config.DISCORD_BOTS_TOKEN)
         self.api.set_auth('arcane-center.xyz', bot.config.ARCANE_TOKEN)
-        self.api.set_auth('discordbotlist.com', bot.config.DBL_TOKEN)
+        self.api.set_auth('discordbotlist.com', bot.config.DBLIST_TOKEN)
         self.api.set_auth('bladebotlist.xyz', bot.config.BBL_TOKEN)
         self.api.set_auth('blist.xyz', bot.config.BLIST_TOKEN)
         self.api.set_auth('botsdatabase.com', bot.config.BDB_TOKEN)
