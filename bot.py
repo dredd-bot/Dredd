@@ -35,12 +35,6 @@ from collections import Counter
 if sys.version_info < (3, 5):
     raise Exception('Your python is outdated. Please update to at least 3.5')
 
-logger = logging.getLogger('discord')
-logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logger.addHandler(handler)
-
 
 async def run():
     description = "A bot written in Python that uses asyncpg to connect to a postgreSQL database."
