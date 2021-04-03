@@ -152,7 +152,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         subprocess.Popen(sequence, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         content = 'Backup created on {0}'.format(name)
         receiver = self.bot.config.BACKUP_RECEIVER
-        ch = self.bot.get_channel(827203478605529098)
+        ch = self.bot.get_channel(679647378210291832)
         with open(f'backups/{name}.sql', 'r') as f:
             backup = f.read()
         if not backup:
