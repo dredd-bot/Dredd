@@ -7,7 +7,7 @@ python-dateutil
 pygit2
 jishaku
 PrettyTable
-mystbin
+mystbin.py
 sr_api
 git+https://github.com/TheMoksej/wavelink
 youtube_dl
