@@ -17,4 +17,4 @@ Requirements:
 
 [Join my discord server](https://discord.gg/f3MaASW)
 
-[![time tracker](https://wakatime.com/badge/github/TheMoksej/Dredd.svg)](https://wakatime.com/badge/github/TheMoksej/Dredd) (this is by far not everything)
+[![time tracker](https://wakatime.com/badge/github/dredd-bot/Dredd.svg)](https://wakatime.com/badge/github/TheMoksej/Dredd) (this is by far not everything)
