@@ -3,10 +3,12 @@ import statcord
 import dbl
 import discordlists
 import asyncio
+import discord
 
 from discord.ext import commands, tasks
 from utils.default import botlist_exception
 from datetime import datetime, timedelta
+from utils import default
 
 
 class DiscordExtremeList(commands.Cog):
@@ -76,7 +78,7 @@ class ShitGG(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.token = bot.config.DBL_TOKEN
-        self.bot.dblpy = dbl.DBLClient(self.bot, self.token, webhook_path='/dblwebhook', webhook_auth=bot.config.DBL_password, webhook_port=5000)
+        self.bot.dblpy = dbl.DBLClient(self.bot, self.token, webhook_path='/dblwebhook', webhook_auth=bot.config.DBL_password, webhook_port=5435)
 
         self.help_icon = ""
         self.big_icon = ""

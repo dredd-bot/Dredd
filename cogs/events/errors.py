@@ -114,14 +114,13 @@ class CommandError(commands.Cog, name="CommandError",
 
         current = ctx.message.created_at.replace(tzinfo=timezone.utc).timestamp()
         content_bucket = self.pre_anti_spam.get_bucket(ctx.message)
-        if not await ctx.bot.is_admin(ctx.author):
+        if not await ctx.bot.is_admin(ctx.author) and ctx.guild:
             if ctx.guild and (ctx.channel.can_send and not ctx.channel.permissions_for(ctx.guild.me).embed_links):
                 return await ctx.send(_("{0} I'm missing permissions to embed links.").format(self.bot.settings['emojis']['misc']['warn']))
-            elif ctx.guild and not ctx.channel.can_send and content_bucket.update_rate_limit(current):
-                content_bucket.reset()
-                pass
-            elif ctx.guild and not (ctx.channel.can_send and content_bucket.update_rate_limit(current)):
-                return
+            if not ctx.channel.can_send:
+                if content_bucket.update_rate_limit(current):
+                    content_bucket.reset()
+                    pass
 
         guild_id = '' if not ctx.guild else ctx.guild.id
         channel_id = ctx.channel.id

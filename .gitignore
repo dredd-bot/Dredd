@@ -136,6 +136,7 @@ config.py
 cogs/__pycache__/
 utils/__pycache__/
 avatars/
+backups/
 locale/
 generate_po
 generate_mo
