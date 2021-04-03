@@ -616,7 +616,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if pitch < 0.1:
-            raise commands.BadArgument(_("The value you provided is invalid and will crash the player."))
+            return await ctx.send(_("The value you provided is invalid and will crash the player."))
 
         try:
             await player.set_filter(wavelink.Timescale(pitch=pitch, speed=player.filter.speed if hasattr(player.filter, 'speed') else 1.0))
@@ -634,7 +634,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if speed < 0.1:
-            raise commands.BadArgument(_("The value you provided is invalid and will crash the player."))
+            return await ctx.send(_("The value you provided is invalid and will crash the player."))
 
         try:
             await player.set_filter(wavelink.Timescale(speed=speed, pitch=player.filter.pitch if hasattr(player.filter, 'pitch') else 1.0))

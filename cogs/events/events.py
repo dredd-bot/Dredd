@@ -50,13 +50,7 @@ class Events(commands.Cog):
             if ctx.command.qualified_name != self.bot.get_command('help').qualified_name and await checks.cog_disabled(ctx, str(ctx.command.cog.qualified_name)):
                 return False
 
-        if ctx.guild and ctx.guild.id in [709521003759403063, 667065302260908032, 809270378508976148, 611886244925931531]:  # 568567800910839811
-            return True
-
-        if ctx.author.id in [361241200080191489, 443217277580738571]:
-            return True
-
-        return False
+        return True
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -64,7 +58,7 @@ class Events(commands.Cog):
         m += "\nName: {0} ({0.id})".format(self.bot.user)
         m += f"\nTime taken to boot: {btime.human_timedelta(self.bot.uptime, suffix=None)}"
         print(m)
-        await self.bot.change_presence(status='idle', activity=discord.Activity(type=discord.ActivityType.playing, name="Dredd v3"))
+        await self.bot.change_presence(status='online', activity=discord.Activity(type=discord.ActivityType.playing, name="Dredd v3 is released!"))
 
         support_guild = self.bot.get_guild(self.bot.settings['servers']['main'])
         await support_guild.chunk(cache=True)
