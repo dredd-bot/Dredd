@@ -121,6 +121,8 @@ class CommandError(commands.Cog, name="CommandError",
                 if content_bucket.update_rate_limit(current):
                     content_bucket.reset()
                     pass
+                elif not content_bucket.update_rate_limit(current):
+                    return
 
         guild_id = '' if not ctx.guild else ctx.guild.id
         channel_id = ctx.channel.id
