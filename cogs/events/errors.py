@@ -112,18 +112,6 @@ class CommandError(commands.Cog, name="CommandError",
     @commands.Cog.listener()
     async def on_command_error(self, ctx, exc):
 
-        current = ctx.message.created_at.replace(tzinfo=timezone.utc).timestamp()
-        content_bucket = self.pre_anti_spam.get_bucket(ctx.message)
-        if not await ctx.bot.is_admin(ctx.author) and ctx.guild:
-            if ctx.channel.can_send and not ctx.channel.permissions_for(ctx.guild.me).embed_links:
-                return await ctx.send(_("{0} I'm missing permissions to embed links.").format(self.bot.settings['emojis']['misc']['warn']))
-            elif not ctx.channel.can_send:
-                if content_bucket.update_rate_limit(current):
-                    content_bucket.reset()
-                    pass
-                elif not content_bucket.update_rate_limit(current):
-                    return
-
         guild_id = '' if not ctx.guild else ctx.guild.id
         channel_id = ctx.channel.id
 
@@ -246,6 +234,18 @@ class CommandError(commands.Cog, name="CommandError",
 
         elif isinstance(exc, commands.errors.ExpectedClosingQuoteError):
             return await ctx.send(_("{0} | Looks like you haven't closed the quote").format(self.bot.settings['emojis']['misc']['warn']))
+
+        current = ctx.message.created_at.replace(tzinfo=timezone.utc).timestamp()
+        content_bucket = self.pre_anti_spam.get_bucket(ctx.message)
+        if not await ctx.bot.is_admin(ctx.author) and ctx.guild:
+            if ctx.channel.can_send and not ctx.channel.permissions_for(ctx.guild.me).embed_links:
+                return await ctx.send(_("{0} I'm missing permissions to embed links.").format(self.bot.settings['emojis']['misc']['warn']))
+            elif not ctx.channel.can_send:
+                if content_bucket.update_rate_limit(current):
+                    content_bucket.reset()
+                    pass
+                elif not content_bucket.update_rate_limit(current):
+                    return
 
         ctx.command.reset_cooldown(ctx)
 
