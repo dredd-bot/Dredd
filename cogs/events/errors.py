@@ -271,7 +271,7 @@ class CommandError(commands.Cog, name="CommandError",
 
         log = self.bot.get_channel(self.bot.settings['channels']['command-errors'])
         query = "SELECT DISTINCT error_command, error_occured, error_jump, error_id FROM errors WHERE error_short = $1 AND error_command = $2 AND error_status = $3"
-        error = await self.bot.db.fetch(query, exc, str(ctx.command), 0)
+        error = await self.bot.db.fetch(query, str(exc), str(ctx.command), 0)
 
         if len(error) == 0:
             error_id = await self.bot.db.fetchval("SELECT count(*) FROM errors")
@@ -284,7 +284,7 @@ class CommandError(commands.Cog, name="CommandError",
                                                                   f"**Channel:** {ctx.channel} **ID:** {channel_id};\n"
                                                                   f"**Author:** {ctx.author} **ID:** {ctx.author.id}"))
             msg = await log.send(embed=log_embed)
-            await self.bot.db.execute("INSERT INTO errors VALUES($1, $2, $3, $4, $5, $6, $7)", str(tb), msg.jump_url, str(ctx.command), 0, datetime.now(), error_id + 1, exc)
+            await self.bot.db.execute("INSERT INTO errors VALUES($1, $2, $3, $4, $5, $6, $7)", str(tb), msg.jump_url, str(ctx.command), 0, datetime.now(), error_id + 1, str(exc))
 
             e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.utcnow(),
                               title=_("{0} Unknown error | #{1}").format(self.bot.settings['emojis']['misc']['error'], error_id + 1),
