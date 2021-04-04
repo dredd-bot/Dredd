@@ -116,7 +116,7 @@ class DiscordLists(commands.Cog):
         self.api = discordlists.Client(self.bot)
         self.api.set_auth("discord.bots.gg", bot.config.DBGG_TOKEN)
         self.api.set_auth("discord.boats", bot.config.DBOATS_TOKEN)
-        self.api.set_auth("glennbotlist.xyz", bot.config.GLENN_TOKEN)
+        self.api.set_auth("voidbots.net", bot.config.GLENN_TOKEN)
         self.api.set_auth("mythicalbots.xyz", bot.config.MYTH_TOKEN)
         self.api.set_auth("botsfordiscord.com", bot.config.BFD_TOKEN)
         self.api.set_auth("botlist.space", bot.config.BOTSPACE_TOKEN)
