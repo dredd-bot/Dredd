@@ -21,7 +21,7 @@
 - Install all the requirements through pip `pip install -r requirements.txt`
 - Boot up the bot
 
-#### **If you don't understand something, google it, our support server _DOES NOT_ provide support for cloning Dredd**
+#### **If you don't understand something, google it, our support server _DOES NOT_ provide support for cloning Dredd.**
 
 #### If you want to chill you can [Dredd's Support Server](https://dredd-bot.xyz/support) or if you have any questions mail us at [support@dredd-bot.xyz](mailto:support@dredd-bot.xyz)
 
