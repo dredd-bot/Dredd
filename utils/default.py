@@ -134,13 +134,14 @@ def region_flags(ctx):
         "us-central": ":flag_us:",
         "us-west": ":flag_us:",
         "us-east": ":flag_us:",
-        "us-south": ":flag_us:"
+        "us-south": ":flag_us:",
+        "india": ":flag_in:"
     }
 
     try:
         return f"{flags[str(ctx.guild.region)]} {str(ctx.guild.region).title()}"
     except KeyError:
-        return "Error occured, please report."
+        return f"{str(ctx.guild.region).title()}"
 
 
 async def medias(ctx, user):
