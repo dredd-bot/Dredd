@@ -270,8 +270,8 @@ class CommandError(commands.Cog, name="CommandError",
                 return await ctx.author.send(content=e, embed=embed)
 
         log = self.bot.get_channel(self.bot.settings['channels']['command-errors'])
-        query = "SELECT DISTINCT error_command, error_occured, error_jump, error_id FROM errors WHERE error_short = $1 AND error_status = $2"
-        error = await self.bot.db.fetch(query, str(exc), 0)
+        query = "SELECT DISTINCT error_command, error_occured, error_jump, error_id FROM errors WHERE error_short = $1 AND error_command = $2 AND error_status = $3"
+        error = await self.bot.db.fetch(query, str(exc), str(ctx.command.qualified_name), 0)
 
         if len(error) == 0:
             error_id = await self.bot.db.fetchval("SELECT count(*) FROM errors")
