@@ -188,7 +188,7 @@ class Pages:
     async def main_help(self):
         """ Goes to the main page of help """
         await self.stop_pages()
-        await self.context.send_help()
+        await self.context.send_bot_help()
 
     async def numbered_page(self):
         """lets you type a page number to go to"""
