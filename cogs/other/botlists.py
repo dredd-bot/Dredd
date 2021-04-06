@@ -174,7 +174,7 @@ class Others(commands.Cog):
         try:
             headers = {"Authorization": self.bot.config.DBLIST_TOKEN}
             data = {"guilds": len(self.bot.guilds), "users": sum([x.member_count for x in self.bot.guilds])}
-            r = await bot.session.post('https://discordbotlist.com/api/v1/bots/667117267405766696/stats', headers=headers, data=data)
+            r = await self.bot.session.post('https://discordbotlist.com/api/v1/bots/667117267405766696/stats', headers=headers, data=data)
             response = await r.json()
 
             if response['success']:
@@ -188,7 +188,7 @@ class Others(commands.Cog):
     async def discordservices(self):
         headers = {"Authorization": self.bot.config.DSERVICES_TOKEN}
         data = {"servers": len(self.bot.guilds), "shards": len(self.bot.shards)}
-        r = await bot.session.post('https://api.discordservices.net/bot/667117267405766696/stats', headers=headers, data=json.dumps(data))
+        r = await self.bot.session.post('https://api.discordservices.net/bot/667117267405766696/stats', headers=headers, data=json.dumps(data))
         response = await r.json()
         if response['code'] != 200:
             await botlist_exception(self, 'Discord Services', response['message'])
