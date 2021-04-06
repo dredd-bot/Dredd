@@ -44,7 +44,7 @@ class HelpCommand(commands.HelpCommand):
         self.owner_cogs = ['Owner', 'Devishaku', 'Jishaku']
         self.admin_cogs = ['Staff']
         self.booster_cogs = ['Boosters']
-        self.ignore_cogs = ["Help", "Events", "CommandError", "Logging", 'Tasks', "AutomodEvents", 'DiscordExtremeList', 'DiscordLabs', 'DiscordLists', 'ShitGG']
+        self.ignore_cogs = ["Help", "Events", "CommandError", "Logging", 'Tasks', "AutomodEvents", 'DiscordExtremeList', 'DiscordLabs', 'DiscordLists', 'ShitGG', 'Others']
 
     def get_command_signature(self, command):
         if command.cog is None:
