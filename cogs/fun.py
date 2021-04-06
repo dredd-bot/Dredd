@@ -183,7 +183,6 @@ class fun(commands.Cog, name="Fun"):
     @commands.command(brief="Roast someone")
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
-    @commands.is_nsfw()
     async def roast(self, ctx, member: discord.Member = None, *bypass):
         """ Roast someone in the server.
         Requires NSFW channel."""
