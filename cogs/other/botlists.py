@@ -209,3 +209,4 @@ def setup(bot):
     bot.add_cog(DiscordLabs(bot))
     bot.add_cog(ShitGG(bot))
     bot.add_cog(DiscordLists(bot))
+    bot.add_cog(Others(bot))
