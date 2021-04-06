@@ -4,6 +4,7 @@ import dbl
 import discordlists
 import asyncio
 import discord
+import json
 
 from discord.ext import commands, tasks
 from utils.default import botlist_exception
@@ -122,7 +123,6 @@ class DiscordLists(commands.Cog):
         self.api.set_auth("botlist.space", bot.config.BOTSPACE_TOKEN)
         self.api.set_auth("discordbots.co", bot.config.DISCORD_BOTS_TOKEN)
         self.api.set_auth('arcane-center.xyz', bot.config.ARCANE_TOKEN)
-        self.api.set_auth('discordbotlist.com', bot.config.DBLIST_TOKEN)
         self.api.set_auth('bladebotlist.xyz', bot.config.BBL_TOKEN)
         self.api.set_auth('blist.xyz', bot.config.BLIST_TOKEN)
         self.api.set_auth('botsdatabase.com', bot.config.BDB_TOKEN)
@@ -157,6 +157,51 @@ class DiscordLists(commands.Cog):
             for item in result['failure']:
                 await botlist_exception(self, item, result['failure'][item])
                 await asyncio.sleep(5)
+
+
+class Others(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.discordbotlist.start()
+        self.discordservices.start()
+
+    def cog_unload(self):
+        self.discordbotlist.cancel()
+        self.discordservices.cancel()
+
+    @tasks.loop(minutes=30)
+    async def discordbotlist(self):
+        try:
+            headers = {"Authorization": self.bot.config.DBLIST_TOKEN}
+            data = {"guilds": len(self.bot.guilds), "users": sum([x.member_count for x in self.bot.guilds])}
+            r = await bot.session.post('https://discordbotlist.com/api/v1/bots/667117267405766696/stats', headers=headers, data=data)
+            response = await r.json()
+
+            if response['success']:
+                return
+            elif not response['success']:
+                raise Exception(response)
+        except Exception as e:
+            await botlist_exception(self, 'Discord Bot List', e)
+
+    @tasks.loop(minutes=30)
+    async def discordservices(self):
+        headers = {"Authorization": self.bot.config.DSERVICES_TOKEN}
+        data = {"servers": len(self.bot.guilds), "shards": len(self.bot.shards)}
+        r = await bot.session.post('https://api.discordservices.net/bot/667117267405766696/stats', headers=headers, data=json.dumps(data))
+        response = await r.json()
+        if response['code'] != 200:
+            await botlist_exception(self, 'Discord Services', response['message'])
+
+    @discordbotlist.before_loop
+    async def before_discordbotlist(self):
+        await self.bot.wait_until_ready()
+        print("[BACKGROUND] Started posting guild count to DiscordBotList")
+
+    @discordservices.before_loop
+    async def before_discordservices(self):
+        await self.bot.wait_until_ready()
+        print("[BACKGROUND] Started posting guild count to DiscordServices")
 
 
 def setup(bot):

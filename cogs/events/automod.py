@@ -136,7 +136,9 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
 
         automod = cm.get(self.bot, 'automod', member.guild.id)
         raidmode = cm.get(self.bot, 'raidmode', member.guild.id)
-        if not (automod or raidmode):
+        if not automod:
+            return
+        if not raidmode:
             return
 
         if not member.guild.me.guild_permissions.ban_members or not member.guild.me.guild_permissions.kick_members:

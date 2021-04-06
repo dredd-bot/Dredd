@@ -48,15 +48,17 @@ class Pages:
     permissions: discord.Permissions
         Our permissions for the channel.
     """
-    def __init__(self, ctx, *, entries, per_page=12, show_entry_count=True, embed_color=discord.Color.blurple(), title=None, thumbnail=None, footericon=None, footertext=None, author=None, delete_after=None, embed_author=None):
+    def __init__(self, ctx, *, entries, per_page=12, show_entry_count=True, embed_color=discord.Color.blurple(), title=None, thumbnail=None, footericon=None, footertext=None, author=None, delete_after=None, embed_author=None, home=None):
         self.bot = ctx.bot
         self.entries = entries
         self.message = ctx.message
         self.channel = ctx.channel
+        self.context = ctx
         self.author = author if author else ctx.author
         self.thumbnail = thumbnail
         self.footericon = footericon
         self.footertext = footertext
+        self.home = home
         self.title = title
         self.embed_author = embed_author
         self.delete_after = 300
@@ -73,7 +75,8 @@ class Pages:
             ('<:arrleft:820332933893586985>', self.previous_page),
             ('<:stop:820332883470319637>', self.stop_pages),
             ('<:arrright:820332951518445619>', self.next_page),
-            ('<:arrowright:820332915795034123>', self.last_page)
+            ('<:arrowright:820332915795034123>', self.last_page),
+            ('\U0001f3d8', self.main_help)
             # ('<:python:682881809649762358>', self.show_help)
         ]
 
@@ -150,6 +153,9 @@ class Pages:
                 # we can't forbid it if someone ends up using it but remove
                 # it from the default set
                 continue
+            if not self.home and reaction in ('\U0001f3d8'):
+                continue
+
             if self.maximum_pages == 1 and reaction in ('<:arrowleft:820332901559173150>', '<:arrowright:820332915795034123>', '<:arrleft:820332933893586985>', '<:arrright:820332951518445619>'):
                 continue
 
@@ -178,6 +184,11 @@ class Pages:
     async def show_current_page(self):
         if self.paginating:
             await self.show_page(self.current_page)
+
+    async def main_help(self):
+        """ Goes to the main page of help """
+        await self.stop_pages()
+        await self.context.send_help()
 
     async def numbered_page(self):
         """lets you type a page number to go to"""

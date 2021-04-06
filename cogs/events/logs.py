@@ -414,17 +414,23 @@ class Logging(commands.Cog):
             return
 
         if member.bot and joinrole['bots']:
-            role_for_bots = member.guild.get_role(joinrole['bots'])
-            try:
-                await member.add_roles(role_for_bots, reason='Join role')
-            except Exception as e:
-                await default.background_error(self, '`join role (bots)`', e, member.guild, None)
+            for role in joinrole['bots']:
+                role_for_bots = member.guild.get_role(role)
+                if not role_for_bots:
+                    continue
+                try:
+                    await member.add_roles(role_for_bots, reason='Join role')
+                except Exception as e:
+                    await default.background_error(self, '`join role (bots)`', e, member.guild, None)
         elif not member.bot and joinrole['people']:
-            role_for_people = member.guild.get_role(joinrole['people'])
-            try:
-                await member.add_roles(role_for_people, reason='Join role')
-            except Exception as e:
-                await default.background_error(self, '`join role (people)`', e, member.guild, None)
+            for role in joinrole['people']:
+                role_for_people = member.guild.get_role(role)
+                if not role_for_people:
+                    continue
+                try:
+                    await member.add_roles(role_for_people, reason='Join role')
+                except Exception as e:
+                    await default.background_error(self, '`join role (people)`', e, member.guild, None)
 
     @commands.Cog.listener()
     async def on_join_message(self, member):

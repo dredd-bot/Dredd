@@ -810,9 +810,10 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         """ Setup role on join in your server """
         await ctx.send_help(ctx.command)
 
-    @joinrole.command(name='people',
-                      brief='Set role on join for users',
-                      aliases=['humans'])
+    @joinrole.group(name='people',
+                    brief='Set role on join for users',
+                    aliases=['humans'],
+                    invoke_without_command=True)
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
@@ -820,48 +821,17 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     async def joinrole_people(self, ctx, role: discord.Role = None):
         """ Choose what role will be given to new users """
 
-        joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
-        mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
-        admin_role = self.bot.cache.get(self.bot, 'admin_role', ctx.guild.id)
+        await ctx.send_help(ctx.command)
 
-        if not joinrole:
-            return await ctx.send(_("{0} Role on is not enabled in this server, please use "
-                                    "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
-        elif joinrole:
-            if role and role.id in (mod_role, admin_role):
-                return await ctx.send(_("{0} You cannot set that role as it is configured as mod or admin role").format(self.bot.settings['emojis']['misc']['warn']))
-            if not role and joinrole['people']:
-                role = ctx.guild.get_role(joinrole['people'])
-                return await ctx.send(_("Role on Join for people is set to: {0}").format(role.mention if role else 'None'))
-            elif not role and not joinrole['people']:
-                return await ctx.send(_("{0} You don't have join role setup, please mention the role.").format(self.bot.settings['emojis']['misc']['warn']))
-            if role.position >= ctx.guild.me.top_role.position:
-                return await ctx.send(_("{0} The role you're trying to setup is higher in role hierarchy and I cannot access it.").format(
-                    self.bot.settings['emojis']['misc']['warn']
-                ))
-            if joinrole['people']:
-                await self.bot.db.execute("UPDATE joinrole SET role = $1 WHERE guild_id = $2", role.id, ctx.guild.id)
-                joinrole['people'] = role.id
-                await ctx.send(_("{0} Join role for users was updated to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
-            elif not joinrole['people']:
-                await self.bot.db.execute("UPDATE joinrole SET role = $1 WHERE guild_id = $2", role.id, ctx.guild.id)
-                joinrole['people'] = role.id
-                await ctx.send(_("{0} Join role for users was set to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
-            else:
-                await self.bot.db.execute("INSERT INTO joinrole(guild_id, role) VALUES($1, $2)", ctx.guild.id, role.id)
-                joinrole = {'people': role.id, 'bots': None}
-                await ctx.send(_("{0} Join role for users was set to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
-
-    @joinrole.command(name='bots',
-                      brief='Set role on join for bots',
-                      aliases=['robots'])
+    @joinrole_people.command(name='add',
+                             brief='Add a role on join for people',
+                             aliases=['a'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
-    async def joinrole_bots(self, ctx, role: discord.Role = None):
-        """ Choose what role will be given to new bots """
-        print(ctx.command.clean_params)
+    async def joinrole_people_add(self, ctx, *, role: discord.Role):
+        """ Add a role to role on join for people """
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
         mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
@@ -873,27 +843,186 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         elif joinrole:
             if role and role.id in (mod_role, admin_role):
                 return await ctx.send(_("{0} You cannot set that role as it is configured as mod or admin role").format(self.bot.settings['emojis']['misc']['warn']))
-            if not role and joinrole['bots']:
-                role = ctx.guild.get_role(joinrole['bots'])
-                return await ctx.send(_("Role on Join for bots is set to: {0}").format(role.mention if role else 'None'))
-            elif not role and not joinrole['bots']:
-                return await ctx.send(_("{0} You don't have join role setup, please mention the role.").format(self.bot.settings['emojis']['misc']['warn']))
             if role.position >= ctx.guild.me.top_role.position:
                 return await ctx.send(_("{0} The role you're trying to setup is higher in role hierarchy and I cannot access it.").format(
                     self.bot.settings['emojis']['misc']['warn']
                 ))
+            if role.id in joinrole['people']:
+                return await ctx.send(_("{0} That role is already added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
+            await self.bot.db.execute("INSERT INTO joinrole(guild_id, role) VALUES($1, $2)", ctx.guild.id, role.id)
+            if joinrole['people']:
+                joinrole['people'].append(role.id)
+            elif not joinrole['people']:
+                joinrole['people'] = [role.id]
+
+            await ctx.send(_("{0} Added {1} to join role for people.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+
+    @joinrole_people.command(name='remove',
+                             brief='Remove a role on join for people',
+                             aliases=['r'])
+    @admin(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.cooldown(1, 10, commands.BucketType.member)
+    @commands.guild_only()
+    async def joinrole_people_remove(self, ctx, *, role: discord.Role):
+        """ Remove a role from role on join for people """
+
+        joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
+        mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
+        admin_role = self.bot.cache.get(self.bot, 'admin_role', ctx.guild.id)
+
+        if not joinrole:
+            return await ctx.send(_("{0} Role on is not enabled in this server, please use "
+                                    "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
+        elif joinrole:
+            if role.id not in joinrole['people']:
+                return await ctx.send(_("{0} That role is not added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
+            await self.bot.db.execute("DELETE FROM joinrole WHERE guild_id = $1 AND role = $2", ctx.guild.id, role.id)
+            joinrole['people'].remove(role.id)
+
+            await ctx.send(_("{0} Removed {1} from join role for people.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+
+    @joinrole_people.command(name='list',
+                             brief='See all the roles on join for people',
+                             aliases=['l'])
+    @admin(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.cooldown(1, 10, commands.BucketType.member)
+    @commands.guild_only()
+    async def joinrole_people_list(self, ctx):
+        """ See all the roles for role on join for people """
+
+        joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
+
+        if not joinrole:
+            return await ctx.send(_("{0} Role on is not enabled in this server, please use "
+                                    "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
+        elif joinrole and joinrole['people']:
+            list_of_roles = []
+            for num, role in enumerate(joinrole['people'], start=1):
+                the_role = ctx.guild.get_role(role)
+
+                list_of_roles.append(_("`[{0}]` {1} ({2})\n").format(num, the_role.mention if the_role else _('Role not found'), role))
+
+            paginator = Pages(ctx,
+                              title=_("Role on join for people"),
+                              entries=list_of_roles,
+                              thumbnail=None,
+                              per_page=15,
+                              embed_color=self.bot.settings['colors']['embed_color'],
+                              show_entry_count=True,
+                              author=ctx.author)
+            await paginator.paginate()
+
+        elif joinrole and not joinrole['people']:
+            return await ctx.send(_("{0} There are no role on join roles for people set.").format(self.bot.settings['emojis']['misc']['warn']))
+
+    @joinrole.group(name='bots',
+                    brief='Set role on join for bots',
+                    aliases=['robots'],
+                    invoke_without_command=True)
+    @admin(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.cooldown(1, 10, commands.BucketType.member)
+    @commands.guild_only()
+    async def joinrole_bots(self, ctx):
+        """ Manage role on join for bots """
+
+        await ctx.send_help(ctx.command)
+
+    @joinrole_bots.command(name='add',
+                           brief='Add a role on join for bots',
+                           aliases=['a'])
+    @admin(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.cooldown(1, 10, commands.BucketType.member)
+    @commands.guild_only()
+    async def joinrole_bots_add(self, ctx, *, role: discord.Role):
+        """ Add a role to role on join for bots """
+
+        joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
+        mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
+        admin_role = self.bot.cache.get(self.bot, 'admin_role', ctx.guild.id)
+
+        if not joinrole:
+            return await ctx.send(_("{0} Role on is not enabled in this server, please use "
+                                    "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
+        elif joinrole:
+            if role and role.id in (mod_role, admin_role):
+                return await ctx.send(_("{0} You cannot set that role as it is configured as mod or admin role").format(self.bot.settings['emojis']['misc']['warn']))
+            if role.position >= ctx.guild.me.top_role.position:
+                return await ctx.send(_("{0} The role you're trying to setup is higher in role hierarchy and I cannot access it.").format(
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
+            if role.id in joinrole['bots']:
+                return await ctx.send(_("{0} That role is already added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
+            await self.bot.db.execute("INSERT INTO joinrole(guild_id, botrole) VALUES($1, $2)", ctx.guild.id, role.id)
             if joinrole['bots']:
-                await self.bot.db.execute("UPDATE joinrole SET botrole = $1 WHERE guild_id = $2", role.id, ctx.guild.id)
-                joinrole['bots'] = role.id
-                await ctx.send(_("{0} Join role for bots was updated to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+                joinrole['bots'].append(role.id)
             elif not joinrole['bots']:
-                await self.bot.db.execute("UPDATE joinrole SET botrole = $1 WHERE guild_id = $2", role.id, ctx.guild.id)
-                joinrole['bots'] = role.id
-                await ctx.send(_("{0} Join role for bots was set to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
-            else:
-                await self.bot.db.execute("INSERT INTO joinrole(guild_id, botrole) VALUES($1, $2)", ctx.guild.id, role.id)
-                self.bot.joinrole[ctx.guild.id] = {'people': None, 'bots': role.id}
-                await ctx.send(_("{0} Join role for bots was set to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+                joinrole['bots'] = [role.id]
+
+            await ctx.send(_("{0} Added {1} to join role for bots.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+
+    @joinrole_bots.command(name='remove',
+                           brief='Remove a role on join for bots',
+                           aliases=['r'])
+    @admin(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.cooldown(1, 10, commands.BucketType.member)
+    @commands.guild_only()
+    async def joinrole_bots_remove(self, ctx, *, role: discord.Role):
+        """ Remove a role from role on join for bots """
+
+        joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
+        mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
+        admin_role = self.bot.cache.get(self.bot, 'admin_role', ctx.guild.id)
+
+        if not joinrole:
+            return await ctx.send(_("{0} Role on is not enabled in this server, please use "
+                                    "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
+        elif joinrole:
+            if role.id not in joinrole['bots']:
+                return await ctx.send(_("{0} That role is not added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
+            await self.bot.db.execute("DELETE FROM joinrole WHERE guild_id = $1 AND botrole = $2", ctx.guild.id, role.id)
+            joinrole['bots'].remove(role.id)
+
+            await ctx.send(_("{0} Removed {1} from join role for bots.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+
+    @joinrole_bots.command(name='list',
+                           brief='See all the roles on join for bots',
+                           aliases=['l'])
+    @admin(manage_roles=True)
+    @commands.bot_has_permissions(manage_roles=True)
+    @commands.cooldown(1, 10, commands.BucketType.member)
+    @commands.guild_only()
+    async def joinrole_bots_list(self, ctx):
+        """ See all the roles for role on join for bots """
+
+        joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
+
+        if not joinrole:
+            return await ctx.send(_("{0} Role on is not enabled in this server, please use "
+                                    "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
+        elif joinrole and joinrole['bots']:
+            list_of_roles = []
+            for num, role in enumerate(joinrole['bots'], start=1):
+                the_role = ctx.guild.get_role(role)
+
+                list_of_roles.append(_("`[{0}]` {1} ({2})\n").format(num, the_role.mention if the_role else _('Role not found'), role))
+
+            paginator = Pages(ctx,
+                              title=_("Role on join for bots"),
+                              entries=list_of_roles,
+                              thumbnail=None,
+                              per_page=15,
+                              embed_color=self.bot.settings['colors']['embed_color'],
+                              show_entry_count=True,
+                              author=ctx.author)
+            await paginator.paginate()
+
+        elif joinrole and not joinrole['bots']:
+            return await ctx.send(_("{0} There are no role on join roles for bots set.").format(self.bot.settings['emojis']['misc']['warn']))
 
     @joinrole.command(name='toggle',
                       brief='Toggle role on join',
@@ -909,9 +1038,9 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
 
         if not joinrole:
             await self.bot.db.execute("INSERT INTO joinrole(guild_id) VALUES($1)", ctx.guild.id)
-            self.bot.joinrole[ctx.guild.id] = {'people': None, 'bots': None}
+            self.bot.joinrole[ctx.guild.id] = {'people': [], 'bots': []}
             await ctx.send(_("{0} Role on join was toggled on, you can now set the roles using "
-                             "`{1}joinrole people <role>`").format(self.bot.settings['emojis']['misc']['white-mark'], ctx.prefix))
+                             "`{1}joinrole [people|bots] [add|remove] <role>`").format(self.bot.settings['emojis']['misc']['white-mark'], ctx.prefix))
         else:
             await self.bot.db.execute("DELETE FROM joinrole WHERE guild_id = $1", ctx.guild.id)
             self.bot.joinrole.pop(ctx.guild.id)
@@ -985,7 +1114,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 return await ctx.send(_("{0} Due to safety reasons, moderator role must at least have manage messages permissions").format(
                     self.bot.settings['emojis']['misc']['warn']
                 ))
-            if joinrole and arg.id == (joinrole['people'] or joinrole['bots']):
+            if joinrole and arg.id in (joinrole['people'] or joinrole['bots']):
                 return await ctx.send(_("{0} You cannot set that role as it is given to new members").format(self.bot.settings['emojis']['misc']['warn']))
             if not mod_role:
                 await self.bot.db.execute("INSERT INTO modrole(guild_id, role) VALUES($1, $2)", ctx.guild.id, arg.id)
@@ -1025,7 +1154,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 return await ctx.send(_("{0} Due to safety reasons, admin role must at least have ban members permissions").format(
                     self.bot.settings['emojis']['misc']['warn']
                 ))
-            if joinrole and arg.id == (joinrole['people'] or joinrole['bots']):
+            if joinrole and arg.id in (joinrole['people'] or joinrole['bots']):
                 return await ctx.send(_("{0} You cannot set that role as it is given to new members").format(self.bot.settings['emojis']['misc']['warn']))
             if not admin_role:
                 await self.bot.db.execute("INSERT INTO adminrole(guild_id, role) VALUES($1, $2)", ctx.guild.id, arg.id)

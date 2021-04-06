@@ -25,10 +25,11 @@ CHANGE_LOG = {
     'V1.4.1': '1. Fixed issue where you couldn\'t edit your todo if it was shorter than 150 characters.',
     'V1.5.0': '1. Fixed where bot wouldn\'t react with ⏹️ when paginating 1 page only\n2. Added more roasts.\n3. Added competing activity status to `userinfo` command\n4. Fixed fun commands opening a new session each time.\n5. You can now use roast outside NSFW channels',
     'V1.5.1': '1. Imported aiohttp module where I should\'ve had it',
-    'V3.0.0': '1. Improved caching\n2. Organized a lot of stuff\n3. Improved `userinfo` commands\n4. Improved commands accessibility for bot staff and users\n5. Set suggestions limit to 1000\n6. Switched up bot acknowledgement looks\n7. Added an option to disable categories\n8. Improved `status` command\n9. Removed `supreme` command\n10. Added `deleterole`, `topcommands`, `lyrics` commands\n11. Tracked suggestions can be untracked\n12. Added `cleanup` command\n13. Improved `source` command\n14. Improved & Removed some moderation commands\n15. Clone command is now named as `nuke`\n16. Added `togglelog all` command to enable/disable all the logs\n17. Hint messages for `help`\n18. Added `listmembers` command\n19. Added `purge all` back. When that subcommand is not used bot will pass pins\n20. Added customizable mute, mod & admin roles\n21. Added `chatbot` command.\n22. DMs are now a chatbot feature.\n23. Bot won\'t error silently if missing embed links permissions\n24. Added music\n25. Added ability to mass hack-ban'
+    'V3.0.0': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/827950602225975307',
+    'V3.0.1': ''
 }
 
-version = '3.0.0'
+version = '3.0.1'
 most_recent = CHANGE_LOG["V" + version]
 
 

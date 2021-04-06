@@ -391,9 +391,9 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def sourcecode(self, ctx, *, command: str = None):
         """ View the bot's source code
-        Keep in mind it is [licensed](https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md)"""
+        Keep in mind it is [licensed](https://github.com/dredd-bot/Dredd/blob/master/LICENSE 'AGPL-3.0 License')"""
 
-        source_url = 'https://github.com/TheMoksej/Dredd-v3'
+        source_url = 'https://github.com/dredd-bot/Dredd'
         if command is None:
             return await ctx.send(_("{0} You can see my source code here: <{1}>").format(self.bot.settings['emojis']['misc']['python'], source_url))
 

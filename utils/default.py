@@ -156,14 +156,16 @@ async def medias(ctx, user):
             if tp:
                 if tp == 1:
                     icon = ctx.bot.settings['emojis']['social']['discord']
-                if tp == 2:
+                elif tp == 2:
                     icon = ctx.bot.settings['emojis']['social']['instagram']
-                if tp == 3:
+                elif tp == 3:
                     icon = ctx.bot.settings['emojis']['social']['twitch']
-                if tp == 4:
+                elif tp == 4:
                     icon = ctx.bot.settings['emojis']['social']['twitter']
-                if tp == 5:
+                elif tp == 5:
                     icon = ctx.bot.settings['emojis']['social']['github']
+                elif tp == 6:
+                    icon = ctx.bot.settings['emojis']['social']['spotify']
             else:
                 icon = ''
         medias.append(f"{icon} [{title}]({media['media_link']})\n")
@@ -492,14 +494,15 @@ def member_activity(ctx, member):
                 except Exception:
                     message += f"• {activity.emoji} "
             if activity.name:
-                try:
-                    emoji = ctx.bot.get_emoji(int(activity.emoji.id))
-                except Exception:
-                    emoji = None
-                if emoji:
-                    message += f"{clean(activity.name)}"
-                else:
+                if not activity.emoji:
+                    try:
+                        emoji = ctx.bot.get_emoji(int(activity.emoji.id))
+                    except Exception:
+                        emoji = None
+
                     message += f"• {clean(activity.name)}"
+                else:
+                    message += f"{clean(activity.name)}"
             message += "\n"
 
         elif activity.type == discord.ActivityType.playing:

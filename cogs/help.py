@@ -323,6 +323,7 @@ class HelpCommand(commands.HelpCommand):
                           per_page=12,
                           embed_color=self.context.bot.settings['colors']['embed_color'],
                           show_entry_count=False,
+                          home=True,
                           author=self.context.author)
 
         await paginator.paginate()

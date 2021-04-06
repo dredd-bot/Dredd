@@ -237,7 +237,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 yourtodo = res['todo'][:190] + '...'
             elif len(res['todo']) < 195:
                 yourtodo = res['todo']
-            todol.append(f"`[{res['row_number']}]` {escape_markdown(yourtodo, as_needed=False)}\n")
+            todol.append(f"`[{res['row_number']}]` {yourtodo}\n")
 
         paginator = Pages(ctx,
                           entries=todol,

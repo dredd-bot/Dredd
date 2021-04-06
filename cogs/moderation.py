@@ -1762,7 +1762,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         old_reason = await self.bot.db.fetchval("SELECT reason FROM modlog WHERE guild_id = $1 AND case_num = $2", ctx.guild.id, case_id)
         old_reason = old_reason or "No reason"
         embed = message.embeds[0]
-        embed.description = embed.description.replace(old_reason, new_reason)
+        new_description = embed.description[:-len(old_reason)] + new_reason  # not using .replace cause then it replaces even usernames etc
+        embed.description = new_description
         await message.edit(embed=embed)
         query = 'UPDATE modlog SET reason = $1 WHERE guild_id = $2 AND case_num = $3'
         await self.bot.db.execute(query, new_reason, ctx.guild.id, case_id)

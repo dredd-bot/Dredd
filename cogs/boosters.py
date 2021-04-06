@@ -71,12 +71,12 @@ class Boosters(commands.Cog, aliases=['Donators']):
         if tot_medias >= 10:
             raise commands.BadArgument("You've reached the max limit of social medias available. (10)")
 
+        if (invite.startswith('https://') or invite.startswith('http://')):
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Invite must not be a full link, only the code (PMZXUwdr)")
         if name and len(name) > 32:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Sorry! I can't have you have media longer than 32 characters. If you wish this number to be updated, please contact my developer(s)")
         if check:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} You already have {name} linked in your medias.")
-        if (invite.startswith('https://') or invite.startswith('http://')):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Invite must not be a full link, only the code (PMZXUwdr)")
         else:
             try:
                 invite = await self.bot.fetch_invite(str(invite))
@@ -95,12 +95,12 @@ class Boosters(commands.Cog, aliases=['Donators']):
         if tot_medias >= 10:
             raise commands.BadArgument("You've reached the max limit of social medias available. (10)")
 
+        if (account_name.startswith('https://') or account_name.startswith('http://')):
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (TheMoksej)")
         if len(account_name) > 30:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Instagram account limit is 30, you're over 30, you sure it's the correct account name?")
         if check:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} You already have {account_name} linked in your medias.")
-        if (account_name.startswith('https://') or account_name.startswith('http://')):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (Moksej)")
         else:
             link = 'https://instagram.com/{0}'.format(account_name)
             await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 2)
@@ -114,12 +114,12 @@ class Boosters(commands.Cog, aliases=['Donators']):
         if tot_medias >= 10:
             raise commands.BadArgument("You've reached the max limit of social medias available. (10)")
 
+        if (account_name.startswith('https://') or account_name.startswith('http://')):
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (TheMoksej)")
         if len(account_name) > 30:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Twitch account limit is 30, you're over 30, you sure it's the correct account name?")
         if check:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} You already have {account_name} linked in your medias.")
-        if (account_name.startswith('https://') or account_name.startswith('http://')):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (Moksej)")
         else:
             link = 'https://twitch.tv/{0}'.format(account_name)
             await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 3)
@@ -133,12 +133,12 @@ class Boosters(commands.Cog, aliases=['Donators']):
         if tot_medias >= 10:
             raise commands.BadArgument("You've reached the max limit of social medias available. (10)")
 
+        if (account_name.startswith('https://') or account_name.startswith('http://')):
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (TheMoksej)")
         if len(account_name) > 30:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Twitter account limit is 30, you're over 30, you sure it's the correct account name?")
         if check:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} You already have {account_name} linked in your medias.")
-        if (account_name.startswith('https://') or account_name.startswith('http://')):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (Moksej)")
         else:
             link = 'https://twitter.com/{0}'.format(account_name)
             await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 4)
@@ -152,16 +152,36 @@ class Boosters(commands.Cog, aliases=['Donators']):
         if tot_medias >= 10:
             raise commands.BadArgument("You've reached the max limit of social medias available. (10)")
 
+        if (account_name.startswith('https://') or account_name.startswith('http://')):
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (TheMoksej)")
         if len(account_name) > 30:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} GitHub account limit is 30, you're over 30, you sure it's the correct account name?")
         if check:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} You already have {account_name} linked in your medias.")
-        if (account_name.startswith('https://') or account_name.startswith('http://')):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (TheMoksej)")
         else:
             link = 'https://github.com/{0}'.format(account_name)
             await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 5)
             await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Added GitHub ({account_name} - <{link}>) to your medias list.")
+
+    @socialmedia.command(name='spotify', brief='Link your spotify account')
+    @is_booster()
+    async def socialmedia_spotify(self, ctx, account_name: str):
+        check = await self.bot.db.fetchval("SELECT media_type FROM media WHERE user_id = $1 AND media_type = $2 AND type = $3", ctx.author.id, account_name, 6)
+        tot_medias = await self.bot.db.fetchval("SELECT count(*) FROM media WHERE user_id = $1", ctx.author.id)
+        if tot_medias >= 10:
+            raise commands.BadArgument("You've reached the max limit of social medias available. (10)")
+
+        if (account_name.startswith('https://') or account_name.startswith('http://')):
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (TheMoksej)")
+
+        if len(account_name) > 30:
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Spotify account limit is 30, you're over 30, you sure it's the correct account name?")
+        if check:
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} You already have {account_name} linked in your medias.")
+        else:
+            link = 'https://open.spotify.com/user/{0}'.format(account_name)
+            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 6)
+            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Added Spotify ({account_name} - <{link}>) to your medias list.")
 
     @socialmedia.command(name='remove', brief='Remove linked social media')
     @is_booster()
