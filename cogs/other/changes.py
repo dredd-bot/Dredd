@@ -26,10 +26,11 @@ CHANGE_LOG = {
     'V1.5.0': '1. Fixed where bot wouldn\'t react with ⏹️ when paginating 1 page only\n2. Added more roasts.\n3. Added competing activity status to `userinfo` command\n4. Fixed fun commands opening a new session each time.\n5. You can now use roast outside NSFW channels',
     'V1.5.1': '1. Imported aiohttp module where I should\'ve had it',
     'V3.0.0': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/827950602225975307',
-    'V3.0.1': ''
+    'V3.0.1': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/829011633061363762',
+    'V3.0.2': '',
 }
 
-version = '3.0.1'
+version = '3.0.2'
 most_recent = CHANGE_LOG["V" + version]
 
 
