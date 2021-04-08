@@ -122,11 +122,10 @@ class DiscordLists(commands.Cog):
         self.api.set_auth("botsfordiscord.com", bot.config.BFD_TOKEN)
         self.api.set_auth("botlist.space", bot.config.BOTSPACE_TOKEN)
         self.api.set_auth("discordbots.co", bot.config.DISCORD_BOTS_TOKEN)
-        self.api.set_auth('arcane-center.xyz', bot.config.ARCANE_TOKEN)
         self.api.set_auth('bladebotlist.xyz', bot.config.BBL_TOKEN)
         self.api.set_auth('blist.xyz', bot.config.BLIST_TOKEN)
-        self.api.set_auth('botsdatabase.com', bot.config.BDB_TOKEN)
         self.api.set_auth('space-bot-list.xyz', bot.config.SBL_TOKEN)
+        self.api.set_auth('infinitybotlist.com', bot.config.INFINITY_TOKEN)
         self.api.start_loop()
 
         self.help_icon = ''
