@@ -376,7 +376,7 @@ class Logging(commands.Cog):
             joinlog_embed.set_author(name=_('{0} joined the server').format(member), icon_url=member.avatar_url)
             joinlog_embed.description = _("**Member:** {0} ({1})\n"
                                           "**Account Created:** {2}").format(
-                                              member.mention, member.id, btime.human_timedelta(member.created_at, source=datetime.utcnow())
+                                              member.mention, member.id, btime.human_timedelta(member.created_at.replace(tzinfo=None), source=datetime.utcnow())
                                           )
             joinlog_embed.set_footer(text=_("Member #{0}").format(member.guild.member_count))
             try:
@@ -397,7 +397,7 @@ class Logging(commands.Cog):
             joinlog_embed.description = _("**Member:** {0} ({1})\n"
                                           "**Joined server:** {2}\n"
                                           "**Roles:** {3}").format(
-                                              member.mention, member.id, btime.human_timedelta(member.joined_at, source=datetime.utcnow()),
+                                              member.mention, member.id, btime.human_timedelta(member.joined_at.replace(tzinfo=None), source=datetime.utcnow()),
                                               ', '.join(roles[:20]) + f' **(+{len(member.roles) - 20})**' if len(roles) > 20 else ', '.join(roles) if roles else _('No roles.')
                                           )
             joinlog_embed.set_footer(text=_("Members left: {0}").format(member.guild.member_count))

@@ -193,7 +193,7 @@ class owner(commands.Cog, name="Owner"):
 
         acks = default.bot_acknowledgements(ctx, user, True)
         suggestions = await self.bot.db.fetch("SELECT suggestion_id FROM suggestions WHERE user_id = $1", user.id)
-        commands = await self.bot.db.fetchval("SELECT count(*) FROM command_logs WHERE user_id = $1", user.id)
+        commands = await self.bot.db.fetchval("SELECT sum(usage) FROM command_logs WHERE user_id = $1", user.id)
         ids = []
         for id in suggestions:
             ids.append(f"{id['suggestion_id']}")

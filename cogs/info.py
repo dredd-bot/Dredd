@@ -197,7 +197,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 **User ID:** {4}
 **Account created:** {5} ({6})""").format(status, user, discord_badges,
                                           act, user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
-                                          btime.human_timedelta(user.created_at, source=datetime.utcnow())), inline=False)
+                                          btime.human_timedelta(user.created_at.replace(tzinfo=None), source=datetime.utcnow())), inline=False)
             e.add_field(name=_("Server Information:"), value=_("""
 **Nickname:** {0}{1}
 **Joined at:** {2} ({3})
@@ -222,7 +222,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 **User ID:** {4}
 **Account created:** {5} ({6})""").format(status, user, discord_badges,
                                           act, user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
-                                          btime.human_timedelta(user.created_at, source=datetime.utcnow())), inline=False)
+                                          btime.human_timedelta(user.created_at.replace(tzinfo=None), source=datetime.utcnow())), inline=False)
 
         if await self.bot.is_booster(user):
             media = await default.medias(ctx, user)
@@ -284,7 +284,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
 **Nitro status:**
 {9}
-""").format(ctx.guild.name, ctx.guild.id, default.date(ctx.guild.created_at), btime.human_timedelta(ctx.guild.created_at, source=datetime.utcnow()),
+""").format(ctx.guild.name, ctx.guild.id, default.date(ctx.guild.created_at), btime.human_timedelta(ctx.guild.created_at.replace(tzinfo=None), source=datetime.utcnow()),
             region, str(ctx.guild.verification_level).capitalize(),
             ctx.guild.owner or 'Unknown', ctx.guild.owner.id, ack, nitromsg))
 
