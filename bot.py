@@ -48,8 +48,8 @@ async def run():
     try:
         await LoadCache.start(bot)
         bot.session = aiohttp.ClientSession(loop=bot.loop)
-        await bot.start(config.DISCORD_TOKEN)
-        # await bot.start(config.MAIN_TOKEN)
+        # await bot.start(config.DISCORD_TOKEN)
+        await bot.start(config.MAIN_TOKEN)
     except KeyboardInterrupt:
         await db.close()
         await bot.logout()
