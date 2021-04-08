@@ -83,6 +83,18 @@ class Player(wavelink.Player):
         self.stop_votes.clear()
         self.loop_votes.clear()
 
+        if isinstance(self.context.guild.me.voice.channel, discord.StageChannel):
+            if self.context.guild.me.voice.suppress:
+                await self.context.guild.me.request_to_speak()
+                await self.context.channel.send(_("{0} Please give me permissions to speak in a stage channel. I will check if I have permissions to speak again in 10 seconds,"
+                                                  " if not, I will leave the stage channel.").format(self.context.bot.settings['emojis']['misc']['warn']), delete_after=10)
+                await asyncio.sleep(10)
+                if self.context.guild.me.voice.suppress:
+                    await self.context.channel.send(_("Left because I was still suppressed."))
+                    return await self.teardown()
+                else:
+                    pass
+
         if self.loop == 0:
             try:
                 self.waiting = True
@@ -340,7 +352,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
                     select = False
                 elif song_request.content.lower() == 'cancel':
                     select = False
-                    return await prompt_msg.edit(content=_("Canceled the command. {0}").format(select))
+                    return await prompt_msg.edit(content=_("Canceled the command."))
                 else:
                     select = True
                     pass

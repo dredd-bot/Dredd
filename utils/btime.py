@@ -62,11 +62,11 @@ class HumanTime:
             dt = dt.replace(hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond)
 
         self.dt = dt
-        self._past = dt < now
+        self._past = dt < now.replace(tzinfo=None)
 
     @classmethod
     async def convert(cls, ctx, argument):
-        return cls(argument, now=ctx.message.created_at)
+        return cls(argument, now=ctx.message.created_at.replace(tzinfo=None))
 
 
 class ShortTime:
@@ -86,7 +86,7 @@ class ShortTime:
 
         data = {k: int(v) for k, v in match.groupdict(default=0).items()}
         now = now or datetime.datetime.utcnow()
-        self.dt = now + relativedelta(**data)
+        self.dt = now.replace(tzinfo=None) + relativedelta(**data)
 
     @classmethod
     async def convert(cls, ctx, argument):
@@ -96,7 +96,7 @@ class ShortTime:
 class Time(HumanTime):
     def __init__(self, argument, *, now=None):
         try:
-            o = ShortTime(argument, now=now)
+            o = ShortTime(argument, now=now.replace(tzinfo=None))
         except Exception:
             super().__init__(argument)
         else:
@@ -106,7 +106,7 @@ class Time(HumanTime):
 
 class FutureTime(Time):
     def __init__(self, argument, *, now=None):
-        super().__init__(argument, now=now)
+        super().__init__(argument, now=now.replace(tzinfo=None))
 
         if self._past:
             raise commands.BadArgument(_("{0} The time you've provided is in the past").format(self.bot.settings['emojis']['misc']['warn']))
@@ -138,6 +138,7 @@ class UserFriendlyTime(commands.Converter):
             calendar = HumanTime.calendar
             # regex = ShortTime.compiled
             now = ctx.message.created_at
+            now = now.replace(tzinfo=None)
 
             match = None  # regex.match(argument)
             if match is not None and match.group(0):
@@ -180,7 +181,8 @@ class UserFriendlyTime(commands.Converter):
                 remaining = argument[:begin].strip()
 
             return await self.check_constraints(ctx, now, remaining)
-        except Exception:
+        except Exception as e:
+            return await ctx.channel.send(e)
             raise commands.BadArgument(_("Sorry, but I did not understand what you meant. You probably didn't specify the time or you specified it in another language (not English)"))
 
 
@@ -189,6 +191,7 @@ def human_timedelta(dt, *, source=None, accuracy=3, brief=False, suffix=True):
     # Microsecond free zone
     now = now.replace(microsecond=0)
     dt = dt.replace(microsecond=0)
+    now = now.replace(tzinfo=None)
 
     # This implementation uses relativedelta instead of the much more obvious
     # divmod approach with seconds because the seconds approach is not entirely
