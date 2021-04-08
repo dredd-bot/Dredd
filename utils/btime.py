@@ -191,9 +191,9 @@ def human_timedelta(dt, *, source=None, accuracy=3, brief=False, suffix=True):
     now = now.replace(microsecond=0)
     dt = dt.replace(microsecond=0)
 
-    if hasattr(now, tzinfo):
+    if hasattr(now, 'tzinfo'):
         now.replace(tzinfo=None)
-    if hasattr(dt, tzinfo):
+    if hasattr(dt, 'tzinfo'):
         dt.replace(tzinfo=None)
 
     # This implementation uses relativedelta instead of the much more obvious
