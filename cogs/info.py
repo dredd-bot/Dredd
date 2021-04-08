@@ -203,7 +203,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 **Joined at:** {2} ({3})
 **Roles:** {4}""").format(nick, nicks[:-2],
                           default.date(member.joined_at),
-                          btime.human_timedelta(member.joined_at, source=datetime.utcnow()),
+                          btime.human_timedelta(member.joined_at.replace(tzinfo=None), source=datetime.utcnow()),
                           ', '.join(uroles) + user_roles))
 
         else:
