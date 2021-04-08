@@ -116,7 +116,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 • Servers: **{12}**
 • Channels: {13} **{14}** | {15} **{16}**\n
 """).format(version, escape_markdown(str(Moksej), as_needed=False), self.bot.settings['emojis']['misc']['python'], discord.__version__, btime.human_timedelta(self.bot.uptime),
-            default.date(self.bot.user.created_at), default.timeago(datetime.utcnow() - self.bot.user.created_at), self.bot.support, self.bot.invite,
+            default.date(self.bot.user.created_at), default.timeago(datetime.utcnow() - self.bot.user.created_at.replace(tzinfo=None)), self.bot.support, self.bot.invite,
             self.get_last_commits(), f'{totcmd:,}', f'{mems:,}', f'{len(self.bot.guilds):,}', self.bot.settings['emojis']['logs']['unlock'], f'{text:,}',
             self.bot.settings['emojis']['logs']['vcunlock'], f'{voice:,}', website)
         embed.set_image(

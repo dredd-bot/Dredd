@@ -191,21 +191,16 @@ def human_timedelta(dt, *, source=None, accuracy=3, brief=False, suffix=True):
     now = now.replace(microsecond=0)
     dt = dt.replace(microsecond=0)
 
-    if hasattr(now, 'tzinfo'):
-        now.replace(tzinfo=None)
-    if hasattr(dt, 'tzinfo'):
-        dt.replace(tzinfo=None)
-
     # This implementation uses relativedelta instead of the much more obvious
     # divmod approach with seconds because the seconds approach is not entirely
     # accurate once you go over 1 week in terms of accuracy since you have to
     # hardcode a month as 30 or 31 days.
     # A query like "11 months" can be interpreted as "!1 months and 6 days"
-    if dt > now:
-        delta = relativedelta(dt, now)
+    if dt.replace(tzinfo=None) > now.replace(tzinfo=None):
+        delta = relativedelta(dt, now.replace(tzinfo=None))
         suffix = ''
     else:
-        delta = relativedelta(now, dt)
+        delta = relativedelta(now.replace(tzinfo=None), dt)
         suffix = ' ago' if suffix else ''
 
     attrs = [
