@@ -142,7 +142,7 @@ class Bot(commands.AutoShardedBot):
 
         self.support = 'https://discord.gg/f3MaASW'
         self.invite = 'https://dredd-bot.xyz/invite'
-        self.privacy = '<https://gist.github.com/TheMoksej/02671c21451843d8186e718065b731ee>'
+        self.privacy = '<https://github.com/dredd-bot/Dredd/blob/master/privacy.md>'
         self.license = '<https://github.com/TheMoksej/Dredd/blob/master/LICENSE>'
         self.gif_pfp = 'https://cdn.discordapp.com/attachments/667077166789558288/747132112099868773/normal_3.gif'
         self.vote = '<https://discord.boats/bot/667117267405766696/vote>'
