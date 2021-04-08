@@ -285,7 +285,7 @@ class Events(commands.Cog):
         e.description = f"""
 **Guild:** {guild.name} ({guild.id})
 **Owner:** [{owner}](https://discord.com/users/{owner.id}) ({owner.id})
-**Created at:** {btime.human_timedelta(guild.created_at, source=datetime.utcnow())}
+**Created at:** {btime.human_timedelta(guild.created_at.replace(tzinfo=None), source=datetime.utcnow())}
 **Members:** {len(guild.humans)} users and {bots} bots (Total: {guild.member_count})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice
@@ -332,7 +332,7 @@ class Events(commands.Cog):
             e.description = f"""
 **Guild:** {guild.name} ({guild.id})
 **Owner:** [{guild.owner}](https://discord.com/users/{guild.owner.id}) ({guild.owner.id})
-**Created at:** {btime.human_timedelta(guild.created_at, source=datetime.utcnow())}
+**Created at:** {btime.human_timedelta(guild.created_at.replace(tzinfo=None), source=datetime.utcnow())}
 **Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice

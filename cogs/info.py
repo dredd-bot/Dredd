@@ -807,11 +807,11 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
         if not ctx.guild.chunked:
             await self.bot.request_offline_members(ctx.guild)
-        members = sorted(ctx.guild.members, key=lambda m: m.joined_at, reverse=True)[:counts]
+        members = sorted(ctx.guild.members, key=lambda m: m.joined_at.replace(tzinfo=None), reverse=True)[:counts]
         e = discord.Embed(title=_('Newest member(s) in this server:'), colour=self.bot.settings['colors']['embed_color'])
         for num, member in enumerate(members, start=1):
             data = _('**Joined Server at** {0}\n**Account created at** {1}').format(btime.human_timedelta(member.joined_at),
-                                                                                    btime.human_timedelta(member.created_at))
+                                                                                    btime.human_timedelta(member.created_at.replace(tzinfo=None)))
             e.add_field(name=f'`[{num}]` **{member}** ({member.id})', value=data, inline=False)
             if count > 10:
                 e.set_footer(text=_("The limit is set to 10"))

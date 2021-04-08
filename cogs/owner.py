@@ -275,7 +275,7 @@ class owner(commands.Cog, name="Owner"):
         e.add_field(name='Other information:', value=f"""
 **Total channels/roles:** {len(guild.channels)} channels / {len(guild.roles)} roles
 **Server created at:** {default.date(guild.created_at)}
-**Joined server at:** {btime.human_timedelta(guild.get_member(self.bot.user.id).joined_at, source=datetime.utcnow())} ({default.date(guild.get_member(self.bot.user.id).joined_at)})
+**Joined server at:** {btime.human_timedelta(guild.get_member(self.bot.user.id).joined_at.replace(tzinfo=None), source=datetime.utcnow())} ({default.date(guild.get_member(self.bot.user.id).joined_at)})
 **Prefix:** {escape_markdown(prefix)}
 **Language:** {language}
 **Mute role:** {f"{muterole.id}" if muterole else 'Not found'}
