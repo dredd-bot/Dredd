@@ -313,37 +313,37 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             for member in set(members):
                 if member == ctx.author:
                     failed.append(_("{0} ({1}) - **You are the member though?**").format(
-                        member.mention, member.id
+                        member, member.id
                     ))
                     fail += 1
                     continue
                 if member.top_role.position >= ctx.guild.me.top_role.position:
                     failed.append(_("{0} ({1}) - **Member is above me in the role hierarchy or has the same role**").format(
-                        member.mention, member.id
+                        member, member.id
                     ))
                     fail += 1
                     continue
                 elif member.top_role.position >= ctx.author.top_role.position:
                     failed.append(_("{0} ({1}) - **Member is above you in the role hierarchy or has the same role**").format(
-                        member.mention, member.id
+                        member, member.id
                     ))
                     fail += 1
                     continue
                 else:
                     try:
                         await ctx.guild.kick(member, reason=default.responsible(ctx.author, reason))
-                        kicked.append(f"{member.mention} ({member.id})")
+                        kicked.append(f"{member} ({member.id})")
                         success += 1
                         success_kick.append(member)
                     except discord.Forbidden:
                         failed.append(_("{0} ({1}) - **Missing permissions? Do they have administrator?**").format(
-                            member.mention, member.id
+                            member, member.id
                         ))
                         fail += 1
                         continue
                     except discord.HTTPException:
                         failed.append(_("{0} ({1}) - **Kicking failed**").format(
-                            member.mention, member.id
+                            member, member.id
                         ))
                         fail += 1
                         continue
@@ -408,19 +408,19 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             for member in set(members):
                 if member == ctx.author:
                     failed.append(_("{0} ({1}) - **You are the member though?**").format(
-                        member.mention, member.id
+                        member, member.id
                     ))
                     fail += 1
                     continue
                 if member.top_role.position >= ctx.guild.me.top_role.position:
                     failed.append(_("{0} ({1}) - **Member is above me in the role hierarchy or has the same role**").format(
-                        member.mention, member.id
+                        member, member.id
                     ))
                     fail += 1
                     continue
                 elif member.top_role.position >= ctx.author.top_role.position:
                     failed.append(_("{0} ({1}) - **Member is above you in the role hierarchy or has the same role**").format(
-                        member.mention, member.id
+                        member, member.id
                     ))
                     fail += 1
                     continue
@@ -428,17 +428,17 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                     try:
                         await ctx.guild.ban(member, reason=default.responsible(ctx.author, reason), delete_message_days=0)
                         await default.execute_temporary(ctx, 2, member, ctx.author, ctx.guild, None, duration, reason)
-                        banned.append(f"{member.mention} ({member.id})")
+                        banned.append(f"{member} ({member.id})")
                         success += 1
                         success_ban.append(member)
                     except discord.Forbidden:
                         failed.append(_("{0} ({1}) - **Missing permissions? Do they have administrator?**").format(
-                            member.mention, member.id
+                            member, member.id
                         ))
                         fail += 1
                         continue
                     except discord.HTTPException:
-                        failed.append(_("{0} ({1}) - **Banning failed**").format(member.mention, member.id))
+                        failed.append(_("{0} ({1}) - **Banning failed**").format(member, member.id))
                         fail += 1
                         continue
             try:
