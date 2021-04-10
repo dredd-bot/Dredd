@@ -21,6 +21,7 @@ import os
 
 from discord.ext import commands, tasks
 from discord.utils import escape_markdown
+from io import BytesIO
 
 from utils import btime, default
 from datetime import datetime, timedelta
@@ -156,6 +157,8 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         await asyncio.sleep(5)
         with open(f'backups/{name}.sql', 'r', encoding='utf8') as f:
             backup = f.read()
+
+        backup = BytesIO(backup.encode('utf8'))
         if not backup:
             return await ch.send(f"{self.bot.get_user(345457928972533773).mention} Backup `{name}.sql` is empty!", allowed_mentions=discord.AllowedMentions(users=True))
         else:
