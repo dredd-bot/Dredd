@@ -162,7 +162,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         if not backup:
             return await ch.send(f"{self.bot.get_user(345457928972533773).mention} Backup `{name}.sql` is empty!", allowed_mentions=discord.AllowedMentions(users=True))
         else:
-            await self.client.send(receiver, content, subject="Database Backup", bcc=None, attachment_bytes=backup, attachment_name=f"{name}.sql")
+            await self.client.send(receiver, content, subject="Database Backup", bcc=None, attachment_bytes=backup.read(), attachment_name=f"{name}.sql")
             return await ch.send(f"Created backup `{name}.sql`")
 
     @tasks.loop(hours=24)
