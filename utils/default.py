@@ -25,7 +25,7 @@ import urllib
 from discord.ext import commands
 
 from utils.Nullify import clean
-from datetime import datetime
+from datetime import datetime, timezone
 from utils.publicflags import UserFlags, BotFlags
 from discord.utils import escape_markdown
 from utils.btime import human_timedelta, FutureTime
@@ -61,7 +61,7 @@ def traceback_maker(err, advance: bool = True):
 async def background_error(ctx, err_type, err_msg, guild, channel):
     message = f"{ctx.bot.settings['emojis']['misc']['error']} **Error occured on event -** " \
               f"{err_type}"
-    e = discord.Embed(color=ctx.bot.settings['colors']['error_color'], timestamp=datetime.now())
+    e = discord.Embed(color=ctx.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc))
     e.description = traceback_maker(err_msg)
     e.add_field(name="Server it occured in:", value=f"**Server:** {guild} ({guild.id})\n"
                                                     f"**Channel:** #{channel} ({'' if not channel else channel.id})")
@@ -360,7 +360,7 @@ def server_logs(ctx, server, simple=True):
 
 
 async def admin_tracker(ctx):
-    e = discord.Embed(color=ctx.bot.settings['colors']['embed_color'], timestamp=datetime.now())
+    e = discord.Embed(color=ctx.bot.settings['colors']['embed_color'], timestamp=datetime.now(timezone.utc))
     e.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
     e.title = "Admin command used"
     e.description = f"""
@@ -383,7 +383,7 @@ async def auto_guild_leave(ctx, abusive_user, guild):
     notif_channel = ctx.bot.get_channel(ctx.bot.settings['channels']['joins-leaves'])
     moksej = ctx.bot.get_user(345457928972533773)
 
-    e = discord.Embed(color=ctx.bot.settings['colors']['error_color'], timestamp=datetime.utcnow())
+    e = discord.Embed(color=ctx.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc))
     e.set_author(name="Left guild forcefully", icon_url=guild.icon_url)
     e.description = f"""
 Hey {guild.owner}!

@@ -163,7 +163,7 @@ class Others(commands.Cog):
         self.bot = bot
         self.discordbotlist.start()
         self.discordservices.start()
-        
+
         self.help_icon = ''
         self.big_icon = ''
 

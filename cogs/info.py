@@ -48,7 +48,7 @@ class Info(commands.Cog, name='Information', aliases=['Infos']):
 
         # [`hash`](url) message (offset)
         offset = btime.human_timedelta(commit_time.astimezone(timezone.utc).replace(tzinfo=None), source=datetime.utcnow(), accuracy=1)
-        return f'• [`{short_sha2}`](https://github.com/TheMoksej/Dredd-v3/commit/{commit.hex}) {short} ({offset})'
+        return f'• [`{short_sha2}`](https://github.com/TheMoksej/Dredd/commit/{commit.hex}) {short} ({offset})'
 
     def get_last_commits(self, count=3):
         repo = pygit2.Repository('.git')

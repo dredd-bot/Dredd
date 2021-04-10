@@ -45,7 +45,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
     def new_member(self, member):
         now = datetime.utcnow()
         month = now - timedelta(days=30)
-        return member.created_at > month
+        return member.created_at.replace(tzinfo=timezone.utc) > month
 
     # if they send a message
     @commands.Cog.listener('on_message')
@@ -302,7 +302,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             emoji = emoji['memberedit'] if action == 6 else emoji['ban']
             action = _("Member Kicked") if action == 6 else _("Member Banned")
 
-        embed = discord.Embed(color=color, timestamp=datetime.utcnow())
+        embed = discord.Embed(color=color, timestamp=datetime.now(timezone.utc))
 
         embed.set_author(name=_("Automod Action"), icon_url=member.avatar_url, url=f'https://discord.com/users/{member.id}')
         embed.title = _("{0} {1}").format(emoji, action)

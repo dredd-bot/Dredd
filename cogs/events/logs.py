@@ -18,7 +18,7 @@ import json
 import asyncio
 
 from discord.ext import commands
-from datetime import datetime
+from datetime import datetime, timezone
 
 from utils import btime, default, publicflags
 from db.cache import CacheManager as CM
@@ -84,7 +84,7 @@ class Logging(commands.Cog):
                 return
 
             editlog_channel = before.guild.get_channel(message_edits)
-            editlog_embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.utcnow())
+            editlog_embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.now(timezone.utc))
             editlog_embed.title = _("{0} Message Edited").format(self.bot.settings['emojis']['logs']['msgedit'])
             editlog_embed.description = _("**User:** {0} `{1}`\n**Channel:** {2} `#{3}`\n[Jump to message]({4})").format(before.author.mention, before.author,
                                                                                                                          before.channel.mention, before.channel.name,
@@ -120,7 +120,7 @@ class Logging(commands.Cog):
             return
 
         deletelog_channel = message.guild.get_channel(message_deletes)
-        deletelog_embed = discord.Embed(color=self.bot.settings['colors']['deny_color'], timestamp=datetime.utcnow())
+        deletelog_embed = discord.Embed(color=self.bot.settings['colors']['deny_color'], timestamp=datetime.now(timezone.utc))
         deletelog_embed.title = _("{0} Message Deleted").format(self.bot.settings['emojis']['logs']['msgdelete'])
         deletelog_embed.description = _("**User:** {0} `{1}`\n**Channel:** {2} `#{3}`").format(message.author.mention, message.author,
                                                                                                message.channel.mention, message.channel.name)
@@ -157,7 +157,7 @@ class Logging(commands.Cog):
         if before.nick != after.nick:
             nick_channel = before.guild.get_channel(member_update)
             nick_embed = discord.Embed(color=self.bot.settings['colors']['log_color'],
-                                       timestamp=datetime.utcnow())
+                                       timestamp=datetime.now(timezone.utc))
             nick_embed.set_author(name=_("{0} changed their nickname").format(before), icon_url=before.avatar_url)
             nick_embed.title = _("{0} Nickname Changed").format(self.bot.settings['emojis']['logs']['memberedit'])
             nick_embed.description = _("**Member:** {0} `{1}`\n\n**Before:** {2}\n**After:** {3}").format(before.mention, before,
@@ -183,7 +183,7 @@ class Logging(commands.Cog):
 
                 if before.avatar != after.avatar:
                     updateavatar_channel = guild.get_channel(member_update)
-                    updateavatar_embed = discord.Embed(color=self.bot.settings['colors']['log_color'], timestamp=datetime.utcnow())
+                    updateavatar_embed = discord.Embed(color=self.bot.settings['colors']['log_color'], timestamp=datetime.now(timezone.utc))
                     updateavatar_embed.set_author(name=_("{0} changed their avatar").format(before), icon_url=before.avatar_url)
                     updateavatar_embed.title = _("{0} Avatar Changed").format(self.bot.settings['emojis']['logs']['memberedit'])
                     updateavatar_embed.description = _("**Member:** {0} `{1}`\n[Avatar URL]({2})").format(before.mention, before, after.avatar_url)
@@ -198,7 +198,7 @@ class Logging(commands.Cog):
 
                 if before.name != after.name:
                     updateuser_channel = guild.get_channel(member_update)
-                    updateuser_embed = discord.Embed(color=self.bot.settings['colors']['log_color'], timestamp=datetime.utcnow())
+                    updateuser_embed = discord.Embed(color=self.bot.settings['colors']['log_color'], timestamp=datetime.now(timezone.utc))
                     updateuser_embed.set_author(name=_("{0} changed their username").format(after), icon_url=before.avatar_url)
                     updateuser_embed.title = _("{0} Username Changed").format(self.bot.settings['emojis']['logs']['memberedit'])
                     updateuser_embed.description = _("**Member:** {0} `{1}`\n**Before:** {2}\n**After:** {3}").format(after.mention, after, before.name, after.name)
@@ -235,7 +235,7 @@ class Logging(commands.Cog):
             self.bot.case_num[guild.id] = 1
         await self.insert_new_case(mod.id, log_channel.id, case, user.id, guild.id, 1, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['ban_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['ban_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} A member has been banned").format(self.bot.settings['emojis']['logs']['ban'])
         the_user = f"{user} ({user.id})"
@@ -260,7 +260,7 @@ class Logging(commands.Cog):
         mod, reason = None, ""
         async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=50):
             if entry.target == user:
-                if (datetime.utcnow() - entry.created_at).total_seconds() < 3:
+                if (datetime.utcnow() - entry.created_at.replace(tzinfo=None)).total_seconds() < 3:
                     mod = entry.user
                     reason += f"{entry.reason}"
 
@@ -275,7 +275,7 @@ class Logging(commands.Cog):
             self.bot.case_num[guild.id] = 1
         await self.insert_new_case(mod.id, log_channel.id, case, user.id, guild.id, 6, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} A member was un-banned").format(self.bot.settings['emojis']['logs']['unban'])
         the_user = f"{user} ({user.id})"
@@ -371,7 +371,7 @@ class Logging(commands.Cog):
 
         if joinlog:
             joinlog_channel = member.guild.get_channel(joinlog)
-            joinlog_embed = discord.Embed(color=self.bot.settings['colors']['memberlog_color'], timestamp=datetime.utcnow())
+            joinlog_embed = discord.Embed(color=self.bot.settings['colors']['memberlog_color'], timestamp=datetime.now(timezone.utc))
             joinlog_embed.title = _("{0} A new member has joined").format(self.bot.settings['emojis']['logs']['memberjoin'])
             joinlog_embed.set_author(name=_('{0} joined the server').format(member), icon_url=member.avatar_url)
             joinlog_embed.description = _("**Member:** {0} ({1})\n"
@@ -390,7 +390,7 @@ class Logging(commands.Cog):
 
         if leavelog:
             joinlog_channel = member.guild.get_channel(leavelog)
-            joinlog_embed = discord.Embed(color=self.bot.settings['colors']['deny_color'], timestamp=datetime.utcnow())
+            joinlog_embed = discord.Embed(color=self.bot.settings['colors']['deny_color'], timestamp=datetime.now(timezone.utc))
             joinlog_embed.title = _("{0} A member has left the server").format(self.bot.settings['emojis']['logs']['memberleave'])
             joinlog_embed.set_author(name=_('{0} left the server').format(member), icon_url=member.avatar_url)
             roles = [x.mention for x in member.roles if x.name != '@everyone']
@@ -561,7 +561,7 @@ class Logging(commands.Cog):
             ban_list.append(f"`[{num + 1}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 1, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['ban_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['ban_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) banned").format(self.bot.settings['emojis']['logs']['ban'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list),
@@ -593,7 +593,7 @@ class Logging(commands.Cog):
             ban_list.append(f"`[{num + 1}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 1, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['ban_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['ban_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) hack-banned").format(self.bot.settings['emojis']['logs']['ban'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list[:10]), '' if len(ban_list) <= 10 else f"\n**(+{len(ban_list) - 10}**)",
@@ -624,7 +624,7 @@ class Logging(commands.Cog):
             kick_list.append(f"`[{num + 1}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 2, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) kicked").format(self.bot.settings['emojis']['logs']['memberleave'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(kick_list),
@@ -655,7 +655,7 @@ class Logging(commands.Cog):
             kick_list.append(f"`[{num + 1}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 3, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) softbanned").format(self.bot.settings['emojis']['logs']['memberleave'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(kick_list),
@@ -687,7 +687,7 @@ class Logging(commands.Cog):
             ban_list.append(f"`[{num + 1}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 4, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) muted").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list),
@@ -719,7 +719,7 @@ class Logging(commands.Cog):
             warn_list.append(f"`[{num + 1}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 5, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['warn_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['warn_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) warned").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(warn_list),
@@ -752,7 +752,7 @@ class Logging(commands.Cog):
 
         unban_lists = unban_list if len(unban_list) <= 10 else unban_list[:10]
 
-        embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) un-banned").format(self.bot.settings['emojis']['logs']['unban'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(unban_lists), '' if len(unban_list) <= 10 else f"\n**(+{len(unban_list) - 10}**)",
@@ -783,7 +783,7 @@ class Logging(commands.Cog):
             unmute_list.append(f"`[{num + 1}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 7, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) un-muted").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(unmute_list),
@@ -808,7 +808,7 @@ class Logging(commands.Cog):
         mod, reason = None, ""
         async for entry in guild.audit_logs(action=discord.AuditLogAction.kick, limit=5):
             if entry.target == user:
-                if (datetime.utcnow() - entry.created_at).total_seconds() < 3:
+                if (datetime.utcnow() - entry.created_at.replace(tzinfo=None)).total_seconds() < 3:
                     mod = entry.user
                     reason += f"{entry.reason}"
 
@@ -826,7 +826,7 @@ class Logging(commands.Cog):
             self.bot.case_num[guild.id] = 1
         await self.insert_new_case(mod.id, log_channel.id, case, user.id, guild.id, 2, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} A member has been kicked").format(self.bot.settings['emojis']['logs']['memberleave'])
         the_user = f"{user} ({user.id})"
@@ -857,7 +857,7 @@ class Logging(commands.Cog):
             mute_list.append(f"`[{num + 1}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 8, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) voice muted").format(self.bot.settings['emojis']['logs']['vmute'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(mute_list),
@@ -888,7 +888,7 @@ class Logging(commands.Cog):
             mute_list.append(f"`[{num + 1}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 9, reason)
 
-        embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) voice unmuted").format(self.bot.settings['emojis']['logs']['vunmute'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(mute_list),
@@ -921,7 +921,7 @@ class Logging(commands.Cog):
 
         dehoist_lists = dehoist_list if len(dehoist_list) <= 10 else dehoist_list[:10]
 
-        embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.utcnow())
+        embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.now(timezone.utc))
         embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) dehoisted").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n").format("\n".join(dehoist_lists), '' if len(dehoist_list) <= 10 else f"\n**(+{len(dehoist_list) - 10}**)",

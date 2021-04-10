@@ -20,7 +20,7 @@ from discord.ext import commands
 
 from utils import checks, default, publicflags
 from db.cache import CacheManager as CM
-from datetime import datetime
+from datetime import datetime, timezone
 from utils.checks import admin_only
 
 
@@ -83,7 +83,7 @@ class staff(commands.Cog, name="Staff"):
             await self.bot.db.execute("INSERT INTO badges(_id, flags) VALUES($1, $2)", user.id, 2048)
             self.bot.badges[user.id] = 2048
             await self.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type) VALUES($1, $2, $3, $4, $5, $6)", user.id, 1, ctx.author.id, reason, datetime.now(), 2)
-            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now())
+            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
             e.set_author(name=user, icon_url=user.avatar_url)
             e.description = f"Hey!\nI'm sorry, but your blacklist state was updated and you won't be able to use my commands anymore!\n**Reason:** {reason}{apply}"
             try:
@@ -122,7 +122,7 @@ class staff(commands.Cog, name="Staff"):
             await self.bot.db.execute(query, guild.id, 3, reason, ctx.author.id, datetime.now(), liftable, owner.id, guild.name)
             self.bot.blacklist[guild.id] = {'type': 3, 'reason': reason, 'dev': ctx.author.id, 'issued': datetime.now(), 'liftable': liftable, 'owner_id': owner.id, 'server_name': guild.name}
             await self.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)", server, 1, ctx.author.id, reason, datetime.now(), 3, liftable)
-            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now())
+            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
             e.set_author(name=owner, icon_url=owner.avatar_url)
             e.description = f"Hey!\nI'm sorry, but your server's ({guild.name}) blacklist state was updated and you won't be able to invite me to that server!\n**Reason:** {reason}{apply}"
             try:
@@ -197,7 +197,7 @@ class staff(commands.Cog, name="Staff"):
             self.bot.blacklist.pop(user.id)
             await self.bot.db.execute("DELETE FROM badges WHERE _id = $1", user.id)
             self.bot.badges.pop(user.id)
-            e = discord.Embed(color=self.bot.settings['colors']['approve_color'], title='Blacklist state updated!', timestamp=datetime.now())
+            e = discord.Embed(color=self.bot.settings['colors']['approve_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
             e.set_author(name=user, icon_url=user.avatar_url)
             e.description = f"Hey!\nJust wanted to let you know that your blacklist state was updated and you'll be able to use my commands again!\n**Reason:** {reason}"
             try:
@@ -222,7 +222,7 @@ class staff(commands.Cog, name="Staff"):
                 return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | This server cannot be unblacklisted!")
             await self.bot.db.execute("DELETE FROM blacklist WHERE _id = $1", server)
             self.bot.blacklist.pop(server)
-            e = discord.Embed(color=self.bot.settings['colors']['approve_color'], title='Blacklist state updated!', timestamp=datetime.now())
+            e = discord.Embed(color=self.bot.settings['colors']['approve_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
             e.description = f"Hey!\nJust wanted to let you know that your server ({check['server_name']}) is now unblacklisted and you'll be able to invite me there!\n**Reason:** {reason}"
             try:
                 user = self.bot.get_user(check['owner_id'])
@@ -646,7 +646,7 @@ class staff(commands.Cog, name="Staff"):
             logchannel = self.bot.get_channel(self.bot.settings['channels']['dm'])
             logembed = discord.Embed(description=msg,
                                      color=0x81C969,
-                                     timestamp=datetime.utcnow())
+                                     timestamp=datetime.now(timezone.utc))
             logembed.set_author(name=f"I've sent a DM to {user} | #{num}", icon_url=user.avatar_url)
             logembed.set_footer(text=f"User ID: {user.id}")
             await logchannel.send(embed=logembed)

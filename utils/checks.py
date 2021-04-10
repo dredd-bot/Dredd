@@ -18,7 +18,7 @@ import aiohttp
 
 from discord.ext import commands
 from db.cache import CacheManager as CM
-from datetime import datetime
+from datetime import datetime, timezone
 from cogs import music
 
 
@@ -199,7 +199,7 @@ async def lockdown(ctx):
                           description=_("Hello!\nWe're currently under the maintenance and the bot is unavailable for use."
                                         " You can join the [support server]({0}) or subscribe to our [status page]({1}) to know when we'll be available again!").format(
             ctx.bot.support, ctx.bot.statuspage
-        ), timestamp=datetime.utcnow())
+        ), timestamp=datetime.now(timezone.utc))
         e.set_author(name=_("Dredd is under the maintenance!"), icon_url=ctx.bot.user.avatar_url)
         e.set_thumbnail(url=ctx.bot.user.avatar_url)
         await ctx.send(embed=e)

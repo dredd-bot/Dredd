@@ -26,7 +26,7 @@ from utils import btime, default
 from utils.paginator import TextPages
 from db.cache import LoadCache as LC
 from db.cache import CacheManager as CM
-from datetime import datetime
+from datetime import datetime, timezone
 
 # THIS COG IS NOT MADE WELL
 # AS I DIDN'T WANT TO SPEND
@@ -146,6 +146,11 @@ class owner(commands.Cog, name="Owner"):
         self.bot.updates = {'update': update, 'announced': datetime.now()}
         await ctx.send(f"{self.bot.settings['emojis']['misc']['announce']} | **Changed bot latest news to:**\n{escape_markdown(update, as_needed=False)}")
 
+    @dev.command(name='reboot', aliases=['logout', 'die', 'shut'])
+    async def dev_reboot(self, ctx):
+        await ctx.send("Logging out now\N{HORIZONTAL ELLIPSIS}")
+        await self.bot.close()
+
     @commands.group(brief='Change bot\'s theme', invoke_without_command=True)
     async def theme(self, ctx):
         await ctx.send_help(ctx.command)
@@ -201,7 +206,7 @@ class owner(commands.Cog, name="Owner"):
         bl = "No." if not bls else f"Yes. **Reason:** {bls['reason']}"
         past = await self.bot.db.fetch("SELECT * FROM bot_history WHERE _id = $1", user.id)
 
-        e = discord.Embed(color=color, timestamp=datetime.now())
+        e = discord.Embed(color=color, timestamp=datetime.now(timezone.utc))
         e.set_author(name=f"{user}'s Information", icon_url=user.avatar_url)
         dm_check = '\n*Blocked from communicating in DMs*' if bls and bls['type'] == 1 else ''
         e.description = f"""
@@ -402,7 +407,7 @@ class owner(commands.Cog, name="Owner"):
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} I can't leave that server as I'm not in it.")
 
         elif guild:
-            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], timestamp=datetime.utcnow())
+            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], timestamp=datetime.now(timezone.utc))
             e.set_author(name="Left guild forcefully", icon_url=guild.icon_url)
             e.description = f"""
 Hey {guild.owner}!

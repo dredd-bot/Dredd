@@ -147,7 +147,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
 
     @tasks.loop(hours=6)
     async def backups(self):
-        name = datetime.utcnow().__format__("%d%m%y-%H:%M")
+        name = datetime.now().__format__("%d%m%y-%H:%M")
         SHELL = os.getenv("SHELL") or "/bin/bash"
         sequence = [SHELL, '-c', """pg_dump -U dredd -h localhost "dredd v3" > "backups/{0}.sql" """.format(name)]
         subprocess.Popen(sequence, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -167,7 +167,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
 
     @tasks.loop(hours=24)
     async def delete_nicknames(self):
-        now = datetime.utcnow()
+        now = datetime.now()
         days = timedelta(days=90)
         time = now - days
         await self.bot.db.execute("DELETE FROM nicknames WHERE time < $1", time)

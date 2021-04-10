@@ -286,7 +286,7 @@ class CommandError(commands.Cog, name="CommandError",
             msg = await log.send(embed=log_embed)
             await self.bot.db.execute("INSERT INTO errors VALUES($1, $2, $3, $4, $5, $6, $7)", str(tb), msg.jump_url, str(ctx.command), 0, datetime.now(), error_id + 1, str(exc))
 
-            e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.utcnow(),
+            e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc),
                               title=_("{0} Unknown error | #{1}").format(self.bot.settings['emojis']['misc']['error'], error_id + 1),
                               description=_("Command `{0}` raised an error, which I reported to my developer(s).\n"
                                             "My developer(s) will be working to fixing this error ASAP. "
@@ -308,7 +308,7 @@ class CommandError(commands.Cog, name="CommandError",
             log_embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
             await log.send(embed=log_embed)
 
-            e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.utcnow(),
+            e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc),
                               title=_("{0} Known error | #{1}").format(self.bot.settings['emojis']['misc']['error'], error[0]['error_id']),
                               description=_("Command `{0}` raised an error that has already reported to my developer(s).\n"
                                             "They'll be looking into this issue and trying to fix it ASAP. "

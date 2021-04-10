@@ -22,7 +22,7 @@ import typing
 from discord.ext import commands
 from discord.utils import escape_markdown
 
-from datetime import datetime
+from datetime import datetime, timezone
 from utils.paginator import Pages
 from utils import default, btime, checks
 from db.cache import CacheManager as CM
@@ -120,7 +120,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             ids = await self.bot.db.fetch("SELECT suggestion_id FROM suggestions")
             e = discord.Embed(color=self.bot.settings['colors']['embed_color'],
                               title=f"New suggestion from {ctx.author.name} #{len(ids) + 1}",
-                              description=f"> {suggestion}", timestamp=datetime.utcnow())
+                              description=f"> {suggestion}", timestamp=datetime.now(timezone.utc))
             e.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
             msg = await logchannel.send(embed=e)
             await msg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
@@ -130,7 +130,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             e = discord.Embed(color=self.bot.settings['colors']['approve_color'], description=_("Your suggestion was successfully submitted in [my support server!]({0}) "
                                                                                                 "You'll get notified in your DMs when the suggestion will be approved or denied."
                                                                                                 "People can also follow this suggestion using `{1}suggestion track {2}`\n"
-                                                                                                "**Suggestion:**\n>>> {3} ").format(self.bot.support, ctx.prefix, len(ids) + 1, suggestion), timestamp=datetime.utcnow())
+                                                                                                "**Suggestion:**\n>>> {3} ").format(self.bot.support, ctx.prefix, len(ids) + 1, suggestion), timestamp=datetime.now(timezone.utc))
             e.set_author(name=_("Suggestion sent as #{0}").format(len(ids) + 1), icon_url=ctx.author.avatar_url)
             return await ctx.send(embed=e)
 

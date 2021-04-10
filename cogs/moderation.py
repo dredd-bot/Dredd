@@ -24,7 +24,7 @@ import argparse
 from discord.ext import commands
 from discord.utils import escape_markdown
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 
 from utils import default, btime
 from utils.checks import BannedMember, MemberID, moderator, admin
@@ -1174,7 +1174,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
 
         if len(set(members)) > 0:
             warned, failed, success_warn, success, fail = [], [], [], 0, 0
-            embed = discord.Embed(color=self.bot.settings['colors']['deny_color'], title=_('Warning!'), timestamp=datetime.utcnow())
+            embed = discord.Embed(color=self.bot.settings['colors']['deny_color'], title=_('Warning!'), timestamp=datetime.now(timezone.utc))
             # Thanks Duck for this idea - https://quacky.xyz/
             if reason and reason.lower().startswith('--s'):
                 reason = reason[3:] or "No reason"
@@ -1792,7 +1792,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
 
         embed = discord.Embed(color=self.bot.settings['colors']['approve_color'],
                               title=_("{0} Case was deleted").format(self.bot.settings['emojis']['logs']['guildedit']),
-                              timestamp=datetime.utcnow())
+                              timestamp=datetime.now(timezone.utc))
         embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url, url=f'https://discord.com/users/{ctx.author.id}')
         embed.description = _("**Case ID:** {0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format(
             case_id, ctx.author, ctx.author.id, reason

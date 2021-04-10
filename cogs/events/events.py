@@ -21,7 +21,7 @@ from discord.utils import escape_markdown
 
 from db.cache import CacheManager as CM
 from utils import btime, checks, default
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 class Events(commands.Cog):
@@ -116,7 +116,7 @@ class Events(commands.Cog):
                 dmid = total_dms + 1
 
             msgembed = discord.Embed(
-                description=message.content, color=discord.Color.blurple(), timestamp=datetime.utcnow())
+                description=message.content, color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
             msgembed.set_author(name=f"New DM from: {message.author} | #{dmid}", icon_url=message.author.avatar_url)
             msgembed.set_footer(text=f"User ID: {message.author.id}")
             # They've sent an image/gif/file
@@ -132,7 +132,7 @@ class Events(commands.Cog):
                     await message.reply(the_reply)
                     ai_reply = discord.Embed(description=the_reply,
                                              color=0x81C969,
-                                             timestamp=datetime.utcnow())
+                                             timestamp=datetime.now(timezone.utc))
                     ai_reply.set_author(name=f"I've sent a DM to {message.author} | #{dmid}", icon_url=message.author.avatar_url)
                     ai_reply.set_footer(text=f"User ID: {message.author.id}")
                     await logchannel.send(content='Chatbot has replied to this DM', embed=ai_reply)
@@ -218,7 +218,7 @@ class Events(commands.Cog):
                 else:
                     msg = _("Unfortunately, this server's blacklist state cannot be removed.")
                 if to_send.permissions_for(guild.me).embed_links:
-                    e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.utcnow())
+                    e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc))
                     e.description = _("""Hey!\nThis server is blacklisted, so I will not be staying in the server anymore. {0}\n\n**Blacklist reason:** {1}""").format(
                         msg, check['reason']
                     )
@@ -277,7 +277,7 @@ class Events(commands.Cog):
         vch = len(guild.voice_channels)
         ratio = f'{int(100 / guild.member_count * bots)}'
         owner = guild.owner
-        e = discord.Embed(timestamp=datetime.now())
+        e = discord.Embed(timestamp=datetime.now(timezone.utc))
         e.set_author(name=guild.name, icon_url=guild.icon_url)
         chan = self.bot.get_channel(self.bot.settings['channels']['joins-leaves'])
         e.color = self.bot.settings['colors']['approve_color']
@@ -320,7 +320,7 @@ class Events(commands.Cog):
         tch = len(guild.text_channels)
         vch = len(guild.voice_channels)
         ratio = f'{int(100 / guild.member_count * bots)}'
-        e = discord.Embed(timestamp=datetime.now())
+        e = discord.Embed(timestamp=datetime.now(timezone.utc))
         e.set_author(name=guild.name, icon_url=guild.icon_url)
 
         if check and check['type'] == 3:
@@ -377,7 +377,7 @@ class Events(commands.Cog):
         await self.bot.wait_until_ready()
 
         if message.channel.id == 603800402013585408 and message.author.id == 568254611354419211:
-            e = discord.Embed(color=self.bot.settings['colors']['embed_color'], timestamp=datetime.now())
+            e = discord.Embed(color=self.bot.settings['colors']['embed_color'], timestamp=datetime.now(timezone.utc))
             if 'added bot' in message.content.lower():
                 e.title = 'New bot added!'
                 e.description = message.content
