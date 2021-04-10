@@ -45,7 +45,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
     def new_member(self, member):
         now = datetime.utcnow()
         month = now - timedelta(days=30)
-        return member.created_at.replace(tzinfo=timezone.utc) > month
+        return member.created_at.replace(tzinfo=timezone.utc) > month.astimezone(timezone.utc)
 
     # if they send a message
     @commands.Cog.listener('on_message')
