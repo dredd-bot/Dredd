@@ -181,6 +181,7 @@ class fun(commands.Cog, name="Fun"):
             await ctx.send((await resp.content.read()).decode("utf-8 "))
 
     @commands.command(brief="Roast someone")
+    @commands.is_nsfw()
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def roast(self, ctx, member: discord.Member = None, *bypass):
