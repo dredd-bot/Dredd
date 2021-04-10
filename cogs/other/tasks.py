@@ -153,7 +153,8 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         content = 'Backup created on {0}'.format(name)
         receiver = self.bot.config.BACKUP_RECEIVER
         ch = self.bot.get_channel(679647378210291832)
-        with open(f'backups/{name}.sql', 'r') as f:
+        await asyncio.sleep(5)
+        with open(f'backups/{name}.sql', 'r', encoding='utf8') as f:
             backup = f.read()
         if not backup:
             return await ch.send(f"{self.bot.get_user(345457928972533773).mention} Backup `{name}.sql` is empty!", allowed_mentions=discord.AllowedMentions(users=True))
