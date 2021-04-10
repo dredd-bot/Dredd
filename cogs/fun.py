@@ -184,8 +184,7 @@ class fun(commands.Cog, name="Fun"):
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def roast(self, ctx, member: discord.Member = None, *bypass):
-        """ Roast someone in the server.
-        Requires NSFW channel."""
+        """ Roast someone in the server. """
         member = member or ctx.author
         owner = self.bot.get_user(345457928972533773)
         if member == owner:
