@@ -577,7 +577,7 @@ def member_presence(ctx, member):
 
             elif activity.type == discord.ActivityType.playing:
                 message += _("{0} Playing **{1}** for {2}\n").format(
-                    ctx.bot.settings['emojis']['misc']['activity'], clean(activity.name), human_timedelta(activity.start, source=datetime.utcnow(), suffix=None)
+                    ctx.bot.settings['emojis']['misc']['activity'], clean(activity.name), human_timedelta(activity.start.replace(tzinfo=None), source=datetime.utcnow(), suffix=None)
                 )
 
             elif activity.type == discord.ActivityType.streaming:
@@ -587,7 +587,7 @@ def member_presence(ctx, member):
                     elif activity.name != activity.platform:
                         act = activity.platform
                     message += _("{0} Streaming **[{1}]({2})** on **{3}** for {4}\n").format(
-                        ctx.bot.settings['emojis']['misc']['streaming'], escape_markdown(activity.name, as_needed=False), activity.url, act, human_timedelta(activity.start, source=datetime.utcnow(), suffix=None)
+                        ctx.bot.settings['emojis']['misc']['streaming'], escape_markdown(activity.name, as_needed=False), activity.url, act, human_timedelta(activity.start.replace(tzinfo=None), source=datetime.utcnow(), suffix=None)
                     )
                 except AttributeError as e:
                     print(e)
@@ -595,7 +595,7 @@ def member_presence(ctx, member):
 
             elif activity.type == discord.ActivityType.watching:
                 message += _("{0} Watching **{1}** for {2}\n").format(
-                    ctx.bot.settings['emojis']['misc']['activity'], clean(activity.name), human_timedelta(activity.start, source=datetime.utcnow(), suffix=None)
+                    ctx.bot.settings['emojis']['misc']['activity'], clean(activity.name), human_timedelta(activity.start.replace(tzinfo=None), source=datetime.utcnow(), suffix=None)
                 )
 
             elif activity.type == discord.ActivityType.listening:
@@ -607,22 +607,22 @@ def member_presence(ctx, member):
                     )
                     if activity.album and not activity.album == activity.title:
                         message += _(", album — **{0}** ").format(activity.album)
-                    message += _(" for {0}\n").format(human_timedelta(activity.start, source=datetime.utcnow(), suffix=None))
+                    message += _(" for {0}\n").format(human_timedelta(activity.start.replace(tzinfo=None), source=datetime.utcnow(), suffix=None))
                 else:
                     message += _("{0} Listening to **{1}** for {2}\n").format(
-                        ctx.bot.settings['emojis']['misc']['music'], clean(activity.name), human_timedelta(activity.start, source=datetime.utcnow(), suffix=None)
+                        ctx.bot.settings['emojis']['misc']['music'], clean(activity.name), human_timedelta(activity.start.replace(tzinfo=None), source=datetime.utcnow(), suffix=None)
                     )
 
             elif activity.type == discord.ActivityType.competing:  # This might be broken as I cannot test the url.
                 if activity.url is None:
                     message += _("{0} Competing in a **{1}** for {2}\n").format(
-                        ctx.bot.settings['emojis']['misc']['activity'], clean(activity.name), human_timedelta(activity.start, source=datetime.utcnow(), suffix=None)
+                        ctx.bot.settings['emojis']['misc']['activity'], clean(activity.name), human_timedelta(activity.start.replace(tzinfo=None), source=datetime.utcnow(), suffix=None)
                     )
                     if activity.emoji:
                         message += f" {activity.emoji}\n"
                 elif activity.url is not None:
                     message += _("{0} Competing in a **[{1}]({2})** for {3}\n").format(
-                        ctx.bot.settings['emojis']['misc']['activity'], escape_markdown(activity.name, as_needed=False), activity.url, human_timedelta(activity.start, source=datetime.utcnow(), suffix=None)
+                        ctx.bot.settings['emojis']['misc']['activity'], escape_markdown(activity.name, as_needed=False), activity.url, human_timedelta(activity.start.replace(tzinfo=None), source=datetime.utcnow(), suffix=None)
                     )
                     if activity.emoji:
                         message += f" {activity.emoji}\n"
