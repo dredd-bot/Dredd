@@ -137,7 +137,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                             except Exception:
                                 try:
                                     reminder = json['content']
-                                    await user.send(_("*The original message was deleted or I'm missing permissions*\n\nYour reminder: {0}").format(reminder[:1800] + '...' if len(reminder) > 1800 else remidner))
+                                    await user.send(_("*The original message was deleted or I'm missing permissions*\n\nYour reminder: {0}").format(reminder[:1800] + '...' if len(reminder) > 1800 else reminder))
                                 except Exception:
                                     pass
                         self.bot.reminders[result].pop(result_2)
