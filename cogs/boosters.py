@@ -193,27 +193,28 @@ class Boosters(commands.Cog, aliases=['Donators']):
         2 - Instagram
         3 - Twitch
         4 - Twitter
-        5 - Github """
+        5 - Github
+        6 - Spotify"""
         if social_type:
             query = f'SELECT media_link FROM media WHERE user_id = $1 AND media_type = $2 AND type = {social_type}'
             query2 = f'DELETE FROM media WHERE media_type = $1 AND user_id = $2 AND type = {social_type}'
         else:
             query = "SELECT media_link FROM media WHERE user_id = $1 AND media_type = $2"
             query2 = 'DELETE FROM media WHERE media_type = $1 AND user_id = $2'
-        check = await self.bot.db.fetch(query, ctx.author.id, name)
+        check = await self.bot.db.fetch(query, ctx.author.id, name.lower())
         if not check:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} You don't have {name} linked in your medias.")
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} You don't have {name.lower()} linked in your medias.")
         elif len(check) >= 2:
             while True:
                 try:
-                    msg = await ctx.channel.send(_("{0} You're about to delete all the social medias named {1}. Are you sure you want to do that? If no, please add a social type *(`{2}help socialmedia remove`)*").format(self.bot.settings['emojis']['misc']['warn'], name, ctx.prefix), delete_after=60)
+                    msg = await ctx.channel.send(_("{0} You're about to delete all the social medias named {1}. Are you sure you want to do that? If no, please add a social type *(`{2}help socialmedia remove`)*").format(self.bot.settings['emojis']['misc']['warn'], name.lower(), ctx.prefix), delete_after=60)
                     await msg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
                     await msg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
                     verify_response, user = await self.bot.wait_for('reaction_add', check=lambda r, m: r.message.id == msg.id and m.id == ctx.author.id, timeout=60.0)
 
                     if str(verify_response) == f"{self.bot.settings['emojis']['misc']['white-mark']}":
-                        await self.bot.db.execute('DELETE FROM media WHERE media_type = $1 AND user_id = $2', name, ctx.author.id)
-                        await ctx.send(_("{0} Deleted all the social medias named {1} from your account.").format(self.bot.settings['emojis']['misc']['white-mark'], name))
+                        await self.bot.db.execute('DELETE FROM media WHERE media_type = $1 AND user_id = $2', name.lower(), ctx.author.id)
+                        await ctx.send(_("{0} Deleted all the social medias named {1} from your account.").format(self.bot.settings['emojis']['misc']['white-mark'], name.lower()))
                         break
                     elif str(verify_response) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
                         await ctx.channel.send(_("Alright, I will not be removing your social medias."))
@@ -224,8 +225,8 @@ class Boosters(commands.Cog, aliases=['Donators']):
                     await ctx.send(_("{0} You've waited for too long, canceling the command.").format(self.bot.settings['emojis']['misc']['warn']))
                     break
         else:
-            await self.bot.db.execute(query2, str(name), ctx.author.id)
-            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Removed {name} from your linked social medias")
+            await self.bot.db.execute(query2, str(name).lower(), ctx.author.id)
+            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Removed {name.lower()} from your linked social medias")
 
 
 def setup(bot):
