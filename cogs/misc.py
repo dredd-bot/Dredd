@@ -695,9 +695,12 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
     async def remind(self, ctx, *, remind: btime.UserFriendlyTime(commands.context, default="\u2026")):
         """ Create a reminder for yourself.
         Example usage: `remind 1h do homework`"""
-        await self.create_reminder(ctx, remind.arg, remind.dt)
-        time = btime.human_timedelta(remind.dt, source=ctx.message.created_at)
-        await ctx.send(_("Alright, reminding you in {0}: {1}").format(time, remind.arg))
+        try:
+            await self.create_reminder(ctx, remind.arg, remind.dt)
+            time = btime.human_timedelta(remind.dt, source=ctx.message.created_at)
+            await ctx.send(_("Alright, reminding you in {0}: {1}").format(time, remind.arg))
+        except AttributeError:
+            return
 
     @remind.command(brief='A list with your reminders', name='list')
     @commands.cooldown(1, 5, commands.BucketType.user)
