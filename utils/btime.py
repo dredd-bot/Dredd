@@ -159,7 +159,6 @@ class UserFriendlyTime(commands.Converter):
             elements = calendar.nlp(argument, sourceTime=now)
             if elements is None or len(elements) == 0:
                 raise commands.BadArgument(_('Time Error! try "in an hour" or "5 days".'))
-                return
 
             dt, status, begin, end, dt_string = elements[0]
 
