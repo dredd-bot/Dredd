@@ -193,7 +193,8 @@ class Boosters(commands.Cog, aliases=['Donators']):
         2 - Instagram
         3 - Twitch
         4 - Twitter
-        5 - Github """
+        5 - Github
+        6 - Spotify"""
         if social_type:
             query = f'SELECT media_link FROM media WHERE user_id = $1 AND media_type = $2 AND type = {social_type}'
             query2 = f'DELETE FROM media WHERE media_type = $1 AND user_id = $2 AND type = {social_type}'
