@@ -82,6 +82,11 @@ class Player(wavelink.Player):
         self.shuffle_votes.clear()
         self.stop_votes.clear()
         self.loop_votes.clear()
+        
+        if not self.context.guild.me.voice:
+            ch = self.context.bot.get_channel(667077166789558288)
+            await ch.send(f"They broke this again....\nAuthor voice state: {self.dj.voice}\nBot voice state: {self.context.guild.me.voice}")  # for debugging purposes since idk what's the actual issue
+            return await self.teardown()
 
         if isinstance(self.context.guild.me.voice.channel, discord.StageChannel):
             if self.context.guild.me.voice.suppress:
