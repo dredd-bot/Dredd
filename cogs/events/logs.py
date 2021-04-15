@@ -220,7 +220,7 @@ class Logging(commands.Cog):
         mod, reason = None, ""
         async for entry in guild.audit_logs(action=discord.AuditLogAction.ban, limit=5):
             if entry.target == user:
-                if (datetime.utcnow() - entry.created_at).total_seconds() < 3:
+                if (datetime.utcnow() - entry.created_at.replace(tzinfo=None)).total_seconds() < 3:
                     mod = entry.user
                     reason += f"{entry.reason}"
 
