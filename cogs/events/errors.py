@@ -235,6 +235,9 @@ class CommandError(commands.Cog, name="CommandError",
         elif isinstance(exc, commands.errors.ExpectedClosingQuoteError):
             return await ctx.send(_("{0} | Looks like you haven't closed the quote").format(self.bot.settings['emojis']['misc']['warn']))
 
+        if str(exc) == "'NoneType' object has no attribute 'add_reaction'":  # no other way to prevent this
+            return await ctx.send(_("{0} | Failed to add the reactions, please reinvoke the command.").format(self.bot.settings['emojis']['misc']['warn']))
+
         current = ctx.message.created_at.replace(tzinfo=timezone.utc).timestamp()
         content_bucket = self.pre_anti_spam.get_bucket(ctx.message)
         if not await ctx.bot.is_admin(ctx.author) and ctx.guild:

@@ -30,6 +30,7 @@ from utils import default, btime
 from utils.checks import BannedMember, MemberID, moderator, admin
 from utils.paginator import Pages
 from db.cache import CacheManager as cm
+from contextlib import suppress
 
 
 class Arguments(argparse.ArgumentParser):
@@ -1244,12 +1245,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.guild_only()
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
     async def purge(self, ctx, search=100):
         """
         Purge messages in the chat. Default amount is set to **100**
         This will not purge pins.
         """
-        await ctx.message.delete()
+        with suppress(Exception):
+            await ctx.message.delete()
 
         def pins(m):
             if not m.pinned:
@@ -1261,27 +1264,32 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
     async def all(self, ctx, search=100):
         """
         Purge all the messages in chat. Default amount is set to **100**
         This will purge everything, pins as well.
         """
-        await ctx.message.delete()
+        with suppress(Exception):
+            await ctx.message.delete()
         await self.do_removal(ctx, search, lambda e: True)
 
     @purge.command(brief="User messages", description="Clear messages sent from an user")
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
     async def user(self, ctx, member: discord.Member, search=100):
         """ Removes user messages """
-        await ctx.message.delete()
+        with suppress(Exception):
+            await ctx.message.delete()
         await self.do_removal(ctx, search, lambda e: e.author == member)
 
     @purge.command(name='bot', brief="Bot messages")
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
     async def _bot(self, ctx, prefix=None, search=100):
         """Removes a bot user's messages and messages with their optional prefix."""
 
@@ -1294,6 +1302,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
     async def embeds(self, ctx, search=100):
         """Removes messages that have embeds in them."""
         await self.do_removal(ctx, search, lambda e: len(e.embeds))
@@ -1302,6 +1311,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
     async def images(self, ctx, search=100):
         """Removes messages that have embeds or attachments."""
         await self.do_removal(ctx, search, lambda e: len(e.embeds) or len(e.attachments))
@@ -1310,6 +1320,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
     async def contains(self, ctx, *, substr: str):
         """Removes all messages containing a substring.
         The substring must be at least 3 characters long.
@@ -1323,6 +1334,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
     async def _emoji(self, ctx, search=100):
         """Removes all messages containing custom emoji."""
         custom_emoji = re.compile(r'<:(\w+):(\d+)>')
@@ -1336,6 +1348,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
     async def custom(self, ctx, *, args: str):
         """A more advanced purge command.
         This command uses a powerful "command line" syntax.

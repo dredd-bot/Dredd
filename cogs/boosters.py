@@ -163,25 +163,27 @@ class Boosters(commands.Cog, aliases=['Donators']):
             await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 5)
             await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Added GitHub ({account_name} - <{link}>) to your medias list.")
 
-    @socialmedia.command(name='spotify', brief='Link your spotify account')
+    @socialmedia.command(name='youtube', brief='Link your youtube account')
     @is_booster()
-    async def socialmedia_spotify(self, ctx, account_name: str):
-        check = await self.bot.db.fetchval("SELECT media_type FROM media WHERE user_id = $1 AND media_type = $2 AND type = $3", ctx.author.id, account_name, 6)
+    async def socialmedia_youtube(self, ctx, account_name: str, overwrite_name: str):
+        check = await self.bot.db.fetchval("SELECT media_type FROM media WHERE user_id = $1 AND media_type = $2 AND type = $3", ctx.author.id, account_name, 7)
         tot_medias = await self.bot.db.fetchval("SELECT count(*) FROM media WHERE user_id = $1", ctx.author.id)
         if tot_medias >= 10:
             raise commands.BadArgument("You've reached the max limit of social medias available. (10)")
 
         if (account_name.startswith('https://') or account_name.startswith('http://')):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (TheMoksej)")
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Account name must not be a full link, only the name (UCyFCSJXJ6cGWae2DBg3J2zg)")
 
-        if len(account_name) > 30:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Spotify account limit is 30, you're over 30, you sure it's the correct account name?")
+        if len(account_name) > 60:
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Youtube account name limit is 60, you're over 60, you sure it's the correct account name?")
+        elif len(overwrite_name) > 32:
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Overwrite name must be shorter than 32 characters.")
         if check:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} You already have {account_name} linked in your medias.")
         else:
-            link = 'https://open.spotify.com/user/{0}'.format(account_name)
-            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 6)
-            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Added Spotify ({account_name} - <{link}>) to your medias list.")
+            link = 'https://youtube.com/channel/{0}'.format(account_name)
+            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, overwrite_name, link, 7)
+            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Added YouTube ({overwrite_name} - <{link}>) to your medias list.")
 
     @socialmedia.command(name='remove', brief='Remove linked social media')
     @is_booster()
@@ -194,7 +196,8 @@ class Boosters(commands.Cog, aliases=['Donators']):
         3 - Twitch
         4 - Twitter
         5 - Github
-        6 - Spotify"""
+        6 - Spotify
+        7 - Youtube"""
         if social_type:
             query = f'SELECT media_link FROM media WHERE user_id = $1 AND media_type = $2 AND type = {social_type}'
             query2 = f'DELETE FROM media WHERE media_type = $1 AND user_id = $2 AND type = {social_type}'

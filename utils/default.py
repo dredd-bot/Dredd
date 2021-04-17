@@ -148,8 +148,11 @@ async def medias(ctx, user):
     medias = []
     for media in await ctx.bot.db.fetch("SELECT * FROM media WHERE user_id = $1", user.id):
         try:
-            icon = ctx.bot.settings['emojis']['social'][media['media_type']]
-            title = media['media_type'].title()
+            if not media['type']:
+                icon = ctx.bot.settings['emojis']['social'][media['media_type']]
+                title = media['media_type'].title()
+            else:
+                raise Exception()  # so the except statement triggers.
         except Exception:
             title = media['media_type']
             tp = media['type']
@@ -166,6 +169,8 @@ async def medias(ctx, user):
                     icon = ctx.bot.settings['emojis']['social']['github']
                 elif tp == 6:
                     icon = ctx.bot.settings['emojis']['social']['spotify']
+                elif tp == 7:
+                    icon = ctx.bot.settings['emojis']['social']['youtube']
             else:
                 icon = ''
         medias.append(f"{icon} [{title}]({media['media_link']})\n")

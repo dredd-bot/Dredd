@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 from utils.paginator import Pages
 from utils import default, btime, checks
 from db.cache import CacheManager as CM
+from db.cache import LoadCache as LC
 
 
 def to_add_reaction(c):
@@ -747,6 +748,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             the_time = check_reminders[reminder]['time']
             self.bot.reminders[ctx.author.id].pop(reminder)
             await self.bot.db.execute("DELETE FROM reminders WHERE user_id = $1 AND reminder = $2 AND time = $3", ctx.author.id, the_reminder, the_time)
+            await LC.reminders(self.bot)
             await ctx.send(_("{0} Removed reminder from your reminders list: {1}").format(self.bot.settings['emojis']['misc']['white-mark'], the_reminder))
 
 

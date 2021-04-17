@@ -21,6 +21,7 @@ from discord.ext import commands
 from utils.paginator import Pages
 from utils import checks
 from db.cache import CacheManager as cm
+from contextlib import suppress
 
 
 def setup(bot):
@@ -182,21 +183,39 @@ class HelpCommand(commands.HelpCommand):
                     f"{ctx.bot.settings['emojis']['misc']['music']}": 'Music',
                     "\U000023f9": 'Stop'
                 }
-                react, user = await self.context.bot.wait_for('reaction_add', check=check, timeout=300.0)
-                if str(react) in cog_emojis:
-                    pass
-                elif str(react) not in cog_emojis:
-                    return
+                while True:
+                    react, user = await self.context.bot.wait_for('reaction_add', check=check, timeout=300.0)
+                    if str(react) in cog_emojis:
+                        if str(react) in [f"{ctx.bot.settings['emojis']['ranks']['bot_owner']}"] and not await ctx.bot.is_owner(ctx.author):
+                            with suppress(Exception):
+                                await msg.remove_reaction(str(react))
+                            continue
+                        elif str(react) in ["<:staff:706190137058525235>"] and not await ctx.bot.is_admin(ctx.author):
+                            with suppress(Exception):
+                                await msg.remove_reaction(str(react))
+                            continue
+                        elif str(react) in ["<:n_:747399776231882812>"] and not await ctx.bot.is_booster(ctx.author):
+                            with suppress(Exception):
+                                await msg.remove_reaction(str(react))
+                            continue
+                        else:
+                            break
+                    elif str(react) not in cog_emojis:
+                        with suppress(Exception):
+                            await msg.remove_reaction(str(react))
+                        continue
+
                 await msg.delete()
                 await self.context.send_help(self.context.bot.get_cog(cog_emojis[str(react)]))
 
         except asyncio.TimeoutError:
-            try:
+            with suppress(Exception):
                 await msg.clear_reactions()
-            except Exception:
-                return
-        except Exception:
-            await self.context.send(content=_("Failed to add reactions"), embed=emb)
+            return
+        except Exception as e:
+            with suppress(Exception):
+                await self.context.send(content=_("Failed to add reactions"), embed=emb)
+            return
 
     async def send_command_help(self, command):
 
@@ -323,7 +342,7 @@ class HelpCommand(commands.HelpCommand):
                           per_page=12,
                           embed_color=self.context.bot.settings['colors']['embed_color'],
                           show_entry_count=False,
-                          home=True,
+                          home=False,
                           author=self.context.author)
 
         await paginator.paginate()

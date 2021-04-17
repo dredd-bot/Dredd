@@ -42,10 +42,11 @@ CHANGE_LOG = {
     'V1.5.1': '1. Imported aiohttp module where I should\'ve had it',
     'V3.0.0': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/827950602225975307',
     'V3.0.1': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/829011633061363762',
-    'V3.0.2': '',
+    'V3.0.2': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/829531198639571036',
+    'V3.0.3': ''
 }
 
-version = '3.0.2'
+version = '3.0.3'
 most_recent = CHANGE_LOG["V" + version]
 
 
