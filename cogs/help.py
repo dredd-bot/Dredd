@@ -168,7 +168,7 @@ class HelpCommand(commands.HelpCommand):
             if ctx.guild:
                 for reaction in to_react:
                     await msg.add_reaction(reaction)
-                await msg.add_reaction('\U000023f9')
+                await msg.add_reaction('<:stop:820332883470319637>')
 
                 cog_emojis = {
                     "<:staff:706190137058525235>": 'Staff',
@@ -181,20 +181,20 @@ class HelpCommand(commands.HelpCommand):
                     "<:bann:747192603640070237>": 'Moderation',
                     f"{ctx.bot.settings['emojis']['ranks']['bot_owner']}": 'Owner',
                     f"{ctx.bot.settings['emojis']['misc']['music']}": 'Music',
-                    "\U000023f9": 'Stop'
+                    "<:stop:820332883470319637>": 'Stop'
                 }
                 while True:
                     react, user = await self.context.bot.wait_for('reaction_add', check=check, timeout=300.0)
                     if str(react) in cog_emojis:
-                        if str(react) in [f"{ctx.bot.settings['emojis']['ranks']['bot_owner']}"] and not await ctx.bot.is_owner(ctx.author):
+                        if str(react) == f"{ctx.bot.settings['emojis']['ranks']['bot_owner']}" and not await ctx.bot.is_owner(ctx.author):
                             with suppress(Exception):
                                 await msg.remove_reaction(str(react))
                             continue
-                        elif str(react) in ["<:staff:706190137058525235>"] and not await ctx.bot.is_admin(ctx.author):
+                        elif str(react) == "<:staff:706190137058525235>" and not await ctx.bot.is_admin(ctx.author):
                             with suppress(Exception):
                                 await msg.remove_reaction(str(react))
                             continue
-                        elif str(react) in ["<:n_:747399776231882812>"] and not await ctx.bot.is_booster(ctx.author):
+                        elif str(react) == "<:n_:747399776231882812>" and not await ctx.bot.is_booster(ctx.author):
                             with suppress(Exception):
                                 await msg.remove_reaction(str(react))
                             continue
