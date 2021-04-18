@@ -206,7 +206,7 @@ class fun(commands.Cog, name="Fun"):
         
         
     @commands.command(brief="A *~~hidden~~* duck image command.", description="A *~~hidden~~* duck image command.\nPowered by random-d.uk | Not secretly added by Duck <a:BongoCoding:806396390103187526>", aliases=['duckmasteral', 'quacky', 'uck', '\U0001f986'], hidden=True)
-    @commands.cooldown(1, 5, BucketType.user)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def quack(self, ctx):# You found a secret! Congradulations 🎉
         embed = discord.Embed(title='Quack Quack :duck:', color=discord.Color.orange())
         embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
