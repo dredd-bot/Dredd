@@ -1412,7 +1412,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
 
                     if third_part == 1:
                         role_loop, role_part, role = True, 0, None
-                        msg3 = await ctx.channel.send(_("Please send a role that you'd like to assing to emoji - {0}").format(emoji))
+                        msg3 = await ctx.channel.send(_("Please send a role that you'd like to assign to emoji - {0}").format(emoji))
                         role_response = await self.bot.wait_for('message', check=check, timeout=60.0)
                         if role_response.content.lower() == 'cancel':
                             role_loop, reactions_loop = False, False
