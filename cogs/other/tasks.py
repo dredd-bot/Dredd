@@ -39,6 +39,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         self.dispatch_unmute.start()
         self.delete_nicknames.start()
         self.backups.start()
+        self.del_member_count.start()
         self.client = gmailpy.Client(mail=bot.config.BACKUP_USER, password=bot.config.BACKUP_PASSWORD)
 
     def cog_unload(self):
@@ -49,6 +50,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         self.dispatch_unmute.cancel()
         self.delete_nicknames.cancel()
         self.backups.cancel()
+        self.del_member_count.cancel()
 
     @tasks.loop(seconds=1)
     async def guild_data(self):
@@ -172,6 +174,11 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         time = now - days
         await self.bot.db.execute("DELETE FROM nicknames WHERE time < $1", time)
 
+    @tasks.loop(hours=1)
+    async def del_member_count(self):
+        guild = self.bot.get_guild(568567800910839811)
+        await self.bot.get_channel(618583328458670090).edit(name=f"Member Count: {len(guild.members)}")
+
     @guild_data.before_loop
     async def before_guild_delete(self):
         await self.bot.wait_until_ready()
@@ -201,6 +208,11 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
     async def before_backups(self):
         await self.bot.wait_until_ready()
         print("[BACKGROUND] Started creating backups")
+
+    @del_member_count.before_loop
+    async def before_del_member_count(self):
+        await self.bot.wait_until_ready()
+        print("[BACKGROUND] Started updating DEL member count")
 
 
 def setup(bot):
