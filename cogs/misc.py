@@ -352,7 +352,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         if check is not None:
             await self.bot.db.execute("UPDATE afk SET message = $1 WHERE user_id = $2 AND guild_id = $3", note, ctx.author.id, ctx.guild.id)
             self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"]['note'] = note
-            await ctx.send(_("{0} **Changed your AFK state to**: {1}").format(
+            await ctx.send(_("{0} **Changed your AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
             ))
         elif check is None:
