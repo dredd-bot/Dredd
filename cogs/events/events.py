@@ -374,6 +374,7 @@ class Events(commands.Cog):
     # other events
     @commands.Cog.listener('on_message')
     async def on_del_add(self, message):
+        return  # dont want to get my dms spammed until I'm back 
         await self.bot.wait_until_ready()
 
         if message.channel.id == 603800402013585408 and message.author.id == 568254611354419211:
