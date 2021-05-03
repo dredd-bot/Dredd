@@ -362,7 +362,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
             ))
 
-    @commands.command(brief='Snipe a deleted message')
+    @commands.command(brief='See the latest deleted message in a channel.')
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def snipe(self, ctx, *, channel: discord.TextChannel = None):
