@@ -62,7 +62,7 @@ class Events(commands.Cog):
         m += "\nName: {0} ({0.id})".format(self.bot.user)
         m += f"\nTime taken to boot: {btime.human_timedelta(self.bot.uptime, suffix=None)}"
         print(m)
-        await self.bot.change_presence(status='online', activity=discord.Activity(type=discord.ActivityType.playing, name="Dredd v3 is released!"))
+        await self.bot.change_presence(status='online', activity=discord.Activity(type=discord.ActivityType.playing, name="-help"))
 
         support_guild = self.bot.get_guild(self.bot.settings['servers']['main'])
         await support_guild.chunk(cache=True)
