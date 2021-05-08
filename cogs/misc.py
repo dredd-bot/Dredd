@@ -378,17 +378,17 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         if check is not None:
             await self.bot.db.execute("UPDATE afk SET message = $1 WHERE user_id = $2 AND guild_id = $3", note, ctx.author.id, ctx.guild.id)
             self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"]['note'] = note
-            await ctx.send(_("{0} **Changed your AFK state to -** {1}").format(
+            await ctx.send(_("{0} **Changed your AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
             ))
         elif check is None:
             await self.bot.db.execute("INSERT INTO afk(user_id, guild_id, message, time) VALUES($1, $2, $3, $4)", ctx.author.id, ctx.guild.id, note, datetime.now())
             self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"] = {'note': note, 'time': datetime.now()}
-            await ctx.send(_("{0} ** Set your AFK state to -** {1}").format(
+            await ctx.send(_("{0} ** Set your AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
             ))
 
-    @commands.command(brief='Snipe the latest deleted message')
+    @commands.command(brief='See the latest deleted message in a channel.')
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def snipe(self, ctx, *, channel: discord.TextChannel = None):
