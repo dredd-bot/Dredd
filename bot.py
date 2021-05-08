@@ -31,9 +31,24 @@ from db.cache import LoadCache, CacheManager
 from utils import i18n
 from cogs.music import Player
 from collections import Counter
+from logging.handlers import RotatingFileHandler
 
-if sys.version_info < (3, 5):
-    raise Exception('Your python is outdated. Please update to at least 3.5')
+if sys.version_info < (3, 5, 3):
+    raise Exception('Your python is outdated. Please update to at least 3.5.3')
+
+
+logger = logging.getLogger('wavelink.player')  # cause music keeps crashing randomly
+logger.setLevel(logging.DEBUG)
+handler = RotatingFileHandler(
+    filename='logs/discord_voice.log',
+    encoding='utf-8',
+    mode='w',
+    maxBytes=10 * 1024 * 1024,
+    backupCount=5,
+    delay=0
+)
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)
 
 
 async def run():
@@ -48,14 +63,17 @@ async def run():
     try:
         await LoadCache.start(bot)
         bot.session = aiohttp.ClientSession(loop=bot.loop)
-        # await bot.start(config.DISCORD_TOKEN)
-        await bot.start(config.MAIN_TOKEN)
+        await bot.start(config.DISCORD_TOKEN)
+        # await bot.start(config.MAIN_TOKEN)
     except KeyboardInterrupt:
         await db.close()
         await bot.logout()
 
 
 async def get_prefix(bot, message):
+    if bot.user.id == 663122720044875796:  # for beta, so I don't accidentally kill both bots
+        custom_prefix = ['rw ', 'db ']
+        return commands.when_mentioned_or(*custom_prefix)(bot, message)
     if message.guild:
         prefix = bot.prefix[message.guild.id]
     elif not message.guild:
@@ -83,7 +101,10 @@ class EditingContext(commands.Context):
         except KeyError:
             pass
         if reply:
-            return await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions)
+            try:
+                return await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions)
+            except discord.errors.NotFound:  # Message was deleted
+                pass
         reference = self.message.reference
         if reference and isinstance(reference.resolved, discord.Message):
             msg = await reference.resolved.reply(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
@@ -271,9 +292,9 @@ class Bot(commands.AutoShardedBot):
             except discord.NotFound:
                 return
 
-    @property
-    def music_player(self):
-        return Player
+    def music_player(self, **kwargs):
+        ctx = kwargs.get('ctx')
+        return self.wavelink.get_player(guild_id=ctx.guild.id, cls=Player)
 
 
 loop = asyncio.get_event_loop()

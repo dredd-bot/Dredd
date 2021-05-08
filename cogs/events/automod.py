@@ -187,7 +187,6 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                 if automod['delete_messages'] and message.channel.permissions_for(message.guild.me).manage_messages:
                     await message.delete()
             except Exception as e:
-                print(e)
                 return
 
             retry = content_bucket.update_rate_limit(current)
@@ -336,6 +335,8 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                         if not message.author.permissions_in(message.channel).send_messages:
                             return
                         await self.update_channel_permissions(self, message, action)
+                    elif muterole and muterole in message.author.roles:
+                        return
                     else:
                         await self.update_channel_permissions(self, message, action)
                     time = None
@@ -354,9 +355,11 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     elif not muterole:
                         if not message.author.permissions_in(message.channel).send_messages:
                             return
-                        await self.update_channel_permissions(self, message, action)
+                        await self.update_channel_permissions(message, action)
+                    elif muterole and muterole in message.author.roles:
+                        return
                     else:
-                        await self.update_channel_permissions(self, message, action)
+                        await self.update_channel_permissions(message, action)
                 except Exception as e:
                     await default.background_error(self, '`automod punishment execution (tempmute)`', e, message.guild, message.channel)
                     return await message.channel.send(error_msg)
@@ -368,7 +371,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                         await message.guild.kick(message.author, reason=audit_reason)
                         await message.channel.send(_("{0} Kicked **{1}** for {2}.").format(self.bot.settings['emojis']['logs']['memberedit'], message.author, reason))
                     else:
-                        await self.update_channel_permissions(self, message, action)
+                        await self.update_channel_permissions(message, action)
                     time = None
                 except Exception as e:
                     await default.background_error(self, '`automod punishment execution (kick)`', e, message.guild, message.channel)
@@ -382,7 +385,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                         await default.execute_temporary(self, 2, message.author, message.guild.me, message.guild, None, None, reason)
                         await message.channel.send(_("{0} Banned **{1}** for {2}.").format(self.bot.settings['emojis']['logs']['ban'], message.author, reason))
                     else:
-                        await self.update_channel_permissions(self, message, action)
+                        await self.update_channel_permissions(message, action)
                     time = None
                 except Exception as e:
                     await default.background_error(self, '`automod punishment execution (ban)`', e, message.guild, message.channel)
@@ -397,7 +400,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                         time = btime.human_timedelta(time.dt, source=datetime.utcnow(), suffix=None)
                         await message.channel.send(_("{0} Banned **{1}** for {2}, reason: {3}.").format(self.bot.settings['emojis']['logs']['ban'], message.author, time, reason))
                     else:
-                        await self.update_channel_permissions(self, message, action)
+                        await self.update_channel_permissions(message, action)
                 except Exception as e:
                     await default.background_error(self, '`automod punishment execution (tempban)`', e, message.guild, message.channel)
                     return await message.channel.send(error_msg)

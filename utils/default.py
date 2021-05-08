@@ -235,9 +235,9 @@ def server_badges(ctx, result):
     badges = db.cache.CacheManager.get(ctx.bot, 'badges', result.id)
 
     the_badges = {
-        'bot_admin': f"{ctx.bot.settings['emojis']['ranks']['bot_admin']}",
-        'verified': f"{ctx.bot.settings['emojis']['ranks']['verified']}",
-        'server_partner': f"{ctx.bot.settings['emojis']['ranks']['server_partner']}"
+        'bot_admin': _("{0} Dredd Staff Server").format(ctx.bot.settings['emojis']['ranks']['bot_admin']),
+        'verified': _("{} Dredd Verified Server").format(ctx.bot.settings['emojis']['ranks']['verified']),
+        'server_partner': _("{0} Dredd Partnered Server").format(ctx.bot.settings['emojis']['ranks']['server_partner'])
     }
 
     if badges:
@@ -249,7 +249,7 @@ def server_badges(ctx, result):
     else:
         return
 
-    return ' '.join(badge)
+    return '\n'.join(badge)
 
 
 def badge_values(ctx) -> dict:
@@ -275,8 +275,14 @@ def badge_values(ctx) -> dict:
 
 def permissions_converter(ctx, permissions):
     to_return = []
-    for permission in permissions:
-        to_return.append(permission.replace('_', ' ').title())
+    del permissions['admin']
+    if not permissions['administrator']:
+        for permission in permissions:
+            to_return.append(permission.replace('_', ' ').title())
+
+    elif permissions['administrator']:
+        to_return.append('Administrator')
+
     return to_return
 
 
@@ -471,7 +477,7 @@ async def dm_reply(ctx, message):
         res = await ctx.bot.cleverbot.ask(message)
         return res.text
     except Exception as e:
-        print(e)
+        ctx.bot.dispatch('silent_error', ctx, e)
         ctx.bot.auto_reply = False
         message = "Chat bot would've replied to you but looks like he has ran away"
         return message
@@ -533,7 +539,7 @@ def member_activity(ctx, member):
                     ctx.bot.settings['emojis']['misc']['streaming'], escape_markdown(activity.name, as_needed=False), activity.url, act
                 )
             except AttributeError as e:
-                print(e)
+                ctx.bot.dispatch('silent_error', ctx, e)
                 message += _("{0} Shit broke while trying to figure out streaming details.\n").format(ctx.bot.settings['emojis']['misc']['streaming'])
 
         elif activity.type == discord.ActivityType.watching:
@@ -595,7 +601,7 @@ def member_presence(ctx, member):
                         ctx.bot.settings['emojis']['misc']['streaming'], escape_markdown(activity.name, as_needed=False), activity.url, act, human_timedelta(activity.start.replace(tzinfo=None), source=datetime.utcnow(), suffix=None)
                     )
                 except AttributeError as e:
-                    print(e)
+                    ctx.bot.dispatch('silent_error', ctx, e)
                     message += _("{0} Shit broke while trying to figure out streaming details.\n").format(ctx.bot.settings['emojis']['misc']['streaming'])
 
             elif activity.type == discord.ActivityType.watching:

@@ -106,7 +106,7 @@ class Time(HumanTime):
 
 class FutureTime(Time):
     def __init__(self, argument, *, now=None):
-        super().__init__(argument, now=now.replace(tzinfo=None))
+        super().__init__(argument, now=now)
 
         if self._past:
             raise commands.BadArgument(_("{0} The time you've provided is in the past").format(self.bot.settings['emojis']['misc']['warn']))

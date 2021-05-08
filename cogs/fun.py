@@ -203,11 +203,11 @@ class fun(commands.Cog, name="Fun"):
         roasts = data["roasts"]
 
         await ctx.send(f"{member.name}, {random.choice(roasts)}")
-        
-        
-    @commands.command(brief="A *~~hidden~~* duck image command.", description="A *~~hidden~~* duck image command.\nPowered by random-d.uk | Not secretly added by Duck <a:BongoCoding:806396390103187526>", aliases=['duckmasteral', 'quacky', 'uck', '\U0001f986'], hidden=True)
+
+    @commands.command(brief="A *~~hidden~~* duck image command.", aliases=['duckmasteral', 'quacky', 'uck', '\U0001f986'], hidden=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
-    async def quack(self, ctx):# You found a secret! Congradulations 🎉
+    async def quack(self, ctx):  # You found a secret! Congradulations 🎉
+        """ A *~~hidden~~* duck image command.\nPowered by random-d.uk | Not secretly added by Duck <a:BongoCoding:806396390103187526> """
         embed = discord.Embed(title='Quack Quack :duck:', color=discord.Color.orange())
         embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
         embed.set_footer(text='Powered by random-d.uk', icon_url="https://cdn.discordapp.com/avatars/426787835044036610/795ed0c0b2da8d6c37c071dc61e0c77f.png")
@@ -217,6 +217,7 @@ class fun(commands.Cog, name="Fun"):
         elif file == 'gif':
             embed.set_image(url=f'https://random-d.uk/api/{random.randint(1,42)}.gif')
         await ctx.send(embed=embed)
+
 
 def setup(bot):
     bot.add_cog(fun(bot))

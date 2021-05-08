@@ -22,6 +22,7 @@ from discord.utils import escape_markdown
 from db.cache import CacheManager as CM
 from utils import btime, checks, default
 from datetime import datetime, timedelta, timezone
+from contextlib import suppress
 
 
 class Events(commands.Cog):
@@ -32,6 +33,9 @@ class Events(commands.Cog):
     async def bot_check(self, ctx):
         if await ctx.bot.is_admin(ctx.author):
             return True
+
+        if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author):
+            return
 
         blacklist = await ctx.bot.is_blacklisted(ctx.author)
         if blacklist and blacklist['type'] == 2:
@@ -154,18 +158,14 @@ class Events(commands.Cog):
             if str(payload.emoji) not in check['dict']:
                 return await message.remove_reaction(payload.emoji, payload.member)
             if check['required_role']:
-                roles_list = []
-                for role in payload.member.roles:
-                    roles_list.append(role.id)
-                if check['required_role'] not in roles_list:
+                if check['required_role'] not in [x.id for x in payload.member.roles]:
                     return await message.remove_reaction(payload.emoji, payload.member)
 
             members, count = [], 0
             if check['max_roles'] and check['max_roles'] < len(message.reactions):
                 for reaction in message.reactions:
-                    for member in await reaction.users().flatten():
-                        if member == payload.member:
-                            count += 1
+                    if payload.member in await reaction.users().flatten():
+                        count += 1
                 if count > check['max_roles']:
                     return await message.remove_reaction(payload.emoji, payload.member)
 
@@ -182,19 +182,18 @@ class Events(commands.Cog):
             if not check:
                 return
 
-            try:
-                the_emoji = self.bot.get_emoji(payload.emoji.id)
-                if the_emoji.animated:
-                    payload.emoji = f"<a:{payload.emoji.name}:{payload.emoji.id}>"
+            with suppress(Exception):
+                if str(payload.emoji) not in check['dict']:
+                    the_emoji = self.bot.get_emoji(payload.emoji.id)
+                    if the_emoji.animated:
+                        payload.emoji = f"<a:{payload.emoji.name}:{payload.emoji.id}>"
+                        if str(payload.emoji) not in check['dict']:
+                            return
                 else:
                     pass
-            except Exception:
-                pass
 
             guild = self.bot.get_guild(payload.guild_id)
             member = guild.get_member(payload.user_id)
-            if str(payload.emoji) not in check['dict']:
-                return
 
             for item in check['dict']:
                 if str(payload.emoji) == item:
@@ -233,6 +232,12 @@ class Events(commands.Cog):
             except IndexError:
                 pass
             return await guild.leave()
+
+        with suppress(Exception):
+            head = {"Authorization": self.bot.config.DREDD_API_TOKEN, "Client": self.bot.config.DREDD_API_CLIENT}
+            body = {"guilds": len(self.bot.guilds), "users": sum([x.member_count for x in self.bot.guilds])}
+            await self.bot.session.post('https://dredd-bot.xyz/api/stats', headers=head, json=body)
+            print("Updated the stats - guild join")
 
         prefix = self.bot.settings['default']['prefix']
         await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix) VALUES($1, $2) ON CONFLICT (guild_id) DO UPDATE SET prefix = $2 WHERE guilds.guild_id = $1", guild.id, prefix)
@@ -322,6 +327,11 @@ class Events(commands.Cog):
         ratio = f'{int(100 / guild.member_count * bots)}'
         e = discord.Embed(timestamp=datetime.now(timezone.utc))
         e.set_author(name=guild.name, icon_url=guild.icon_url)
+        with suppress(Exception):
+            head = {"Authorization": self.bot.config.DREDD_API_TOKEN, "Client": self.bot.config.DREDD_API_CLIENT}
+            body = {"guilds": len(self.bot.guilds), "users": sum([x.member_count for x in self.bot.guilds])}
+            await self.bot.session.post('https://dredd-bot.xyz/api/stats', headers=head, json=body)
+            print("Updated the stats - guild leave")
 
         if check and check['type'] == 3:
             mod = self.bot.get_user(check['dev'])
@@ -374,7 +384,6 @@ class Events(commands.Cog):
     # other events
     @commands.Cog.listener('on_message')
     async def on_del_add(self, message):
-        return  # dont want to get my dms spammed until I'm back 
         await self.bot.wait_until_ready()
 
         if message.channel.id == 603800402013585408 and message.author.id == 568254611354419211:
@@ -450,8 +459,7 @@ class Events(commands.Cog):
                             ))
                 try:
                     await message.reply(f"{to_send}", allowed_mentions=discord.AllowedMentions(replied_user=True))
-                except Exception as e:
-                    print(e)
+                except Exception:
                     try:
                         await message.author.send(_("Hey! {0}").format(to_send))
                     except Exception:

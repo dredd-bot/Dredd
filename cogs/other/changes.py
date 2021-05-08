@@ -43,10 +43,11 @@ CHANGE_LOG = {
     'V3.0.0': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/827950602225975307',
     'V3.0.1': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/829011633061363762',
     'V3.0.2': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/829531198639571036',
-    'V3.0.3': ''
+    'V3.0.3': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/832997273733562408',
+    'V3.1.0': ''
 }
 
-version = '3.0.3'
+version = '3.1.0'
 most_recent = CHANGE_LOG["V" + version]
 
 

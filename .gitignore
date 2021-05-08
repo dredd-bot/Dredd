@@ -138,6 +138,8 @@ utils/__pycache__/
 avatars/
 backups/
 locale/
+logs/
 generate_po
 generate_mo
 old_features.py
+privacy_backup.md

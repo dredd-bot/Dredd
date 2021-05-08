@@ -26,7 +26,7 @@ import math
 import random
 
 from discord.ext import commands
-from utils.checks import check_music
+from utils.checks import check_music, is_admin
 from utils.paginator import Pages
 from contextlib import suppress
 
@@ -62,7 +62,7 @@ class Player(wavelink.Player):
         self.waiting = False
         self.updating = False
 
-        self.mode247 = False
+        # self.mode247 = False
 
         self.pause_votes = set()
         self.resume_votes = set()
@@ -82,10 +82,12 @@ class Player(wavelink.Player):
         self.shuffle_votes.clear()
         self.stop_votes.clear()
         self.loop_votes.clear()
-        
+
         if not self.context.guild.me.voice:
-            ch = self.context.bot.get_channel(667077166789558288)
-            await ch.send(f"They broke this again....\nAuthor voice state: {self.dj.voice}\nBot voice state: {self.context.guild.me.voice}")  # for debugging purposes since idk what's the actual issue
+            ch = self.context.bot.get_channel(679647378210291832)
+            await ch.send(f"They broke this again....\n**Author voice state:** {self.dj.voice}\n**Bot voice state:** {self.context.guild.me.voice}\n"
+                          f"**Voice channel region:** {self.dj.voice.channel.rtc_region}")  # for debugging purposes since idk what's the actual issue
+            self.context.bot.dispatch('silent_error', ctx, e)
             return await self.teardown()
 
         if isinstance(self.context.guild.me.voice.channel, discord.StageChannel):
@@ -200,7 +202,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
                 'rest_uri': 'http://127.0.0.1:{0}'.format(self.bot.config.MUSIC_PORT),
                 'password': self.bot.config.MUSIC_PASSWORD,
                 'identifier': self.bot.config.MUSIC_ID,
-                'region': 'us_central'
+                'region': 'eu_central'
             }}
 
         for n in nodes.values():
@@ -215,6 +217,14 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @wavelink.WavelinkMixin.listener('on_track_exception')
     async def on_player_stop(self, node: wavelink.Node, payload):
         await payload.player.do_next()
+
+    # async def cog_command_error(self, ctx, error):
+    #     if isinstance(error, wavelink.errors.ZeroConnectedNodes):  # This doesn't work so I'll just leave it for now
+    #         return await ctx.send(_("{0} Music nodes decided to die at the moment, please try again later.").format(
+    #             self.bot.settings['emojis']['misc']['warn']
+    #         ))
+    #     else:
+    #         return await ctx.send(error)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -700,10 +710,10 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             await ctx.send(_("{0} Songs will no longer loop").format(self.bot.settings['emojis']['misc']['white-mark']))
 
     @commands.command(hidden=True)
-    @commands.is_owner()
+    @is_admin()
     async def musicinfo(self, ctx):
         """Retrieve various Node/Server/Player information."""
-        player = self.bot.wavelink.get_player(ctx.guild.id)
+        player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, ctx=ctx)
         node = player.node
 
         used = humanize.naturalsize(node.stats.memory_used)

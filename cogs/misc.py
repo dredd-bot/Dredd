@@ -225,6 +225,32 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             self.bot.settings['emojis']['misc']['white-mark'], pos, escape_markdown(todo, as_needed=False)
         ))
 
+    @todo.command(name='swap', brief='Swap 2 todo\'s', aliases=['s'])
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def todo_swap(self, ctx, swap: int, to: int):
+        """ Swap 2 todo's around. This will swap the time when todos have been added.
+        Syntax: `todo swap 1, 5` -> this will swap 1 with 5 """
+        todos = await self.bot.db.fetch("SELECT DISTINCT todo, time, ROW_NUMBER () OVER (ORDER BY time) FROM todos WHERE user_id = $1 ORDER BY time", ctx.author.id)
+        if not todos:
+            return await ctx.send(_("{0} You don't have any items in your todo list.").format(self.bot.settings['emojis']['misc']['warn']))
+
+        if int(swap) not in [t['row_number'] for t in todos]:
+            return await ctx.send(_("{0} There is no todo item with an id of **{1}** in your todo list.").format(
+                self.bot.settings['emojis']['misc']['warn'], swap
+            ))
+        elif int(to) not in [t['row_number'] for t in todos]:
+            return await ctx.send(_("{0} There is no todo item with an id of **{1}** in your todo list.").format(
+                self.bot.settings['emojis']['misc']['warn'], to
+            ))
+
+        query = 'UPDATE todos SET time = $1 WHERE todo = $2 AND user_id = $3'
+        entries = [(todos[swap - 1]['time'], todos[to - 1]['todo'], ctx.author.id), (todos[to - 1]['time'], todos[swap - 1]['todo'], ctx.author.id)]
+        await self.bot.db.executemany(query, entries)
+
+        await ctx.send(_("{0} Successfully swapped places of todo **#{1}** and **#{2}**.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], swap, to
+        ))
+
     @todo.command(name='list', aliases=['l'], brief='Check your todo list')
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def todo_list(self, ctx):
@@ -638,7 +664,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         embed.set_thumbnail(url=song.thumbnail)
         await ctx.send(embed=embed)
 
-    @commands.command(brief='Setup your status logging', aliases=['activity', 'presence'], hidden=True)
+    @commands.command(brief='Setup your status logging', aliases=['activity', 'presence'])
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def status(self, ctx, *, member: discord.Member = None):
@@ -691,7 +717,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 )
                 return await ctx.send(embed=e)
 
-    @commands.group(brief='Manage your reminders', aliases=['reminds', 'rm'], invoke_without_command=True)
+    @commands.group(brief='Manage your reminders', aliases=['reminds', 'rm', 'reminder'], invoke_without_command=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def remind(self, ctx, *, remind: btime.UserFriendlyTime(commands.context, default="\u2026")):
         """ Create a reminder for yourself.

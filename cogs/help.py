@@ -342,7 +342,7 @@ class HelpCommand(commands.HelpCommand):
                           per_page=12,
                           embed_color=self.context.bot.settings['colors']['embed_color'],
                           show_entry_count=False,
-                          home=False,
+                          home=True,
                           author=self.context.author)
 
         await paginator.paginate()
@@ -357,6 +357,8 @@ class HelpCommand(commands.HelpCommand):
                     if i.cog_name in self.admin_cogs and not await self.context.bot.is_admin(self.context.author):
                         continue
                     if i.cog_name in self.booster_cogs and not await self.context.bot.is_booster(self.context.author):
+                        continue
+                    if i.hidden:
                         continue
                     close.append(i.name)
             except Exception:

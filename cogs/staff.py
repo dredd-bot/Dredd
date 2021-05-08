@@ -485,7 +485,6 @@ class staff(commands.Cog, name="Staff"):
                 # await self.bot.db.execute("DELETE FROM track_suggestions WHERE user_id = $1 AND _id = $2", user.id, int(suggestion_id))
                 await user.send(embed=e)
             except Exception as e:
-                print(e)
                 pass
 
     @commands.command(brief='Deny the suggestion', aliases=['deny'])
@@ -528,7 +527,6 @@ class staff(commands.Cog, name="Staff"):
                 await self.bot.db.execute("DELETE FROM track_suggestions WHERE user_id = $1 AND _id = $2", user.id, int(suggestion_id))
                 await user.send(embed=e)
             except Exception as e:
-                print(e)
                 pass
 
     @commands.command(brief='Deny the suggestion', aliases=['sdelete'])
@@ -565,7 +563,6 @@ class staff(commands.Cog, name="Staff"):
                 await self.bot.db.execute("DELETE FROM track_suggestions WHERE user_id = $1 AND _id = $2", user.id, int(suggestion_id))
                 await user.send(embed=e)
             except Exception as e:
-                print(e)
                 pass
 
     @commands.command(brief='Mark suggestion as done', aliases=['sdone'])
@@ -612,7 +609,6 @@ class staff(commands.Cog, name="Staff"):
                 await self.bot.db.execute("DELETE FROM track_suggestions WHERE user_id = $1 AND _id = $2", user.id, int(suggestion_id))
                 await user.send(embed=e)
             except Exception as e:
-                print(e)
                 pass
 
     @admin.command(brief="DM a user", description="Direct message an user")
@@ -621,7 +617,7 @@ class staff(commands.Cog, name="Staff"):
         try:
             await ctx.message.delete()
         except Exception as e:
-            print(e)
+            pass
         try:
             num = len(self.bot.dm)
             try:
@@ -653,7 +649,6 @@ class staff(commands.Cog, name="Staff"):
         except discord.errors.Forbidden:
             await ctx.author.send("Couldn't send message to that user. Maybe he's not in the same server with me?")
         except Exception as e:
-            print(e)
             await ctx.author.send(e)
 
 

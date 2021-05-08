@@ -188,7 +188,6 @@ class Pages:
     async def main_help(self):
         """ Goes to the main page of help """
         await self.stop_pages()
-        # self.context = await self.bot.get_context(self.message, cls=commands.Context)  still need to fix this
         await self.context.send_help()
 
     async def numbered_page(self):

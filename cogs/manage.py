@@ -576,7 +576,6 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                     try:
                         jsonify = json.loads(message)
                     except Exception as e:
-                        print(e)
                         return await ctx.send(_("{0} Your sent dict is invalid. Please "
                                                 "use <https://embedbuilder.nadekobot.me/> to create an embed dict, then paste the code here.").format(self.bot.settings['emojis']['misc']['warn']))
                 elif not message:
@@ -728,7 +727,6 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                     try:
                         jsonify = json.loads(message)
                     except Exception as e:
-                        print(e)
                         return await ctx.send(_("{0} Your sent dict is invalid. Please "
                                                 "use <https://embedbuilder.nadekobot.me/> to create an embed dict and then paste that code.").format(self.bot.settings['emojis']['misc']['warn']))
                 elif not message:
@@ -1488,7 +1486,6 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                     the_role, the_role_loop, the_role_part = role.id, False, 1
                                     await msg6.delete()
                             except Exception as e:
-                                print(e)
                                 await msg6.edit(content=_("Invalid role, try again."))
                     else:
                         pass
@@ -1506,7 +1503,6 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                 max_roles, max_roles_loop = num, False
                                 await msg7.edit(content=_("Set the max number of roles to **{0}**").format(num))
                             except Exception as e:
-                                print(e)
                                 await msg7.edit(content=_("Answer must be a number or `cancel` to cancel."))
                     if first_part == 1:
                         if embed_part == 1:
@@ -1548,6 +1544,8 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
 
         except asyncio.TimeoutError:
             return await ctx.channel.send(_("Timed out, please re-run the command."))
+        except discord.errors.NotFound:
+            return
 
     @reaction_roles.command(name='list', aliases=['l'], brief="Get a list of reaction roles in the server")
     @admin(manage_roles=True)
@@ -1583,9 +1581,11 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 msg = await channel.fetch_message(messageid)
                 message = _("[Jump URL]({0})").format(msg.jump_url)
 
+            roles = ', '.join([x.mention if x else str(x) for x in roles][:10]) + f" (+{len(roles) - 10})" if len(roles) > 10 else ', '.join([x.mention if x else str(x) for x in roles])
+
             list_of_reactionroles.append(_("**Message:** {0}\n**Channel:** {1}\n**Reactions:** {2}\n**Roles:** {3}\n**Roles limit:** {4}\n**Required role:** {5}\n\n").format(
                 message, channel.mention if channel else _('Deleted'), ', '.join([x for x in cache['dict']][:10]) + f" (+{len(cache['dict']) - 10})" if len(cache['dict']) > 10 else ', '.join([x for x in cache['dict']]),
-                ', '.join([x.mention for x in roles][:10]) + f" (+{len(roles) - 10})" if len(roles) > 10 else ', '.join([x.mention for x in roles]), cache['max_roles'],
+                roles, cache['max_roles'],
                 ctx.guild.get_role(cache['required_role']).mention if ctx.guild.get_role(cache['required_role']) else None
             ))
 

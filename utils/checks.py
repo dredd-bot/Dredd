@@ -294,7 +294,6 @@ async def is_guild_disabled(ctx, command):
                 else:
                     return False
         except Exception as e:
-            print(e)
             if CM.get(ctx.bot, 'guild_commands', f"{str(command.name)}, {ctx.guild.id}"):
                 return True
 

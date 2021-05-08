@@ -82,7 +82,6 @@ class Boosters(commands.Cog, aliases=['Donators']):
                 invite = await self.bot.fetch_invite(str(invite))
                 name = name or invite.guild.name
             except Exception as e:
-                print(e)
                 raise commands.BadArgument("Can't seem to find that invite, please make sure you're only sending the code (PMZXUwdr) else it won't work.")
             await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, name, invite.url, 1)
             await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Added Discord ({name} - <{invite.url}>) to your medias list.")

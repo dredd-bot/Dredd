@@ -18,6 +18,7 @@ import json
 import asyncio
 
 from discord.ext import commands
+from discord.utils import escape_markdown
 from datetime import datetime, timezone
 
 from utils import btime, default, publicflags
@@ -161,8 +162,8 @@ class Logging(commands.Cog):
             nick_embed.set_author(name=_("{0} changed their nickname").format(before), icon_url=before.avatar_url)
             nick_embed.title = _("{0} Nickname Changed").format(self.bot.settings['emojis']['logs']['memberedit'])
             nick_embed.description = _("**Member:** {0} `{1}`\n\n**Before:** {2}\n**After:** {3}").format(before.mention, before,
-                                                                                                          before.nick if before.nick else before.name,
-                                                                                                          after.nick if after.nick else after.name)
+                                                                                                          escape_markdown(before.nick) if before.nick else escape_markdown(before.name),
+                                                                                                          escape_markdown(after.nick) if after.nick else escape_markdown(after.name))
             nick_embed.set_footer(text=_("User ID: {0}").format(before.id))
 
             try:
@@ -201,7 +202,7 @@ class Logging(commands.Cog):
                     updateuser_embed = discord.Embed(color=self.bot.settings['colors']['log_color'], timestamp=datetime.now(timezone.utc))
                     updateuser_embed.set_author(name=_("{0} changed their username").format(after), icon_url=before.avatar_url)
                     updateuser_embed.title = _("{0} Username Changed").format(self.bot.settings['emojis']['logs']['memberedit'])
-                    updateuser_embed.description = _("**Member:** {0} `{1}`\n**Before:** {2}\n**After:** {3}").format(after.mention, after, before.name, after.name)
+                    updateuser_embed.description = _("**Member:** {0} `{1}`\n**Before:** {2}\n**After:** {3}").format(after.mention, after, escape_markdown(before.name), escape_markdown(after.name))
                     updateuser_embed.set_footer(text=_("User ID: {0}").format(before.id))
                     try:
                         await updateuser_channel.send(embed=updateuser_embed)

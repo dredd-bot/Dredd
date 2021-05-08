@@ -115,7 +115,7 @@ class CommandError(commands.Cog, name="CommandError",
         guild_id = '' if not ctx.guild else ctx.guild.id
         channel_id = ctx.channel.id
 
-        if hasattr(ctx.command, 'on_error'):
+        if ctx.command.has_error_handler() or ctx.command.cog.has_error_handler():
             return
 
         elif isinstance(exc, not_voted):
@@ -155,6 +155,11 @@ class CommandError(commands.Cog, name="CommandError",
                 return await ctx.send(_("{0}"
                                         " | This command can only be used in"
                                         " direct messages!").format(self.bot.settings['emojis']['misc']['warn']))
+
+        elif isinstance(exc, commands.NoPrivateMessage):
+            return await ctx.send(_("{0} | This command can't be used in direct messages!").format(
+                self.bot.settings['emojis']['misc']['warn']
+            ))
 
         elif isinstance(exc, commands.NSFWChannelRequired):
             if ctx.author.id == 345457928972533773:

@@ -15,9 +15,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 # Bot token
 DISCORD_TOKEN = ""
+MAIN_TOKEN = ''
 
 # DBL token
 DBL_TOKEN = ''
+DBL_password = ''
 
 # discord.bots.gg
 DBGG_TOKEN = ''
@@ -42,19 +44,30 @@ BOTSPACE_TOKEN = ''
 
 # botsfordiscord.com
 BFD_TOKEN = ''
+BBL_TOKEN = ''
+BLIST_TOKEN = ''
+SBL_TOKEN = ''
+DISCORD_BOTS_TOKEN = ''
+DBLIST_TOKEN = ''
+DSERVICES_TOKEN = ''
+INFINITY_TOKEN = ''
 
 # Statcord
 STAT_TOKEN = ''
 
 WEBHOOK_URL = ''
 
-CB_TOKEN = ''
+CB_TOKEN = """"""
+
+# Dredd API
+DREDD_API_TOKEN = ""
+DREDD_API_CLIENT = ""
 
 # PSQL
 DB_CONN_INFO = {
     "user": "",
     "password": "",
-    "host": "",
+    "host": "127.0.0.1",
     "database": ""
 }
 
@@ -63,10 +76,10 @@ BACKUP_PASSWORD = ''
 BACKUP_RECEIVER = ''
 
 MUSIC_PASSWORD = ''
-MUSIC_PORT = 0000  # change to your port
+MUSIC_PORT = 2333
 MUSIC_ID = ''
 
 # Extensions
 EXTENSIONS = [
-    'cogs.extension'
+    'cogs.cog'  # replace this with the actual cogs you want to load
 ]

@@ -28,6 +28,7 @@ from discord.ext import commands
 from discord.utils import escape_markdown
 from collections import Counter
 from datetime import datetime, timezone, timedelta
+from io import BytesIO
 
 from db.cache import CacheManager as CM
 from utils import btime, default, rtfm
@@ -248,7 +249,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             await ctx.guild.chunk(cache=True)
 
         acks = default.server_badges(ctx, ctx.guild)
-        ack = _("\n**Acknowledgements:** {0}").format(acks) if acks else ''
+        ack = _("\n**Acknowledgements:**\n{0}").format(acks) if acks else ''
         unique_members = set(ctx.guild.members)
         unique_online = sum(1 for m in unique_members if m.status is discord.Status.online and not type(m.activity) == discord.Streaming)
         unique_offline = sum(1 for m in unique_members if m.status is discord.Status.offline and not type(m.activity) == discord.Streaming)
@@ -400,19 +401,21 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         cmd = self.bot.get_command(command)
         if cmd is None:
             return await ctx.send(_("{0} You can see my source code here: <{1}>").format(self.bot.settings['emojis']['misc']['python'], source_url))
+
         source = inspect.getsource(cmd.callback)
-        if len(source) + 8 < 2000:
-            await ctx.send(f"```py\n{source}```")
+        obj = self.bot.get_command(command.replace('.', ' '))
+        module = obj.callback.__module__
+        location = module.replace('.', '/') + '.py'
+        src = obj.callback.__code__
+        lines, firstlineno = inspect.getsourcelines(src)
+        branch = 'master'
+        final_url = f'<{source_url}/blob/{branch}/{location}#L{firstlineno}-L{firstlineno + len(lines) - 1}>'
+
+        if len(source) + 8 < 2000 - len(f"{self.bot.settings['emojis']['social']['github']} {final_url}"):
+            await ctx.send(f"{self.bot.settings['emojis']['social']['github']} {final_url}```py\n{source}```")
+        elif len(source) < 50000 - len(f"{self.bot.settings['emojis']['social']['github']} {final_url}"):
+            await ctx.send(content=f"{self.bot.settings['emojis']['social']['github']} {final_url}", file=discord.File(filename=location, fp=BytesIO(source.encode('utf-8'))))
         else:
-            obj = self.bot.get_command(command.replace('.', ' '))
-
-            src = obj.callback.__code__
-            lines, firstlineno = inspect.getsourcelines(src)
-            module = obj.callback.__module__
-            location = module.replace('.', '/') + '.py'
-            branch = 'master'
-            final_url = f'<{source_url}/blob/{branch}/{location}#L{firstlineno}-L{firstlineno + len(lines) - 1}>'
-
             await ctx.send(_("The source code for this command is too long, you can view it here:\n{0}").format(final_url))
 
     @commands.command(aliases=['pfp'], brief="Get users avatar")
@@ -548,6 +551,34 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                           show_entry_count=True,
                           author=ctx.author)
         await paginator.paginate()
+
+    @commands.command(brief="See the information of the role", aliases=['rinfo', 'ri'])
+    @commands.guild_only()
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def roleinfo(self, ctx, *, role: discord.Role):
+        """ Displays the information of the provided role """
+
+        embed = discord.Embed(color=role.color, title=_("{0} Information").format(role.name))
+        embed.add_field(name=_("__**Basic Information**__"),
+                        value=_("**Role name:** {0}\n**Role mention:** {1}\n**Role ID:** {2}").format(
+                            role.name, role.mention, role.id
+                        ))
+        rolemembers = []
+        for member in role.members:
+            rolemembers.append(f"{member.name}#{member.discriminator}")
+        role_members = f"{', '.join(rolemembers[:10])} **(+{len(rolemembers) - 10})**" if len(rolemembers) > 10 else ', '.join(rolemembers)
+        embed.add_field(name=_("__**Permissions:**__"),
+                        value=', '.join(default.permissions_converter(ctx, dict(role.permissions))),
+                        inline=False)
+        embed.add_field(name=_("__**Other Information:**__"),
+                        value=_("**Is Integration:** {0}\n**Hoisted:** {1}\n**Position:** {2}\n"
+                                "**Color:** {3}\n**Created:** {4}\n\n**Members:** {5}").format(
+                                    role.managed, role.hoist, len(ctx.guild.roles) - role.position,
+                                    role.color, default.human_timedelta(role.created_at), role_members
+                                ),
+                        inline=False)
+
+        await ctx.send(embed=embed)
 
     @commands.group(name='nicknames', aliases=['nicks'], brief='Get a list of recent member nicknames', invoke_without_command=True)
     @commands.guild_only()

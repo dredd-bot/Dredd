@@ -86,6 +86,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             return await ctx.send(_("{0} Looks like I'm missing permissions!").format(self.bot.settings['emojis']['misc']['warn']))
         except discord.HTTPException as e:
             return await ctx.send(_("{0} Error occured!\n`{1}`").format(self.bot.settings['emojis']['misc']['warn'], e))
+        except discord.errors.NotFound:
+            return
         except Exception as e:
             return await ctx.send(_("{0} Error occured!\n`{1}`").format(self.bot.settings['emojis']['misc']['warn'], e))
 
@@ -214,7 +216,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_permissions(manage_nicknames=True)
     @commands.guild_only()
     async def dehoist(self, ctx, *, nickname: str = None):
-        """"""
+        """ Dehoists members who have non-alphabetic characters at the start of their name """
 
         if nickname and len(nickname) > 32:
             return await ctx.send(_("{0} Nicknames can only be 32 characters long."
@@ -231,11 +233,11 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                     success_list.append(member)
                     success += 1
                 except discord.HTTPException:
-                    failed.append(_("{0} ({1}) - **Failed to dehoist them.**"))
+                    failed.append(_("{0} ({1}) - **Failed to dehoist them.**").format(member.mention, member.id))
                     fail += 1
                     continue
                 except discord.Forbidden:
-                    failed.append(_("{0} ({1}) - **Looks like I'm missing permissions to dehoist them.**"))
+                    failed.append(_("{0} ({1}) - **Looks like I'm missing permissions to dehoist them.**").format(member.mention, member.id))
                     fail += 1
                     continue
             else:
@@ -571,7 +573,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.has_guild_permissions(ban_members=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     async def hackban(self, ctx, users: commands.Greedy[MemberID], *, reason: commands.clean_content = None):
-        """ Hack-ban a user from the server
+        """ Hack-ban a user who's not in the server from the server
 
         Users must be IDs else it won't work. """
         if len(set(users)) == 0:
@@ -1148,7 +1150,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Warn a member', aliases=['addwarn'])
+    @commands.command(brief='Warn a member', aliases=['addwarn', 'strike'])
     @moderator(manage_messages=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
@@ -1204,7 +1206,6 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                         embed.description = _("You were warned in **{0}** for:\n{1}").format(ctx.guild.name, reason)
                         await member.send(embed=embed)
                     except Exception as e:
-                        print(e)
                         pass
                     warned.append(f"{member.mention} ({member.id})")
                     success_warn.append(member)
@@ -1823,7 +1824,6 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             try:
                 await channel.send(embed=embed)
             except Exception as e:
-                print(e)
                 message += _(" I was unable to send a message to your logging channel.")
                 pass
             await ctx.send(message)
