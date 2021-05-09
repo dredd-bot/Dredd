@@ -433,7 +433,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         if user.is_avatar_animated():
             gif = user.avatar_url_as(format='gif')
         else:
-            gif = None
+            gif = png
         embed.description = _("[png]({0}) | [jpg]({1}) | [webp]({2}){3}").format(png, jpg, webp, _(' | [gif]({0})').format(gif) if gif else '')
 
         if user.id in [self.bot.user.id, 667117267405766696, 576476937988472853]:
@@ -441,7 +441,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             embed.set_footer(text=_('Huge thanks to {0} for this avatar').format(Zenpa))
             await ctx.send(embed=embed)
         else:
-            embed.set_image(url=png)
+            embed.set_image(url=gif)
             await ctx.send(embed=embed)
 
     @commands.command(name='support', brief='Invite to my support server')
