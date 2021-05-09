@@ -87,7 +87,7 @@ class Player(wavelink.Player):
             ch = self.context.bot.get_channel(679647378210291832)
             await ch.send(f"They broke this again....\n**Author voice state:** {self.dj.voice}\n**Bot voice state:** {self.context.guild.me.voice}\n"
                           f"**Voice channel region:** {self.dj.voice.channel.rtc_region}")  # for debugging purposes since idk what's the actual issue
-            self.context.bot.dispatch('silent_error', ctx, e)
+            self.context.bot.dispatch('silent_error', self.context, e)
             return await self.teardown()
 
         if isinstance(self.context.guild.me.voice.channel, discord.StageChannel):
