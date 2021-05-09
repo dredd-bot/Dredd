@@ -427,9 +427,9 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         Zenpa = self.bot.get_user(373863656607318018)
         embed = discord.Embed(color=self.bot.settings['colors']['embed_color'])
         embed.set_author(name=_("{0}'s Profile Picture!").format(user), icon_url=user.avatar_url)
-        png = user.avatar_url_as(static_format='png')
-        jpg = user.avatar_url_as(static_format='jpg')
-        webp = user.avatar_url_as(static_format='webp')
+        png = user.avatar_url_as(format='png')
+        jpg = user.avatar_url_as(format='jpg')
+        webp = user.avatar_url_as(format='webp')
         if user.is_avatar_animated():
             gif = user.avatar_url_as(format='gif')
         else:
