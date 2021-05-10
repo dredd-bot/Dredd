@@ -568,7 +568,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             rolemembers.append(f"{member.name}#{member.discriminator}")
         role_members = f"{', '.join(rolemembers[:10])} **(+{len(rolemembers) - 10})**" if len(rolemembers) > 10 else ', '.join(rolemembers)
         embed.add_field(name=_("__**Permissions:**__"),
-                        value=', '.join([x.replace('_', ' ').title() for x, v in role.permissions if v]),
+                        value=', '.join([x.replace('_', ' ').title() for x, v in role.permissions if v and x.lower() != 'admin']),
                         inline=False)
         embed.add_field(name=_("__**Other Information:**__"),
                         value=_("**Is Integration:** {0}\n**Hoisted:** {1}\n**Position:** {2}\n"
