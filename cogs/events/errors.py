@@ -123,7 +123,7 @@ class CommandError(commands.Cog, name="CommandError",
             e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title=_('Vote required!'))
             e.set_author(name=_("Hey {0}!").format(ctx.author), icon_url=ctx.author.avatar_url)
             e.description = _("Thank you for using me! Unfortunately this command is vote locked and you'll need to vote for Dredd. You can vote in any of these lists:\n"
-                              "`[1]` {0}\n`[2]` {1}\n`[3]` {2}\n`[4]` {3}\n\n*After you vote you'll be able to use this command, and will help Dredd gain more servers :D*").format(
+                              "`[1]` {0}\n`[2]` {1}\n`[3]` {2}\n`[4]` {3}\n\n*After you vote, you'll be able to use this command, and will help Dredd gain more servers :D*").format(
                                   botlist['dbots'], botlist['dboats'], botlist['dbl'], botlist['shitgg']
                               )
             return await ctx.send(embed=e)
