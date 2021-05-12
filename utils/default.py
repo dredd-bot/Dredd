@@ -275,13 +275,11 @@ def badge_values(ctx) -> dict:
 
 def permissions_converter(ctx, permissions):
     to_return = []
-    del permissions['admin']
-    if not permissions['administrator']:
-        for permission in permissions:
-            to_return.append(permission.replace('_', ' ').title())
+    if not permissions:
+        return None
 
-    elif permissions['administrator']:
-        to_return.append('Administrator')
+    for permission in permissions:
+        to_return.append(permission.replace('_', ' ').title())
 
     return to_return
 
