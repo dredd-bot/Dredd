@@ -187,16 +187,10 @@ class HelpCommand(commands.HelpCommand):
                     react, user = await self.context.bot.wait_for('reaction_add', check=check, timeout=300.0)
                     if str(react) in cog_emojis:
                         if str(react) == f"{ctx.bot.settings['emojis']['ranks']['bot_owner']}" and not await ctx.bot.is_owner(ctx.author):
-                            with suppress(Exception):
-                                await msg.remove_reaction(str(react))
                             continue
                         elif str(react) == "<:staff:706190137058525235>" and not await ctx.bot.is_admin(ctx.author):
-                            with suppress(Exception):
-                                await msg.remove_reaction(str(react))
                             continue
                         elif str(react) == "<:n_:747399776231882812>" and not await ctx.bot.is_booster(ctx.author):
-                            with suppress(Exception):
-                                await msg.remove_reaction(str(react))
                             continue
                         else:
                             break
