@@ -83,7 +83,7 @@ class Player(wavelink.Player):
         self.stop_votes.clear()
         self.loop_votes.clear()
 
-        if not self.context.guild.me.voice:
+        if not self.context.guild.me.voice and not await self.bot.is_owner(self.dj):
             ch = self.context.bot.get_channel(679647378210291832)
             await ch.send(f"They broke this again....\n**Author voice state:** {self.dj.voice}\n**Bot voice state:** {self.context.guild.me.voice}\n"
                           f"**Voice channel region:** {self.dj.voice.channel.rtc_region}")  # for debugging purposes since idk what's the actual issue
