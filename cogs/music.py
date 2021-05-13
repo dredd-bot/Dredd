@@ -439,7 +439,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         """Skip the currently playing song."""
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
-        if player.queue.qsize() == 0 and not player.mode247:
+        if player.queue.qsize() == 0:
             return await ctx.send(_("{0} There's nothing to skip to, the queue is empty..").format(self.bot.settings['emojis']['misc']['warn']))
 
         if self.is_dj(ctx):
