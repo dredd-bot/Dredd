@@ -136,7 +136,7 @@ class Bot(commands.AutoShardedBot):
                 webhooks=False,  # webhook update
                 invites=False,  # invite create/delete
                 voice_states=True,  # voice state update
-                presences=True,  # member/user update for games/activities
+                presences=False,  # member/user update for games/activities
                 guild_messages=True,  # message create/update/delete
                 dm_messages=True,  # message create/update/delete
                 guild_reactions=True,  # reaction add/remove/clear
