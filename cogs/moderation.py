@@ -63,10 +63,11 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         if await ctx.bot.is_admin(ctx.author):
             prefixes.append('d ')
         if await ctx.bot.is_booster(ctx.author):
-            prefixes.append(cm.get(self.bot, 'boosters', ctx.author.id))
+            if cm.get(self.bot, 'boosters', ctx.author.id):
+                prefixes.append(cm.get(self.bot, 'boosters', ctx.author.id))
 
         def check(m):
-            return m.author == ctx.me or m.content.startswith(prefixes)
+            return m.author == ctx.me or m.content.startswith(tuple(prefixes))
 
         deleted = await ctx.channel.purge(limit=search, check=check, before=ctx.message)
         return Counter(m.author.display_name for m in deleted)
