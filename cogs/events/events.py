@@ -80,7 +80,7 @@ class Events(commands.Cog):
         ctx = await self.bot.get_context(message)
 
         if ctx.guild and not ctx.valid:
-            if not ctx.guild.me.mentioned_in(ctx.message) and f"{ctx.guild.default_role.name}" in ctx.message.content:
+            if f"{ctx.guild.default_role.name}" in ctx.message.content and not ctx.guild.me.mentioned_in(ctx.message):
                 return
             elif ctx.guild.me.mentioned_in(ctx.message):
                 prefix = CM.get(self.bot, 'prefix', message.guild.id)
