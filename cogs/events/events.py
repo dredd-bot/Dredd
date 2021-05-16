@@ -80,7 +80,7 @@ class Events(commands.Cog):
         ctx = await self.bot.get_context(message)
 
         if ctx.guild:
-            if self.bot.user.mentioned_in(message) and not ctx.valid:
+            if self.bot.user.mentioned_in(message) and not ctx.valid and not ctx.guild.default_role.mention:
                 prefix = CM.get(self.bot, 'prefix', message.guild.id)
                 if not prefix:  # If bot was invited when it was offline, or if for some reason the data was lost
                     self.bot.dispatch('guild_join', message.guild)

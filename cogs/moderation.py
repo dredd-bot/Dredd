@@ -58,7 +58,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         return {'Bot': count}
 
     async def _complex_cleanup_strategy(self, ctx, search):
-        prefixes = [self.bot.prefix[ctx.guild.id], self.bot.user.mention]
+        prefixes = [self.bot.prefix[ctx.guild.id], ctx.guild.me.mention]
 
         if await ctx.bot.is_admin(ctx.author):
             prefixes.append('d ')
