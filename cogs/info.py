@@ -31,7 +31,7 @@ from datetime import datetime, timezone, timedelta
 from io import BytesIO
 
 from db.cache import CacheManager as CM
-from utils import btime, default, rtfm
+from utils import btime, default, rtfm, checks
 from utils.paginator import Pages
 
 
@@ -347,6 +347,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
     @commands.command(brief="List of all the server staff", aliases=['guildstaff', 'mods', 'admins'])
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @checks.removed_command()
     async def serverstaff(self, ctx):
         """ Check which server staff are online in the server """
         message = ""
