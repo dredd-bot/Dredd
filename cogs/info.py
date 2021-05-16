@@ -172,8 +172,6 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         if member:
             nick = member.nick or 'N/A'
             nicks = ''
-            status = default.member_status(ctx, member)
-            act = default.member_activity(ctx, member)
             uroles = []
             for role in member.roles:
                 if role.is_default():
@@ -193,11 +191,11 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                         nicks += 'N/A  '
             user_roles = _(' **({0} Total)**').format(len(member.roles) - 1) if uroles != [] else _('No roles')
             e.add_field(name=_("General Information:"), value=_("""
-{0} {1} {2}
-{3}
-**User ID:** {4}
-**Account created:** {5} ({6})""").format(status, user, discord_badges,
-                                          act, user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
+{0} {1}
+
+**User ID:** {2}
+**Account created:** {3} ({4})""").format(user, discord_badges,
+                                          user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
                                           btime.human_timedelta(user.created_at.replace(tzinfo=None), source=datetime.utcnow())), inline=False)
             e.add_field(name=_("Server Information:"), value=_("""
 **Nickname:** {0}{1}
@@ -218,11 +216,11 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                 status = ''
                 act = ''
             e.add_field(name=_("General Information:"), value=_("""
-{0} {1} {2}
-{3}
-**User ID:** {4}
-**Account created:** {5} ({6})""").format(status, user, discord_badges,
-                                          act, user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
+{0} {1}
+
+**User ID:** {2}
+**Account created:** {3} ({4})""").format(user, discord_badges,
+                                          user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
                                           btime.human_timedelta(user.created_at.replace(tzinfo=None), source=datetime.utcnow())), inline=False)
 
         if await self.bot.is_booster(user):
@@ -251,11 +249,6 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         acks = default.server_badges(ctx, ctx.guild)
         ack = _("\n**Acknowledgements:**\n{0}").format(acks) if acks else ''
         unique_members = set(ctx.guild.members)
-        unique_online = sum(1 for m in unique_members if m.status is discord.Status.online and not type(m.activity) == discord.Streaming)
-        unique_offline = sum(1 for m in unique_members if m.status is discord.Status.offline and not type(m.activity) == discord.Streaming)
-        unique_idle = sum(1 for m in unique_members if m.status is discord.Status.idle and not type(m.activity) == discord.Streaming)
-        unique_dnd = sum(1 for m in unique_members if m.status is discord.Status.dnd and not type(m.activity) == discord.Streaming)
-        unique_streaming = sum(1 for m in unique_members if type(m.activity) == discord.Streaming)
         humann = sum(1 for member in ctx.guild.members if not member.bot)
         botts = sum(1 for member in ctx.guild.members if member.bot)
         num = 0
@@ -273,6 +266,8 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
         e = discord.Embed(color=self.bot.settings['colors']['embed_color'])
         e.set_author(name=_("{0} Information").format(ctx.guild.name), icon_url=ctx.guild.icon_url)
+        if ctx.guild.description:
+            e.description = ctx.guild.description
         e.add_field(name=_('General Information:'), value=_("""
 **Name:** {0}
 **ID:** {1}
@@ -289,17 +284,11 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             region, str(ctx.guild.verification_level).capitalize(),
             ctx.guild.owner or 'Unknown', ctx.guild.owner.id, ack, nitromsg))
 
-        members_info = (f"{self.bot.settings['emojis']['misc']['pc-online']} {unique_online:,}\n"
-                        f"{self.bot.settings['emojis']['misc']['pc-idle']} {unique_idle:,}\n"
-                        f"{self.bot.settings['emojis']['misc']['pc-dnd']} {unique_dnd:,}\n"
-                        f"{self.bot.settings['emojis']['misc']['offline']} {unique_offline:,}\n"
-                        f"{self.bot.settings['emojis']['misc']['streaming']} {unique_streaming:,}")
         e.add_field(name=_('Other Information:'), value=_("""**Members:** (Total: {0})
-{1}
 **Bots:** {2} | **Humans:** {3}
 **Staff:** {4}{5}
 **Channels:** {6} {7} | {8} {9}
-""").format(f'{ctx.guild.member_count:,}', members_info, f'{botts:,}', f'{humann:,}', f'{num:,}', bans,
+""").format(f'{ctx.guild.member_count:,}', '', f'{botts:,}', f'{humann:,}', f'{num:,}', bans,
             self.bot.settings['emojis']['logs']['unlock'], f'{len(ctx.guild.text_channels):,}',
             self.bot.settings['emojis']['logs']['vcunlock'], f'{len(ctx.guild.voice_channels):,}'))
         info = []
@@ -418,7 +407,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         else:
             await ctx.send(_("The source code for this command is too long, you can view it here:\n{0}").format(final_url))
 
-    @commands.command(aliases=['pfp'], brief="Get users avatar")
+    @commands.command(aliases=['pfp', 'av'], brief="Get users avatar")
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def avatar(self, ctx, *, user: discord.User = None):
         """ Displays what avatar user is using """

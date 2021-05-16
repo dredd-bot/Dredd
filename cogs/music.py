@@ -274,7 +274,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         await ctx.send(_("{0} Connected to **{1}**!").format('🎶', channel.name))
 
-    @commands.command()
+    @commands.command(aliases=['p'])
     @check_music(author_channel=True, bot_channel=False, same_channel=True, verify_permissions=True, is_playing=False, is_paused=False)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)

@@ -186,9 +186,20 @@ def test_command():  # update this embed
         if await ctx.bot.is_admin(ctx.author):
             return True
         elif not await ctx.bot.is_admin(ctx.author):
-            e = discord.Embed(color=ctx.bot.settings['colors']['deny_color'], description=f"This command is in it's testing phase, please [join support server]({ctx.bot.support}) if you want to know when it'll be available.")
+            e = discord.Embed(color=ctx.bot.settings['colors']['deny_color'], description=_("This command is in it's testing phase, please [join the support server]({0}) if you want to know when it'll be available.").format(
+                ctx.bot.support
+            ))
             await ctx.send(embed=e)
             return False
+        return False
+    return commands.check(predicate)
+
+
+def removed_command():  # The command is getting removed slowly
+    async def predicate(ctx):
+        await ctx.send(_("Unfortunately, this command is getting removed in the next update, if you want to know why, please join the support server here {0}").format(
+            ctx.bot.support
+        ))
         return False
     return commands.check(predicate)
 

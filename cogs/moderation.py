@@ -58,7 +58,12 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         return {'Bot': count}
 
     async def _complex_cleanup_strategy(self, ctx, search):
-        prefixes = self.bot.prefix[ctx.guild.id]
+        prefixes = [self.bot.prefix[ctx.guild.id], self.bot.user.mention]
+
+        if await ctx.bot.is_admin(ctx.author):
+            prefixes.append('d ')
+        if await ctx.bot.is_booster(ctx.author):
+            prefixes.append(cm.get(self.bot, 'boosters', ctx.author.id))
 
         def check(m):
             return m.author == ctx.me or m.content.startswith(prefixes)
@@ -100,7 +105,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         if deleted:
             messages.append('')
             spammers = sorted(spammers.items(), key=lambda t: t[1], reverse=True)
-            messages.extend(f'**{name}**: {count}' for name, count in spammers)
+            messages.extend(f'**{escape_markdown(name)}**: {count}' for name, count in spammers)
 
         to_send = '\n'.join(messages)
 

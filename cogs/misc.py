@@ -364,12 +364,19 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 pass
             await checkmsg.edit(content=_("Canceling..."), delete_after=15)
 
-    @commands.command(brief='Set your AFK status', aliases=['afk'])
+    @commands.command(brief='Set your AFK status in the current server', aliases=['afk'])
     @commands.guild_only()
     @checks.has_voted()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def setafk(self, ctx, *, note: commands.clean_content = "I'm currently AFK"):
+        """ Set your AFK status in the current server so users who mention you would know that you're AFK """
         check = CM.get(self.bot, 'afk', f"{str(ctx.guild.id)}, {str(ctx.author.id)}")
+        check1 = CM.get(self.bot, 'afk', f"{str(ctx.author.id)}")
+
+        if check1:
+            return await ctx.send(_("{0} You've set your AFK status globally already.").format(
+                self.bot.settings['emojis']['misc']['warn']
+            ))
 
         if len(note) > 500:
             note = note[:500]
@@ -385,6 +392,38 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             await self.bot.db.execute("INSERT INTO afk(user_id, guild_id, message, time) VALUES($1, $2, $3, $4)", ctx.author.id, ctx.guild.id, note, datetime.now())
             self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"] = {'note': note, 'time': datetime.now()}
             await ctx.send(_("{0} ** Set your AFK state to:** {1}").format(
+                self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
+            ))
+
+    @commands.command(brief='Set your AFK status globally', aliases=['globalafk', 'gafk'])
+    @commands.guild_only()
+    @checks.has_voted()
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def setglobalafk(self, ctx, *, note: commands.clean_content = "I'm currently AFK"):
+        """ Set your AFK status in all the shared servers with the bot so users who mention you would know that you're AFK """
+
+        check = CM.get(self.bot, 'afk', f"{str(ctx.author.id)}")
+        check1 = await self.bot.db.fetchval("SELECT count(*) FROM afk WHERE user_id = $1", ctx.author.id)
+
+        if check1 > 0:
+            return await ctx.send(_("{0} You first need to unafk yourself in **{1}** servers!").format(
+                self.bot.settings['emojis']['misc']['warn'], check1
+            ))
+
+        if len(note) > 500:
+            note = note[:500]
+            note += '...'
+
+        if check is not None:
+            await self.bot.db.execute("UPDATE afk SET message = $1 WHERE user_id = $2", note, ctx.author.id)
+            self.bot.afk[f"{str(ctx.author.id)}"]['note'] = note
+            await ctx.send(_("{0} **Changed your global AFK state to:** {1}").format(
+                self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
+            ))
+        elif check is None:
+            await self.bot.db.execute("INSERT INTO afk(user_id, message, time) VALUES($1, $2, $3)", ctx.author.id, note, datetime.now())
+            self.bot.afk[f"{str(ctx.author.id)}"] = {'note': note, 'time': datetime.now()}
+            await ctx.send(_("{0} ** Set your global AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
             ))
 
@@ -546,6 +585,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
 
     @toggle.command(brief='Toggle your status logging', aliases=['activity', 'presence'], name='status')
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @checks.removed_command()
     async def toggle_status(self, ctx):
         """ Toggle your status logging """
         check = CM.get(self.bot, 'status_op', ctx.author.id)
@@ -660,13 +700,14 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         embed = discord.Embed(color=self.bot.settings['colors']['embed_color'],
                               title=_("{0} - {1} lyrics").format(song.author, song.title),
                               url=song.link,
-                              description=song.lyrics[:1500] + '...' if len(song.lyrics) > 1500 else song.lyrics)
+                              description=song.lyrics[:1800] + '...' if len(song.lyrics) > 1800 else song.lyrics)
         embed.set_thumbnail(url=song.thumbnail)
         await ctx.send(embed=embed)
 
     @commands.command(brief='Setup your status logging', aliases=['activity', 'presence'])
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @checks.removed_command()
     async def status(self, ctx, *, member: discord.Member = None):
         member = member or ctx.author
 
@@ -717,7 +758,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 )
                 return await ctx.send(embed=e)
 
-    @commands.group(brief='Manage your reminders', aliases=['reminds', 'rm', 'reminder'], invoke_without_command=True)
+    @commands.group(brief='Manage your reminders', aliases=['reminds', 'rm', 'reminder', 'remindme'], invoke_without_command=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def remind(self, ctx, *, remind: btime.UserFriendlyTime(commands.context, default="\u2026")):
         """ Create a reminder for yourself.

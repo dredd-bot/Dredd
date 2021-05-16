@@ -79,7 +79,15 @@ class Events(commands.Cog):
 
         ctx = await self.bot.get_context(message)
 
-        if ctx.guild is None:
+        if ctx.guild:
+            if self.bot.user.mentioned_in(message) and not ctx.valid:
+                prefix = CM.get(self.bot, 'prefix', message.guild.id)
+                if not prefix:  # If bot was invited when it was offline, or if for some reason the data was lost
+                    self.bot.dispatch('guild_join', message.guild)
+                    prefix = '-'
+                return await message.channel.send(_("My prefix in this server is `{0}` or {1}!").format(prefix, self.bot.user.mention))
+
+        elif ctx.guild is None:
             check = CM.get(self.bot, 'dms', message.author.id)
             blacklist = CM.get(self.bot, 'blacklist', message.author.id)
             if blacklist:
@@ -402,20 +410,6 @@ class Events(commands.Cog):
                 return await mok.send(embed=e)
 
     @commands.Cog.listener('on_member_update')
-    async def status_logging(self, before, after):
-        await self.bot.wait_until_ready()
-
-        if not CM.get(self.bot, 'status_op', after.id):
-            return
-
-        if before.status != after.status:
-            query = """INSERT INTO status(user_id, status_type, since) VALUES($1, $2, $3)
-                        ON CONFLICT (user_id) DO UPDATE
-                        SET status_type = $2, since = $3
-                        WHERE status.user_id = $1"""
-            await self.bot.db.execute(query, after.id, after.status.name, datetime.now())
-
-    @commands.Cog.listener('on_member_update')
     async def nicknames_logging(self, before, after):
         await self.bot.wait_until_ready()
 
@@ -439,16 +433,24 @@ class Events(commands.Cog):
             return
 
         afks = CM.get(self.bot, 'afk', f'{str(message.guild.id)}, {str(message.author.id)}')
+        afks2 = CM.get(self.bot, 'afk', f'{str(message.author.id)}')
         if afks:
             await message.channel.send(_("Welcome back {0}! You were away for **{1}**. Your AFK state has been removed.").format(
                     message.author.mention, btime.human_timedelta(afks['time'], suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
             await self.bot.db.execute("DELETE FROM afk WHERE user_id = $1 AND guild_id = $2", message.author.id, message.guild.id)
             self.bot.afk.pop(f'{str(message.guild.id)}, {str(message.author.id)}')
+        elif afks2:
+            await message.channel.send(_("Welcome back {0}! You were away for **{1}**. Your AFK state has been removed.").format(
+                    message.author.mention, btime.human_timedelta(afks2['time'], suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
+            await self.bot.db.execute("DELETE FROM afk WHERE user_id = $1", message.author.id)
+            self.bot.afk.pop(f'{str(message.author.id)}')
 
         to_send = ''
         for user in message.mentions:
             check = CM.get(self.bot, 'afk', f'{str(message.guild.id)}, {str(user.id)}')
-            if check:
+            check2 = CM.get(self.bot, 'afk', f'{str(user.id)}')
+            if check or check2:
+                check = check if check else check2
                 afkmsg = check['note']
                 afkmsg = afkmsg.strip()
                 member = message.guild.get_member(user.id)

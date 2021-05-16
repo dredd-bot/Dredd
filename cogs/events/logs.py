@@ -171,6 +171,22 @@ class Logging(commands.Cog):
             except Exception as e:
                 await default.background_error(self, '`member update`', e, before.guild, nick_channel)
 
+        if before.roles != after.roles:
+            roles_channel = before.guild.get_channel(member_update)
+            roles_embed = discord.Embed(color=self.bot.settings['colors']['log_color'],
+                                        timestamp=datetime.now(timezone.utc))
+            roles_embed.set_author(name=_("{0}'s roles were updated").format(before), icon_url=before.avatar_url)
+            roles_embed.title = _("{0}'s roles were updated").format(before)
+            field_title = _("Added") if len(after.roles) > len(before.roles) else _("Removed")
+            field_value = ""
+            if len(after.roles) > len(before.roles):  # Roles added
+                field_value = ''.join([x.mention for x in after.roles if x not in before.roles])
+            elif len(before.roles) > len(after.roles):  # Roles removed
+                field_value = ''.join([x.mention for x in before.roles if x not in after.roles])
+
+            roles_embed.add_field(name=field_title, value=field_value)
+            await roles_channel.send(embed=roles_embed)
+
     @commands.Cog.listener()
     async def on_user_update(self, before, after):
         for guild in self.bot.guilds:
@@ -1006,17 +1022,18 @@ class Logging(commands.Cog):
         if not check:
             return
 
-        nick = after.display_name
-        chosen_nick = check['nickname']
-        logchannel = check['channel']
-        chosen_nick = chosen_nick or 'z (hoister)'
-        if logchannel:
-            channel = after.guild.get_channel(logchannel)
-        if not nick[0].isalnum():
-            await asyncio.sleep(60)
+        if before.nick != after.nick:
+            nick = after.display_name
+            chosen_nick = check['nickname']
+            logchannel = check['channel']
+            chosen_nick = chosen_nick or 'z (hoister)'
+            if logchannel:
+                channel = after.guild.get_channel(logchannel)
             if not nick[0].isalnum():
-                await after.edit(nick=chosen_nick, reason='Anti hoist')
-                self.bot.dispatch('dehoist', after.guild, after.guild.me, [after])
+                await asyncio.sleep(60)
+                if not nick[0].isalnum():
+                    await after.edit(nick=chosen_nick, reason='Anti hoist')
+                    self.bot.dispatch('dehoist', after.guild, after.guild.me, [after])
 
 
 def setup(bot):

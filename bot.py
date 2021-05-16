@@ -63,8 +63,8 @@ async def run():
     try:
         await LoadCache.start(bot)
         bot.session = aiohttp.ClientSession(loop=bot.loop)
-        # await bot.start(config.DISCORD_TOKEN)
-        await bot.start(config.MAIN_TOKEN)
+        await bot.start(config.DISCORD_TOKEN)
+        # await bot.start(config.MAIN_TOKEN)
     except KeyboardInterrupt:
         await db.close()
         await bot.logout()
@@ -136,7 +136,7 @@ class Bot(commands.AutoShardedBot):
                 webhooks=False,  # webhook update
                 invites=False,  # invite create/delete
                 voice_states=True,  # voice state update
-                presences=True,  # member/user update for games/activities
+                presences=False,  # member/user update for games/activities
                 guild_messages=True,  # message create/update/delete
                 dm_messages=True,  # message create/update/delete
                 guild_reactions=True,  # reaction add/remove/clear
@@ -163,7 +163,7 @@ class Bot(commands.AutoShardedBot):
 
         self.support = 'https://discord.gg/f3MaASW'
         self.invite = 'https://dredd-bot.xyz/invite'
-        self.privacy = '<https://github.com/dredd-bot/Dredd/blob/master/privacy.md>'
+        self.privacy = 'https://dredd-bot.xyz/privacy-policy'
         self.license = '<https://github.com/TheMoksej/Dredd/blob/master/LICENSE>'
         self.gif_pfp = 'https://cdn.discordapp.com/attachments/667077166789558288/747132112099868773/normal_3.gif'
         self.vote = '<https://discord.boats/bot/667117267405766696/vote>'
