@@ -334,11 +334,11 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     elif not muterole:
                         if not message.author.permissions_in(message.channel).send_messages:
                             return
-                        await self.update_channel_permissions(self, message, action)
+                        await self.update_channel_permissions(message, action)
                     elif muterole and muterole in message.author.roles:
                         return
                     else:
-                        await self.update_channel_permissions(self, message, action)
+                        await self.update_channel_permissions(message, action)
                     time = None
                 except Exception as e:
                     await default.background_error(self, '`automod punishment execution (mute)`', e, message.guild, message.channel)
