@@ -40,7 +40,7 @@ if sys.version_info < (3, 5, 3):
 logger = logging.getLogger('wavelink.player')  # cause music keeps crashing randomly
 logger.setLevel(logging.DEBUG)
 handler = RotatingFileHandler(
-    filename='.logs/discord_voice.log',
+    filename='/home/ubuntu/GitHub/Dredd/Dredd-v3/logs/discord_voice.log',
     encoding='utf-8',
     mode='w',
     maxBytes=10 * 1024 * 1024,
