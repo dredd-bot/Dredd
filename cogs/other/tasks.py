@@ -151,7 +151,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
     async def backups(self):
         name = datetime.now().__format__("%d%m%y-%H:%M")
         SHELL = os.getenv("SHELL") or "/bin/bash"
-        sequence = [SHELL, '-c', """pg_dump -U dredd -h localhost "dredd v3" > "backups/{0}.sql" """.format(name)]
+        sequence = [SHELL, '-c', """pg_dump -U dredd -h localhost "dredd v3" > "/home/ubuntu/GitHub/Dredd/Dredd-v3/backups/{0}.sql" """.format(name)]
         subprocess.Popen(sequence, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         content = 'Backup created on {0}'.format(name)
         receiver = self.bot.config.BACKUP_RECEIVER
