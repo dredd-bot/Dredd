@@ -197,12 +197,12 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         nodes = {
             'Dredd': {
-                'host': '127.0.0.1',
+                'host': self.bot.config.MUSIC_IP,
                 'port': self.bot.config.MUSIC_PORT,
-                'rest_uri': 'http://127.0.0.1:{0}'.format(self.bot.config.MUSIC_PORT),
+                'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP, self.bot.config.MUSIC_PORT),
                 'password': self.bot.config.MUSIC_PASSWORD,
                 'identifier': self.bot.config.MUSIC_ID,
-                'region': 'eu_central'
+                'region': 'us_central'
             }}
 
         for n in nodes.values():
