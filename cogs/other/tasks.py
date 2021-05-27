@@ -157,7 +157,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         receiver = self.bot.config.BACKUP_RECEIVER
         ch = self.bot.get_channel(679647378210291832)
         await asyncio.sleep(5)
-        with open(f'backups/{name}.sql', 'r', encoding='utf8') as f:
+        with open(f'/home/ubuntu/GitHub/Dredd/Dredd-v3/backups/{name}.sql', 'r', encoding='utf8') as f:
             backup = f.read()
 
         backup = BytesIO(backup.encode('utf8'))
