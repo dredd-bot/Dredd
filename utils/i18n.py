@@ -18,7 +18,7 @@ import gettext
 import os.path
 from glob import glob
 
-BASE_DIR = "."  # change this if you store your files under `src/` or similar
+BASE_DIR = "/home/ubuntu/GitHub/Dredd/Dredd-v3/"  # change this if you store your files under `src/` or similar
 LOCALE_DEFAULT = 'en_US'
 LOCALE_DIR = "locale"
 locales = frozenset(map(os.path.basename, filter(os.path.isdir, glob(os.path.join(BASE_DIR, LOCALE_DIR, '*')))))
