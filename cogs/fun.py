@@ -86,7 +86,7 @@ class fun(commands.Cog, name="Fun"):
         """ Do you have a question? Ask the almighty 8ball what you should do """
         await ctx.trigger_typing()
 
-        with open("db/lines.json", "r") as f:
+        with open("/home/ubuntu/GitHub/Dredd/Dredd-v3/db/lines.json", "r") as f:
             data = json.load(f)
 
         responses = data["eightball"]
@@ -197,7 +197,7 @@ class fun(commands.Cog, name="Fun"):
         if member == bot:
             return await ctx.send(_("Don't you dare do that!"))
 
-        with open("db/lines.json", "r") as f:
+        with open("/home/ubuntu/GitHub/Dredd/Dredd-v3/db/lines.json", "r") as f:
             data = json.load(f)
 
         roasts = data["roasts"]
