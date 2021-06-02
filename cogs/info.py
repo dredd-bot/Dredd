@@ -52,7 +52,7 @@ class Info(commands.Cog, name='Information', aliases=['Infos']):
         return f'• [`{short_sha2}`](https://github.com/TheMoksej/Dredd/commit/{commit.hex}) {short} ({offset})'
 
     def get_last_commits(self, count=3):
-        repo = pygit2.Repository('/home/ubuntu/GitHub/Dredd/Dredd-v3/.git')
+        repo = pygit2.Repository('.git')
         commits = list(itertools.islice(repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL), count))
         return '\n'.join(self.format_commit(c) for c in commits)
 
