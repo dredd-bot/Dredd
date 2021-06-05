@@ -49,7 +49,7 @@ CHANGE_LOG = {
     'V3.1.2': ''
 }
 
-version = '3.1.1'
+version = '3.1.2'
 most_recent = CHANGE_LOG["V" + version]
 
 
