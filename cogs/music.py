@@ -26,7 +26,7 @@ import math
 import random
 
 from discord.ext import commands
-from utils.checks import check_music, is_admin
+from utils.checks import check_music, is_admin, has_voted
 from utils.paginator import Pages
 from contextlib import suppress
 
@@ -84,11 +84,11 @@ class Player(wavelink.Player):
         self.loop_votes.clear()
 
         if not self.context.guild.me.voice and not await self.bot.is_owner(self.dj):
-            ch = self.context.bot.get_channel(679647378210291832)
-            await ch.send(f"They broke this again....\n**Author voice state:** {self.dj.voice}\n**Bot voice state:** {self.context.guild.me.voice}\n"
-                          f"**Voice channel region:** {self.dj.voice.channel.rtc_region}")  # for debugging purposes since idk what's the actual issue
-            self.context.bot.dispatch('silent_error', self.context, e)
-            return await self.teardown()
+            await self.bot.wavelink.get_player(guild_id=self.context.guild.id, cls=Player).destroy()
+            return await self.context.channel.send(_("Looks like you've encountered bug that we're unaware how to fix, we've gone ahead and destroyed "
+                                                     "your music player for this guild, if you still encounter these bugs, please join the support server here: {0}").format(
+                                                         self.bot.support
+                                                     ))
 
         if isinstance(self.context.guild.me.voice.channel, discord.StageChannel):
             if self.context.guild.me.voice.suppress:
@@ -196,17 +196,52 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
                 await node.destroy()
 
         nodes = {
-            'Dredd': {
-                'host': self.bot.config.MUSIC_IP,
-                'port': self.bot.config.MUSIC_PORT,
-                'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP, self.bot.config.MUSIC_PORT),
-                'password': self.bot.config.MUSIC_PASSWORD,
-                'identifier': self.bot.config.MUSIC_ID,
+            # 'EU1': {
+            #     'host': self.bot.config.MUSIC_IP_EU,
+            #     'port': self.bot.config.MUSIC_PORT_EU2,
+            #     'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP_EU, self.bot.config.MUSIC_PORT_EU2),
+            #     'password': self.bot.config.MUSIC_EU_PASSWORD,
+            #     'identifier': self.bot.config.MUSIC_NODE_EU2,
+            #     'region': 'eu_central'
+            # },
+            # 'EU2': {
+            #     'host': self.bot.config.MUSIC_IP_EU2,
+            #     'port': self.bot.config.MUSIC_PORT_EU2,
+            #     'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP_EU2, self.bot.config.MUSIC_PORT_EU2),
+            #     'password': self.bot.config.MUSIC_EU_PASSWORD,
+            #     'identifier': self.bot.config.MUSIC_NODE_EU2,
+            #     'region': 'eu_east'
+            # },
+            # 'US1': {
+            #     'host': self.bot.config.MUSIC_IP_US,
+            #     'port': self.bot.config.MUSIC_PORT_US1,
+            #     'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP_US, self.bot.config.MUSIC_PORT_US1),
+            #     'password': self.bot.config.MUSIC_US_PASSWORD,
+            #     'identifier': self.bot.config.MUSIC_NODE_US1,
+            #     'region': 'us_central'
+            # },
+            # 'US2': {
+            #     'host': self.bot.config.MUSIC_IP_US,
+            #     'port': self.bot.config.MUSIC_PORT_US2,
+            #     'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP_US, self.bot.config.MUSIC_PORT_US2),
+            #     'password': self.bot.config.MUSIC_US_PASSWORD,
+            #     'identifier': self.bot.config.MUSIC_NODE_US2,
+            #     'region': 'us_west'
+            # },
+            'US3': {
+                'host': self.bot.config.MUSIC_IP_US2,
+                'port': self.bot.config.MUSIC_PORT_US3,
+                'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP_US2, self.bot.config.MUSIC_PORT_US3),
+                'password': self.bot.config.MUSIC_US_PASSWORD,
+                'identifier': self.bot.config.MUSIC_NODE_US3,
                 'region': 'us_central'
-            }}
+            }}  # Only one node is ready to be rolled out.
 
         for n in nodes.values():
             await self.bot.wavelink.initiate_node(**n)
+
+    def chop_microseconds(self, delta):
+        return delta - datetime.timedelta(microseconds=delta.microseconds)
 
     @wavelink.WavelinkMixin.listener()
     async def on_node_ready(self, node: wavelink.Node):
@@ -485,6 +520,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @has_voted()
     async def volume(self, ctx, *, vol: int):
         """Set the player volume."""
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
@@ -510,14 +546,15 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         seconds = seconds or 0
 
-        if not (player.current.length - (seconds * 1000)) < player.current.length:
-            seconds = 0
+        if 0 < (player.position + (seconds * 1000)) < player.current.length:  # should be 0 < x < end
+            seek = player.position + (seconds * 1000)
+        elif not (player.current.length - (seconds * 1000)) < player.current.length:
+            seek = 0
+        elif (player.position + (seconds * 1000)) > player.current.length:  # past the end
+            return await ctx.send(_("{0} You can't seek past the song.").format(self.bot.settings['emojis']['misc']['warn']))
 
-        if seconds * 1000 > player.current.length:
-            seconds = player.current.length / 1000
-
-        await player.seek(seconds * 1000)
-        await ctx.send(_("{0} Seeked the current song to `{1}/{2}`").format(self.bot.settings['emojis']['misc']['white-mark'], str(datetime.timedelta(milliseconds=seconds * 1000)), str(datetime.timedelta(milliseconds=int(player.current.length)))))
+        await player.seek(seek)
+        await ctx.send(_("{0} Seeked the current song to `{1}/{2}`").format(self.bot.settings['emojis']['misc']['white-mark'], self.chop_microseconds(datetime.timedelta(milliseconds=int(round(seek)))), str(datetime.timedelta(milliseconds=int(player.current.length)))))
 
     @commands.command(aliases=['mix'])
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)

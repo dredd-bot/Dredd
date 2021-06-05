@@ -91,9 +91,15 @@ class Logging(commands.Cog):
                                                                                                                          before.channel.mention, before.channel.name,
                                                                                                                          before.jump_url)
 
-            editlog_embed.add_field(name=_("**Before:**"),
-                                    value=before.content[:1000] + '...' if len(before.content) > 1000 else before.content,
-                                    inline=False)
+            if before.content:
+                editlog_embed.add_field(name=_("**Before:**"),
+                                        value=before.content[:1000] + '...' if len(before.content) > 1000 else before.content,
+                                        inline=False)
+            elif before.attachments != []:
+                editlog_embed.add_field(name=_("**Before:**"),
+                                        value=before.attachments[0].url,
+                                        inline=False)
+
             editlog_embed.add_field(name=_("**After:**"),
                                     value=after.content[:1000] + '...' if len(after.content) > 1000 else after.content)
             editlog_embed.set_footer(text=_("User ID: {0}").format(after.author.id))

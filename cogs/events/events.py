@@ -80,7 +80,9 @@ class Events(commands.Cog):
         ctx = await self.bot.get_context(message)
 
         if ctx.guild and not ctx.valid:
-            if ctx.guild.me.mentioned_in(message) and not message.mention_everyone:
+            if ctx.guild.me.mentioned_in(message):
+                if message.mention_everyone or message.reference or message.role_mentions:
+                    return
                 prefix = CM.get(self.bot, 'prefix', message.guild.id)
                 if not prefix:  # If bot was invited when it was offline, or if for some reason the data was lost
                     self.bot.dispatch('guild_join', message.guild)
@@ -392,6 +394,7 @@ class Events(commands.Cog):
     # other events
     @commands.Cog.listener('on_message')
     async def on_del_add(self, message):
+        return
         await self.bot.wait_until_ready()
 
         if message.channel.id == 603800402013585408 and message.author.id == 568254611354419211:
@@ -463,7 +466,7 @@ class Events(commands.Cog):
                     await message.reply(f"{to_send}", allowed_mentions=discord.AllowedMentions(replied_user=True))
                 except Exception:
                     try:
-                        await message.author.send(_("Hey! {0}").format(to_send))
+                        await message.author.send(to_send)
                     except Exception:
                         return
 

@@ -109,7 +109,8 @@ async def public_flags(ctx, user):
         'bug_hunter_lvl2': f"{bot.settings['emojis']['badges']['hunter~2']}",
         'verified_dev': f"{bot.settings['emojis']['badges']['developer']}",
         'early_supporter': f"{bot.settings['emojis']['badges']['early']}",
-        'verified_bot': f"{bot.settings['emojis']['badges']['verified-bot']}"
+        'verified_bot': f"{bot.settings['emojis']['badges']['verified-bot']}",
+        'certified_mod': f"{bot.settings['emojis']['badges']['certified-mod']}"
     }
 
     badge_list = []
@@ -397,7 +398,6 @@ async def auto_guild_leave(ctx, abusive_user, guild):
     e.description = f"""
 Hey {guild.owner}!
 Just wanted to let you know that I left your server: **{guild.name}** ({guild.id}) as one of your members ({abusive_user} - {abusive_user.id}) was abusing my commands in a channel I can't send messages in.
-The user will most likely get blacklisted, even if it turns out they were maliciously doing that.
 
 Since this leave was an automatic leave, you may invite me back, but if same action will occur multiple times, the server might get blacklisted."""
     msg = ''

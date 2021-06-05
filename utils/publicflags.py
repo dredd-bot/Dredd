@@ -105,6 +105,10 @@ class UserFlags:
     def verified_dev(self):
         return 1 << 17
 
+    @flag_value
+    def certified_mod(self):
+        return 1 << 18
+
 
 class BotFlags:
     def __init__(self, value: int = 0):

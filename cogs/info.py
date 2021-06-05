@@ -52,7 +52,7 @@ class Info(commands.Cog, name='Information', aliases=['Infos']):
         return f'• [`{short_sha2}`](https://github.com/TheMoksej/Dredd/commit/{commit.hex}) {short} ({offset})'
 
     def get_last_commits(self, count=3):
-        repo = pygit2.Repository('/home/ubuntu/GitHub/Dredd/Dredd-v3/.git')
+        repo = pygit2.Repository('.git')
         commits = list(itertools.islice(repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL), count))
         return '\n'.join(self.format_commit(c) for c in commits)
 
@@ -69,7 +69,7 @@ class Info(commands.Cog, name='Information', aliases=['Infos']):
                 discord_ms = "fucking dead"
         await ctx.send(f"\U0001f3d3 Pong   |   {discord_ms}")
 
-    @commands.command(brief="Information about the bot", aliases=['botinfo', 'info'])
+    @commands.command(brief="Information about the bot", aliases=['botinfo', 'info', 'bi'])
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def about(self, ctx):
 
@@ -343,40 +343,6 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
         await ctx.send(_("{0} I am made up of **{1}** files and **{2}** lines of code.\n"
                        "You can look at my source here: https://github.com/TheMoksej/Dredd").format(self.bot.settings['emojis']['misc']['python'], f'{pyfiles:,}', f'{pylines:,}'))
-
-    @commands.command(brief="List of all the server staff", aliases=['guildstaff', 'mods', 'admins'])
-    @commands.guild_only()
-    @commands.cooldown(1, 5, commands.BucketType.user)
-    @checks.removed_command()
-    async def serverstaff(self, ctx):
-        """ Check which server staff are online in the server """
-        message = ""
-        online, idle, dnd, offline = [], [], [], []
-
-        for user in ctx.guild.members:
-            if ctx.channel.permissions_for(user).kick_members or \
-               ctx.channel.permissions_for(user).ban_members:
-                if not user.bot and user.status is discord.Status.online:
-                    online.append(f"{user}")
-                if not user.bot and user.status is discord.Status.idle:
-                    idle.append(f"{user}")
-                if not user.bot and user.status is discord.Status.dnd:
-                    dnd.append(f"{user}")
-                if not user.bot and user.status is discord.Status.offline:
-                    offline.append(f"{user}")
-        message += _("**{0}** staff\nThis lists everyone who can ban and/or kick members.\n\n").format(ctx.guild.name)
-        if online:
-            message += f"{self.bot.settings['emojis']['misc']['pc-online']} {escape_markdown(', '.join(online), as_needed=False)}\n"
-        if idle:
-            message += f"{self.bot.settings['emojis']['misc']['pc-idle']} {escape_markdown(', '.join(idle), as_needed=False)}\n"
-        if dnd:
-            message += f"{self.bot.settings['emojis']['misc']['pc-dnd']} {escape_markdown(', '.join(dnd), as_needed=False)}\n"
-        if offline:
-            message += f"{self.bot.settings['emojis']['misc']['offline']} {escape_markdown(', '.join(offline), as_needed=False)}\n"
-        if len(message) > 1980:
-            message = message[:1980]
-            message += '...'
-        await ctx.send(message)
 
     @commands.command(aliases=['source', 'src', 'github'], brief="Bot's source code")
     @commands.cooldown(1, 5, commands.BucketType.user)

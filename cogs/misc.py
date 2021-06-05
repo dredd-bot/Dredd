@@ -403,7 +403,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         """ Set your AFK status in all the shared servers with the bot so users who mention you would know that you're AFK """
 
         check = CM.get(self.bot, 'afk', f"{str(ctx.author.id)}")
-        check1 = await self.bot.db.fetchval("SELECT count(*) FROM afk WHERE user_id = $1", ctx.author.id)
+        check1 = await self.bot.db.fetchval("SELECT count(*) FROM afk WHERE user_id = $1 AND guild_id IS NOT NULL", ctx.author.id)
 
         if check1 > 0:
             return await ctx.send(_("{0} You first need to unafk yourself in **{1}** servers!").format(
@@ -583,58 +583,6 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.dispatch('command_error', ctx, e)
                 return
 
-    @toggle.command(brief='Toggle your status logging', aliases=['activity', 'presence'], name='status')
-    @commands.cooldown(1, 5, commands.BucketType.user)
-    @checks.removed_command()
-    async def toggle_status(self, ctx):
-        """ Toggle your status logging """
-        check = CM.get(self.bot, 'status_op', ctx.author.id)
-
-        def checks(r, u):
-            return u.id == ctx.author.id and r.message.id == checkmsg.id
-        if check is not None:
-            try:
-                checkmsg = await ctx.send("Are you sure you want to opt-out? Once you'll do that I won't be logging your status to the database.")
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
-                react, user = await self.bot.wait_for('reaction_add', check=checks, timeout=30.0)
-                if str(react) == f"{self.bot.settings['emojis']['misc']['white-mark']}":
-                    await self.bot.db.execute('DELETE FROM status_op WHERE user_id = $1', ctx.author.id)
-                    self.bot.status_op.pop(ctx.author.id)
-                    await self.bot.db.execute("DELETE FROM status WHERE user_id = $1", ctx.author.id)
-                    await ctx.channel.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Alright. I won't be logging your statuses anymore!")
-                    await checkmsg.delete()
-                if str(react) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
-                    await checkmsg.delete()
-                    await ctx.channel.send("Oh sweet! I'll continue logging your statuses")
-            except asyncio.TimeoutError:
-                await checkmsg.clear_reactions()
-                return
-            except Exception as e:
-                self.bot.dispatch('command_error', ctx, e)
-                return
-        elif check is None:
-            try:
-                checkmsg = await ctx.send("Are you sure you want to opt-in? Once you'll do that I'll start logging your status to the database.")
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
-                react, user = await self.bot.wait_for('reaction_add', check=checks, timeout=30.0)
-                if str(react) == f"{self.bot.settings['emojis']['misc']['white-mark']}":
-                    await self.bot.db.execute('INSERT INTO status_op(user_id, username) VALUES($1, $2)', ctx.author.id, ctx.author.display_name)
-                    self.bot.status_op[ctx.author.id] = ctx.author.display_name
-                    await self.bot.db.execute("INSERT INTO status(user_id, status_type, since) VALUES($1, $2, $3)", ctx.author.id, ctx.author.status.name, datetime.now())
-                    await ctx.channel.send(f"{self.bot.settings['emojis']['misc']['white-mark']} You're now opted-in! I'll be logging your statuses from now on!")
-                    await checkmsg.delete()
-                if str(react) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
-                    await checkmsg.delete()
-                    await ctx.channel.send("Alright. Not opting you in")
-            except asyncio.TimeoutError:
-                await checkmsg.clear_reactions()
-                return
-            except Exception as e:
-                self.bot.dispatch('command_error', ctx, e)
-                return
-
     @commands.command(brief='Create a poll', aliases=['poll'])
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -703,60 +651,6 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                               description=song.lyrics[:1800] + '...' if len(song.lyrics) > 1800 else song.lyrics)
         embed.set_thumbnail(url=song.thumbnail)
         await ctx.send(embed=embed)
-
-    @commands.command(brief='Setup your status logging', aliases=['activity', 'presence'])
-    @commands.guild_only()
-    @commands.cooldown(1, 5, commands.BucketType.user)
-    @checks.removed_command()
-    async def status(self, ctx, *, member: discord.Member = None):
-        member = member or ctx.author
-
-        if member.bot:
-            return await ctx.send(_("{0} I do not track bot's activity...").format(self.bot.settings['emojis']['misc']['warn']))
-
-        member_check = CM.get(self.bot, 'status_op', member.id)
-        author_check = CM.get(self.bot, 'status_op', ctx.author.id)
-        afks = CM.get(self.bot, 'afk', f'{str(ctx.guild.id)}, {str(ctx.author.id)}')
-
-        if member_check is None:
-            return await ctx.send(_("{0} {1} has opted-out of status logging."
-                                  "{2}").format(
-                                      self.bot.settings['emojis']['misc']['warn'],
-                                      member,
-                                      _("You can opt-in to status logging by using `{0}toggle status`").format(ctx.prefix) if member == ctx.author else ''
-                                  ))
-
-        elif member_check is not None and author_check is None:
-            return await ctx.send(_("{0} you cannot view **{1}**'s activity because you've opted out of status logging!"
-                                    "You can opt back in using `{2}toggle status`").format(
-                self.bot.settings['emojis']['misc']['warn'], member, ctx.prefix
-            ))
-
-        elif member_check is not None and author_check is not None:
-            status = await self.bot.db.fetch("SELECT * FROM status WHERE user_id = $1", member.id)
-            if status is None:
-                return await ctx.send(_("{0} I don't have {1}").format(
-                    self.bot.settings['emojis']['misc']['warn'],
-                    _("{0}'s status logged.").format(member) if member != ctx.author else _("your status logged.")
-                ))
-            elif status is not None:
-                bslash = '\n'
-                the_status = default.member_status(ctx, member)
-                afk = _("They've been AFK for **{0}**{1}").format(btime.human_timedelta(afks['time'], suffix=None), bslash) if afks else ''
-                s = status[0]['status_type']
-                s = "**{0}**".format(_("idle") if s == 'idle' else _("online") if s == 'online' else _('do not disturb') if s == 'dnd' else _("offline"))
-                presence = _("**{0}** has been{1} {2} **{3}** for {4}.\n{5}\n".format(
-                    ctx.guild.get_member(status[0]['user_id']), _(' on') if status[0]['status_type'] == 'dnd' else '',
-                    the_status, s, btime.human_timedelta(status[0]['since'], suffix=None), afk
-                ))
-                activity = default.member_presence(ctx, member)
-                e = discord.Embed(color=self.bot.settings['colors']['embed_color'])
-                e.set_author(name=_("{0}'s Activity").format(member), icon_url=member.avatar_url)
-                b = '\n'
-                e.description = _("""{0}{1}""").format(
-                    presence, _("**They've also been:**{0}").format(activity) if activity != f"{b}" else ''
-                )
-                return await ctx.send(embed=e)
 
     @commands.group(brief='Manage your reminders', aliases=['reminds', 'rm', 'reminder', 'remindme'], invoke_without_command=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
