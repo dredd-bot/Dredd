@@ -82,7 +82,7 @@ class staff(commands.Cog, name="Staff"):
             badge = self.bot.settings['emojis']['ranks']['blocked']
             await self.bot.db.execute("INSERT INTO badges(_id, flags) VALUES($1, $2)", user.id, 2048)
             self.bot.badges[user.id] = 2048
-            await self.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type) VALUES($1, $2, $3, $4, $5, $6)", user.id, 1, ctx.author.id, reason, datetime.now(), 2)
+            await self.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)", user.id, 1, ctx.author.id, reason, datetime.now(), 2, liftable)
             e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
             e.set_author(name=user, icon_url=user.avatar_url)
             e.description = f"Hey!\nI'm sorry, but your blacklist state was updated and you won't be able to use my commands anymore!\n**Reason:** {reason}{apply}"
