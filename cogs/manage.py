@@ -1528,7 +1528,9 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                             roles_list.append(ctx.guild.get_role(role_dict[reaction]))
                     except Exception as e:
                         self.bot.dispatch('silent_error', ctx, e)
-                        return await ctx.send(_("{0} Something failed while adding the reactions, did you deleted the message?"))
+                        return await ctx.send(_("{0} Something failed while adding the reactions, did you deleted the message?").format(
+                            self.bot.settings['emojis']['misc']['warn']
+                        ))
                     q = "INSERT INTO reactionroles(guild_id, channel_id, message_id, the_dict, required_role_id, max_roles) VALUES($1, $2, $3, $4, $5, $6)"
                     await self.bot.db.execute(q, ctx.guild.id, channel.id, message.id, str(role_dict), the_role, max_roles if len(role_dict) > 1 else None)
                     self.bot.rr[message.id] = {'guild': ctx.guild.id, 'channel': channel.id, 'dict': role_dict, 'required_role': the_role, 'max_roles': max_roles if len(role_dict) > 1 else None}

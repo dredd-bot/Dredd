@@ -25,6 +25,7 @@ from utils import btime, default, publicflags
 from db.cache import CacheManager as CM
 
 
+# noinspection PyMethodMayBeStatic,PySimplifyBooleanCheck
 class Logging(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -457,11 +458,13 @@ class Logging(commands.Cog):
 
     @commands.Cog.listener()
     async def on_join_message(self, member):
-        db_check = CM.get(self.bot, 'temp_mutes', f'{member.id}, {member.guild.id}')
+        db_check = CM.get(self.bot, 'temp_mutes', f'{member.id}, {member.guild.id}') or CM.get(self.bot, 'mutes', f'{member.id}, {member.guild.id}')
         if db_check:
             try:
-                the_role = member.guild.get_role(db_check)
+                duration = CM.get(self.bot, 'temp_mutes', f'{member.id}, {member.guild.id}')
+                the_role = member.guild.get_role(db_check['role'])
                 await member.add_roles(the_role, reason="Member tried to evade the mute.")
+                self.bot.dispatch('mute', member.guild, self.bot.user, [member], duration['time'] if duration else None, _('Automatic Mute | Mute evading'), member.joined_at)
             except Exception as e:
                 await default.background_error(self, '`evading mute re-join`', e, member.guild, None)
                 pass
@@ -698,7 +701,11 @@ class Logging(commands.Cog):
         if not moderation:
             return
         log_channel = self.bot.get_channel(moderation)
-        time = btime.human_timedelta(duration.dt, source=created_at, suffix=None) if duration else None
+        if isinstance(duration, btime.FutureTime):
+            time = duration.dt
+        else:
+            time = duration
+        time = btime.human_timedelta(time, source=created_at, suffix=None) if duration else None
         reason = reason or "No reason"
 
         ban_list = []

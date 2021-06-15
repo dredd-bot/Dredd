@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 # THIS IS WHERE WE AT RIGHT NOW
 
 
+# noinspection PySimplifyBooleanCheck
 class owner(commands.Cog, name="Owner"):
 
     def __init__(self, bot):
@@ -320,6 +321,22 @@ class owner(commands.Cog, name="Owner"):
                          f"**Unresolved:** {str(unresolved[0]['count'])} - {unresolved[0]['array_agg'] or 'No errors'}")
         e.set_thumbnail(url=cmd.cog.big_icon)
         await ctx.send(embed=e)
+
+    @dev_inspect.command(name='suggestion', aliases=['sug'])
+    async def dev_inspect_suggestion(self, ctx, suggestion: int):
+        """ Inspect a suggestion """
+
+        db_check = await self.bot.db.fetch("SELECT msg_id, user_id FROM suggestions WHERE suggestion_id = $1", suggestion)
+
+        if not db_check:
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Suggestion with ID `#{suggestion}` not found.")
+
+        try:
+            message = await self.bot.get_guild(self.bot.settings['servers']['main']).get_channel(self.bot.settings['channels']['suggestions']).fetch_message(db_check[0]['msg_id'])
+            user = await self.bot.get_user(db_check[0]['user_id']) or '*unable to get*'
+            return await ctx.send(f"Displaying suggestion `#{suggestion}` suggested by {user}", embed=message.embeds[0])
+        except discord.errors.NotFound:
+            return await ctx.send("Was unable to fetch the message :/")
 
     @dev.group(brief='Update user ranks', invoke_without_command=True, name='rank')
     async def dev_rank(self, ctx):

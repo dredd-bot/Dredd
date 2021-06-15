@@ -173,6 +173,7 @@ class Bot(commands.AutoShardedBot):
                           'dbl': "[Discord Bot list](https://discord.ly/dredd/upvote 'discordbotlist.com')", 'shitgg': "[Top.GG](https://top.gg/bot/667117267405766696/vote 'top.gg')"}
         self.cleverbot = ac.Cleverbot(config.CB_TOKEN)
         self.join_counter = Counter()  # counter for anti raid so the bot would ban the user if they try to join more than 5 times in short time span
+        self.counter = Counter()  # Counter for global commands cooldown
 
         self.cache = CacheManager
         self.cmd_edits = {}
@@ -221,6 +222,8 @@ class Bot(commands.AutoShardedBot):
         self.raidmode = {}
         self.temp_bans = {}
         self.temp_mutes = {}
+        self.mutes = {}
+        self.bans = {}
         self.mute_role = {}
         self.mod_role = {}
         self.admin_role = {}

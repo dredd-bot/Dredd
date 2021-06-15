@@ -56,7 +56,7 @@ class DiscordLabs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.key = bot.config.STAT_TOKEN
-        self.api = statcord.Client(self.bot, self.key, custom1=self.music, custom2=self.latency)
+        self.api = statcord.Client(self.bot, self.key, custom1=self.music)
         self.api.start_loop()
 
         self.help_icon = ''

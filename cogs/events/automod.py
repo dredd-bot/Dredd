@@ -27,7 +27,7 @@ from utils import default, btime
 
 INVITE = re.compile(r'discord(?:\.com/invite|app\.com/invite|\.gg)/?([a-zA-Z0-9\-]{2,32})')
 CAPS = re.compile(r"[ABCDEFGHIJKLMNOPQRSTUVWXYZ]")
-LINKS = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+")
+LINKS = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|%[0-9a-fA-F][0-9a-fA-F])+")
 
 
 class AutomodEvents(commands.Cog, name='AutomodEvents'):
@@ -282,7 +282,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             elif raidmode['action'] == 3:
                 action = 8
             elif raidmode['action'] == 4:
-                action == 9
+                action = 9
             await self.execute_punishment(action, member, reason)
 
     def embed(self, member, reason, action, time=None) -> discord.Embed:

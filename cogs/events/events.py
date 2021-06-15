@@ -211,6 +211,7 @@ class Events(commands.Cog):
         except Exception as e:
             await default.background_error(self, '`raw reaction remove`', e, self.bot.get_guild(payload.guild_id), self.bot.get_channel(payload))
 
+    # noinspection PyDunderSlots
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
         check = CM.get(self.bot, 'blacklist', guild.id)
@@ -318,6 +319,7 @@ class Events(commands.Cog):
             all_mentions = discord.AllowedMentions(users=True, everyone=False, roles=False)
             await chan.send(f"{moksej.mention} most likely failed to save data and the timer is still going\n`{err}`", allowed_mentions=all_mentions)
 
+    # noinspection PyDunderSlots
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):
         # I'm using asyncio.sleep() here just to
@@ -395,22 +397,22 @@ class Events(commands.Cog):
     @commands.Cog.listener('on_message')
     async def on_del_add(self, message):
         return
-        await self.bot.wait_until_ready()
-
-        if message.channel.id == 603800402013585408 and message.author.id == 568254611354419211:
-            e = discord.Embed(color=self.bot.settings['colors']['embed_color'], timestamp=datetime.now(timezone.utc))
-            if 'added bot' in message.content.lower():
-                e.title = 'New bot added!'
-                e.description = message.content
-                e.add_field(name='Jump to original', value=f"[Jump]({message.jump_url})")
-                mok = self.bot.get_user(345457928972533773)
-                return await mok.send(embed=e)
-            elif 'resubmitted bot' in message.content.lower():
-                e.title = 'Bot resubmitted!'
-                e.description = message.content
-                e.add_field(name='Jump to original', value=f"[Jump]({message.jump_url})")
-                mok = self.bot.get_user(345457928972533773)
-                return await mok.send(embed=e)
+        # await self.bot.wait_until_ready()
+        #
+        # if message.channel.id == 603800402013585408 and message.author.id == 568254611354419211:
+        #     e = discord.Embed(color=self.bot.settings['colors']['embed_color'], timestamp=datetime.now(timezone.utc))
+        #     if 'added bot' in message.content.lower():
+        #         e.title = 'New bot added!'
+        #         e.description = message.content
+        #         e.add_field(name='Jump to original', value=f"[Jump]({message.jump_url})")
+        #         mok = self.bot.get_user(345457928972533773)
+        #         return await mok.send(embed=e)
+        #     elif 'resubmitted bot' in message.content.lower():
+        #         e.title = 'Bot resubmitted!'
+        #         e.description = message.content
+        #         e.add_field(name='Jump to original', value=f"[Jump]({message.jump_url})")
+        #         mok = self.bot.get_user(345457928972533773)
+        #         return await mok.send(embed=e)
 
     @commands.Cog.listener('on_member_update')
     async def nicknames_logging(self, before, after):

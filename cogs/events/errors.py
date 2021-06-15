@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from jishaku.models import copy_context_with
 from contextlib import suppress
 
-from utils.default import admin_tracker, permissions_converter, auto_guild_leave, botlist_exception
+from utils.default import admin_tracker, permissions_converter, auto_guild_leave, botlist_exception, global_cooldown
 from utils.checks import not_voted, admin_only, booster_only, CooldownByContent, invalid_permissions_flag, music_error, DisabledCommand
 
 
@@ -37,6 +37,7 @@ class CommandError(commands.Cog, name="CommandError",
         self.big_icon = ''
         self.anti_spam_commands = CooldownByContent.from_cooldown(17, 15.0, commands.BucketType.member)  # 12 commands per 15 seconds
         self.pre_anti_spam = CooldownByContent.from_cooldown(5, 10, commands.BucketType.member)  # 5 commands per 10 seconds
+        self.global_cooldown = commands.CooldownMapping.from_cooldown(60, 60.0, commands.BucketType.user)
         self.mystbin_client = mystbin.Client()
 
     @commands.Cog.listener()
@@ -51,7 +52,14 @@ class CommandError(commands.Cog, name="CommandError",
             if content_bucket.update_rate_limit(current):
                 content_bucket.reset()
                 await auto_guild_leave(ctx, ctx.author, ctx.guild)
+        elif ctx.channel.can_send and not await ctx.bot.is_admin(ctx.author):
+            current = ctx.message.created_at.replace(tzinfo=timezone.utc).timestamp()
+            content_bucket = self.global_cooldown.get_bucket(ctx.message)
+            if content_bucket.update_rate_limit(current):
+                content_bucket.reset()
+                await global_cooldown(ctx=ctx)
 
+        # noinspection PyPep8Naming
         def printRAW(*Text):
             RAWOut = open(1, 'w', encoding='utf8', closefd=False)
             print(*Text, file=RAWOut)
@@ -235,7 +243,7 @@ class CommandError(commands.Cog, name="CommandError",
 
         elif isinstance(exc, commands.MissingRequiredArgument):
             return await ctx.send(_("{0} "
-                                    "| You're missing an argument - **{1}**").format(self.bot.settings['emojis']['misc']['warn'], (exc.param.name)))
+                                    "| You're missing an argument - **{1}**").format(self.bot.settings['emojis']['misc']['warn'], exc.param.name))
 
         elif isinstance(exc, commands.errors.ExpectedClosingQuoteError):
             return await ctx.send(_("{0} | Looks like you haven't closed the quote").format(self.bot.settings['emojis']['misc']['warn']))

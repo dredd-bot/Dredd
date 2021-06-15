@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 from utils.publicflags import UserFlags, BotFlags
 from discord.utils import escape_markdown
 from utils.btime import human_timedelta, FutureTime
+from contextlib import suppress
 
 
 def timeago(target):
@@ -54,7 +55,7 @@ def responsible(target, reason):
 
 def traceback_maker(err, advance: bool = True):
     _traceback = ''.join(traceback.format_tb(err.__traceback__))
-    error = ('```py\n{1}{0}: {2}\n```').format(type(err).__name__, _traceback, err)
+    error = '```py\n{1}{0}: {2}\n```'.format(type(err).__name__, _traceback, err)
     return error if advance else f"{type(err).__name__}: {err}"
 
 
@@ -291,14 +292,16 @@ async def execute_temporary(ctx, action, user, mod, guild, role, duration, reaso
 
     if action == 1:
         await ctx.bot.db.execute("INSERT INTO modactions(time, user_id, action, guild_id, mod_id, role_id, reason) VALUES($1, $2, $3, $4, $5, $6, $7)", None if duration is None else duration, user.id, action, guild.id, mod.id, role.id, reason)
-        if not duration:
-            return
-        ctx.bot.temp_mutes[f"{user.id}, {guild.id}"] = {'time': duration, 'reason': reason, 'role': role.id, 'moderator': mod.id}
+        if duration:
+            ctx.bot.temp_mutes[f"{user.id}, {guild.id}"] = {'time': duration, 'reason': reason, 'role': role.id, 'moderator': mod.id}
+        elif not duration:
+            ctx.bot.mutes[f"{user.id}, {guild.id}"] = {'reason': reason, 'role': role.id, 'moderator': mod.id}
     elif action == 2:
         await ctx.bot.db.execute("INSERT INTO modactions(time, user_id, action, guild_id, mod_id, role_id, reason) VALUES($1, $2, $3, $4, $5, $6, $7)", None if duration is None else duration, user.id, action, guild.id, mod.id, None, reason)
-        if not duration:
-            return
-        ctx.bot.temp_bans[f"{user.id}, {guild.id}"] = {'time': duration, 'reason': reason, 'moderator': mod.id}
+        if duration:
+            ctx.bot.temp_bans[f"{user.id}, {guild.id}"] = {'time': duration, 'reason': reason, 'moderator': mod.id}
+        elif not duration:
+            ctx.bot.bans[f"{user.id}, {guild.id}"] = {'reason': reason, 'moderator': mod.id}
 
 
 async def execute_untemporary(ctx, action, user, guild):
@@ -451,7 +454,7 @@ async def change_theme(ctx, color: int, avatar: str, emoji: str):
                               description=f"Changed the theme to {avatar}!")
         embed.set_thumbnail(url=url)
         with open('db/settings.json', 'w') as f:
-            data = json.dump(data, f, indent=4)
+            json.dump(data, f, indent=4)
         LC = db.cache.LoadCache
         await LC.reloadall(ctx.bot)
         await ctx.send(embed=embed)
@@ -465,7 +468,36 @@ async def blacklist_log(ctx, option: int, type: int, name, reason: str):
         name_id = f" ({name.id})"
     except Exception:
         name_id = ''
-    await log_channel.send(f"**{name}**{name_id} {'was blacklisted' if option == 0 else 'was unblacklisted'} from {'using the bot' if type == 0 else 'submitting suggestions' if type == 1 else 'sending DMs'} by **{ctx.author}** for {reason}.")
+    await log_channel.send(f"**{name}**{name_id} {'was blacklisted' if option == 0 else 'was unblacklisted'} from {'using the bot' if type == 0 else 'submitting suggestions' if type == 1 else 'sending DMs'} "
+                           f"by **{ctx.author if name != ctx.author else ctx.bot.user}** for {reason}.")
+
+
+async def global_cooldown(ctx) -> None:
+    counter = ctx.bot.cache.get(ctx.bot, 'counter', ctx.author.id)
+
+    if counter and counter >= 3:
+        reason = 'automatic blacklist, global cooldown hit'
+        query = """INSERT INTO blacklist(_id, type, reason, dev, issued, liftable)
+                                VALUES($1, $2, $3, $4, $5, $6)
+                                ON CONFLICT (_id) DO UPDATE
+                                SET type = $2, reason = $3
+                                WHERE blacklist._id = $1 """
+        await ctx.bot.db.execute(query, ctx.author.id, 2, reason, ctx.bot.user.id, datetime.now(), 0)
+        ctx.bot.blacklist[ctx.author.id] = {'type': 2, 'reason': reason, 'dev': ctx.bot.user.id, 'issued': datetime.now(), 'liftable': 0}
+        await ctx.bot.db.execute("INSERT INTO badges(_id, flags) VALUES($1, $2)", ctx.author.id, 2048)
+        ctx.bot.badges[ctx.author.id] = 2048
+        await ctx.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)", ctx.author.id, 1, ctx.bot.user.id, reason, datetime.now(), 2, 0)
+        e = discord.Embed(color=ctx.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
+        e.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+        e.description = f"Hey!\nI'm sorry, but your blacklist state was updated and you won't be able to use my commands anymore!\n**Reason:** {reason}" \
+                        f"\nIf you wish to appeal, you can [join the support server]({ctx.bot.support})"
+        with suppress(Exception):
+            await ctx.author.send(embed=e)
+        await blacklist_log(ctx, 0, 0, ctx.author, reason)
+    elif not counter or counter < 3:
+        ctx.bot.counter.update({ctx.author.id})
+        ch = ctx.bot.get_channel(ctx.bot.settings['channels']['command-errors'])
+        await ch.send(f"{ctx.author} hit the global cooldown limit. They're now at {ctx.bot.counter[ctx.author.id]} hit(s)")
 
 
 async def dm_reply(ctx, message):
