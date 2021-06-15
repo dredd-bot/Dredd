@@ -199,7 +199,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 todo += '...'
             count = await self.bot.db.fetchval("SELECT count(*) FROM todos WHERE user_id = $1", ctx.author.id)
             await ctx.send(_("{0} Added **{1}** to your todo list. You now have **{2}** items in your list.").format(
-                self.bot.settings['emojis']['misc']['white-mark'], todo, count
+                self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(todo, as_needed=True), count
             ))
 
     @todo.command(name='edit', brief='Edit your todo', aliases=['e'])
@@ -222,7 +222,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             todo = todo[:200]
             todo += '...'
         await ctx.send(_("{0} Successfully edited the item in your todo list with an ID of **{1}** to: **{2}**").format(
-            self.bot.settings['emojis']['misc']['white-mark'], pos, todo
+            self.bot.settings['emojis']['misc']['white-mark'], pos, escape_markdown(todo, as_needed=True)
         ))
 
     @todo.command(name='swap', brief='Swap 2 todo\'s', aliases=['s'])
@@ -386,13 +386,13 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             await self.bot.db.execute("UPDATE afk SET message = $1 WHERE user_id = $2 AND guild_id = $3", note, ctx.author.id, ctx.guild.id)
             self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"]['note'] = note
             await ctx.send(_("{0} **Changed your AFK state to:** {1}").format(
-                self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
+                self.bot.settings['emojis']['misc']['white-mark'], note
             ))
         elif check is None:
             await self.bot.db.execute("INSERT INTO afk(user_id, guild_id, message, time) VALUES($1, $2, $3, $4)", ctx.author.id, ctx.guild.id, note, datetime.now())
             self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"] = {'note': note, 'time': datetime.now()}
             await ctx.send(_("{0} ** Set your AFK state to:** {1}").format(
-                self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
+                self.bot.settings['emojis']['misc']['white-mark'], note
             ))
 
     @commands.command(brief='Set your AFK status globally', aliases=['globalafk', 'gafk'])
@@ -418,13 +418,13 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             await self.bot.db.execute("UPDATE afk SET message = $1 WHERE user_id = $2", note, ctx.author.id)
             self.bot.afk[f"{str(ctx.author.id)}"]['note'] = note
             await ctx.send(_("{0} **Changed your global AFK state to:** {1}").format(
-                self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
+                self.bot.settings['emojis']['misc']['white-mark'], note
             ))
         elif check is None:
             await self.bot.db.execute("INSERT INTO afk(user_id, message, time) VALUES($1, $2, $3)", ctx.author.id, note, datetime.now())
             self.bot.afk[f"{str(ctx.author.id)}"] = {'note': note, 'time': datetime.now()}
             await ctx.send(_("{0} ** Set your global AFK state to:** {1}").format(
-                self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(note, as_needed=False)
+                self.bot.settings['emojis']['misc']['white-mark'], note
             ))
 
     @commands.command(brief='See the latest deleted message in a channel.')

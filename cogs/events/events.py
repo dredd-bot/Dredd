@@ -462,7 +462,7 @@ class Events(commands.Cog):
                 to_send += (_("Hey! **{0}** has been AFK for **{1}**"
                               " for - **{2}**.").format(
                                 member.display_name, btime.human_timedelta(check['time'], suffix=None),
-                                escape_markdown(afkmsg, as_needed=False)
+                                afkmsg
                             ))
                 try:
                     await message.reply(f"{to_send}", allowed_mentions=discord.AllowedMentions(replied_user=True))
