@@ -21,6 +21,7 @@ from db.cache import CacheManager as cm
 from utils.checks import moderator, admin, AutomodGlobalStates, AutomodValues
 from utils.default import automod_values
 from utils.paginator import Pages
+from utils.i18n import locale_doc
 
 
 class Automod(commands.Cog, name='Automoderation'):
@@ -89,24 +90,28 @@ class Automod(commands.Cog, name='Automoderation'):
 
         return message
 
-    @commands.group(invoke_without_command=True, brief="Manage automod state in the server")
+    @commands.group(invoke_without_command=True, brief=_("Manage automod in the server"))
     @commands.cooldown(1, 5, commands.BucketType.member)
     @moderator(manage_messages=True)
     @commands.guild_only()
+    @locale_doc
     async def automod(self, ctx):
-        """ Manage automod in the server """
+        _(""" Manage automod state in the server """)
+
         values = self.automod_settings(ctx.guild)
 
         e = discord.Embed(color=self.bot.settings['colors']['embed_color'], title=_("{0} Automod Settings").format(ctx.guild))
         e.description = values
         await ctx.send(embed=e)
 
-    @automod.command(name='toggle', brief="Toggle automod")
+    @automod.command(name='toggle', brief=_("Toggle automod on or off"))
     @commands.cooldown(1, 5, commands.BucketType.member)
     @admin(manage_guild=True)
     @commands.guild_only()
+    @locale_doc
     async def automod_toggle(self, ctx, channel: discord.TextChannel = None):
-        """ Toggle automod """
+        _(""" Toggle automod on or off """)
+
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
         if not automod and channel:
@@ -136,14 +141,15 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.automod[ctx.guild.id]['channel'] = channel.id
             await ctx.send(_("{0} Automod was successfully enabled in this server.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
-    @automod.command(name='set', brief="Set global automod value")
+    @automod.command(name='set', brief=_("Set global automod's value in the server"))
     @commands.cooldown(1, 5, commands.BucketType.member)
     @admin(manage_guild=True)
     @commands.guild_only()
+    @locale_doc
     async def automod_set(self, ctx, state: AutomodGlobalStates):
-        """ Automtically set the automod values """
-        automod = cm.get(self.bot, 'automod', ctx.guild.id)
+        _(""" Set global automod's value in the server """)
 
+        automod = cm.get(self.bot, 'automod', ctx.guild.id)
         if not automod:
             raise commands.BadArgument(_("Automod is disabled in this server, enable it by using `{0}automod toggle` command").format(ctx.prefix))
 
@@ -191,12 +197,13 @@ class Automod(commands.Cog, name='Automoderation'):
 
         await ctx.send(_("{0} Successfully set the automod value to **{1}**").format(self.bot.settings['emojis']['misc']['white-mark'], value))
 
-    @automod.command(name='anti-links', aliases=['antilinks', 'links', 'al'], brief='Toggle anti links')
+    @automod.command(name='anti-links', aliases=['antilinks', 'links', 'al'], brief=_("Toggle anti links on or off"))
     @commands.cooldown(1, 5, commands.BucketType.member)
     @admin(manage_guild=True)
     @commands.guild_only()
+    @locale_doc
     async def automod_anti_links(self, ctx, value: AutomodValues):
-        """" Set the automod value for anti links """
+        _(""" Toggle anti links on or off """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
@@ -222,12 +229,13 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
         ))
 
-    @automod.command(name='anti-invites', aliases=['antiinvites', 'invites', 'ai'], brief="Toggle anti invites")
+    @automod.command(name='anti-invites', aliases=['antiinvites', 'invites', 'ai'], brief=_("Toggle anti invites on or off"))
     @commands.cooldown(1, 5, commands.BucketType.member)
     @admin(manage_guild=True)
     @commands.guild_only()
+    @locale_doc
     async def automod_anti_invites(self, ctx, value: AutomodValues):
-        """" Set the automod value for anti invites """
+        _(""" Toggle anti invites on or off """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
@@ -253,12 +261,14 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
         ))
 
-    @automod.command(name='anti-mass-mention', aliases=['antimentions', 'massmentions', 'amm'], brief='Toggle anti mass mention')
+    @automod.command(name='anti-mass-mention', aliases=['antimentions', 'massmentions', 'amm'],
+                     brief=_('Toggle anti mass mention on or off'))
     @commands.cooldown(1, 5, commands.BucketType.member)
     @admin(manage_guild=True)
     @commands.guild_only()
+    @locale_doc
     async def automod_mass_mention(self, ctx, value: AutomodValues, count: int = None):
-        """" Set the automod value for anti mass mention and set the mentions limit """
+        _(""" Toggle anti mass mention on or off and set the mentions limit to whatever number you want """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
@@ -290,12 +300,14 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), count, _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
         ))
 
-    @automod.command(name='anti-mass-caps', aliases=['anticaps', 'masscaps', 'amc'], brief="Toggle anti mass caps")
+    @automod.command(name='anti-mass-caps', aliases=['anticaps', 'masscaps', 'amc'],
+                     brief=_("Toggle anti mass caps on or off"))
     @commands.cooldown(1, 5, commands.BucketType.member)
     @admin(manage_guild=True)
     @commands.guild_only()
+    @locale_doc
     async def automod_mass_caps(self, ctx, value: AutomodValues, percentage: int = None):
-        """" Set the automod value for anti mass caps and set the caps percentege limit """
+        _(""" Toggle anti mass caps and set the caps percentege limit to whatever number you prefer """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
@@ -327,12 +339,14 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), percentage, _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
         ))
 
-    @automod.command(name='anti-spam', aliases=['antispam', 'spam', 'as'], brief="Toggle anti spam")
+    @automod.command(name='anti-spam', aliases=['antispam', 'spam', 'as'],
+                     brief=_("Toggle anti spam on or off"))
     @commands.cooldown(1, 5, commands.BucketType.member)
     @admin(manage_guild=True)
     @commands.guild_only()
+    @locale_doc
     async def automod_anti_spam(self, ctx, value: AutomodValues):
-        """" Set the automod value for anti spam """
+        _(""" Toggle anti spam on or off """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
@@ -358,12 +372,14 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
         ))
 
-    @automod.command(name='ignore-moderators', aliases=['ignoremoderators', 'ignoremods'], breif="Toggle if automod should ignore server moderators")
+    @automod.command(name='ignore-moderators', aliases=['ignoremoderators', 'ignoremods'],
+                     breif=_("Toggle if automod should ignore server moderators"))
     @admin(manage_guild=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def automod_ignore_mods(self, ctx):
-        """ Toggle whether or not bot should ignore members with manage messages permissions (moderators) """
+        _(""" Toggle whether or not bot should ignore members with manage messages permissions (moderators) """)
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
         if not automod:
@@ -378,12 +394,14 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.automod[ctx.guild.id]['ignore_admins'] = True
             return await ctx.send(_("{0} I will be ignoring people with manage messages permissions (moderators) from now on.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
-    @automod.command(name='delete-messages', aliases=['deletemessages', 'deletemsgs', 'delmsgs'], brief="Toggle if automod should delete messages when punishing the user")
+    @automod.command(name='delete-messages', aliases=['deletemessages', 'deletemsgs', 'delmsgs'],
+                     brief=_("Toggle if automod should delete messages when punishing the user(s)"))
     @admin(manage_guild=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def automod_delete_msgs(self, ctx):
-        """ Toggle whether or not bot should delete the messages """
+        _(""" Toggle whether or not bot should delete the messages when punishing the user(s) """)
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
         if not automod:
@@ -398,26 +416,29 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.automod[ctx.guild.id]['delete_messages'] = True
             return await ctx.send(_("{0} I will now be deleting messages from now on.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
-    @commands.group(name='raid-mode', aliases=['raidmode', 'antiraid'], invoke_without_command=True, brief='Manage anti raid mode in the server')
+    @commands.group(name='raid-mode', aliases=['raidmode', 'antiraid'], invoke_without_command=True,
+                    brief=_('Manage anti raid mode in the server'))
     @admin(manage_guild=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def raid_mode(self, ctx):
-        """ Main command for raid mode managing """
+        _(""" Manage anti raid mode in the server """ )
         await ctx.send_help(ctx.command)
 
-    @raid_mode.command(name='toggle', brief="Toggle raid mode")
+    @raid_mode.command(name='toggle', brief=_("Toggle raid mode on or off"))
     @admin(manage_guild=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def raid_mode_toggle(self, ctx, value: str = None, channel: discord.TextChannel = None):
-        """ Toggle raid mode status
-
+        _(""" Toggle raid mode status
+    
         **Values:**
         `kick` - kick new members that only have their account created less than 30 days ago
         `ban` - ban new members that only have their account created less than 30 days ago
         `kickall` - kick all new members, account age doesn't matter
-        `banall` - ban all new members, account age doesn't matter"""
+        `banall` - ban all new members, account age doesn't matter """)
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
         raidmode = cm.get(self.bot, 'raidmode', ctx.guild.id)
 
@@ -426,12 +447,6 @@ class Automod(commands.Cog, name='Automoderation'):
 
         if value and value not in ['kick', 'ban', 'kickall', 'banall']:
             raise commands.BadArgument(_("Allowed values are `kick`, `ban`, `kickall` and `banall`, if you're trying to disable the raid mode, don't provide any arguments"))
-        action = {
-            'kick': _('kick'),
-            'ban': _('ban'),
-            'kickall': _('kick all'),
-            'banall': _('ban all')
-        }
 
         the_value = 1 if value == 'kick' else 2 if value == 'ban' else 3 if value == 'kickall' else 4
 
@@ -440,7 +455,22 @@ class Automod(commands.Cog, name='Automoderation'):
                 return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
             await self.bot.db.execute("INSERT INTO raidmode(guild_id, channel_id, dm, action) VALUES($1, $2, $3, $4)", ctx.guild.id, channel.id, False, the_value)
             self.bot.raidmode[ctx.guild.id] = {'channel': channel.id, 'dm': False, 'action': the_value}
-            await ctx.send(_("{0} Successfully enabled raidmode, will {1} new members {2}").format(self.bot.settings['emojis']['misc']['white-mark'], action[value], _('who have their accounts created less than 30 days ago.') if value in ['kick', 'ban'] else ''))
+            if value == 'kick':
+                await ctx.send(_("{0} Successfully enabled raidmode, will kick new members who have their accounts created less than 30 days ago.").format(
+                    self.bot.settings['emojis']['misc']['white-mark']
+                ))
+            elif value == 'ban':
+                await ctx.send(_("{0} Successfully enabled raidmode, will ban new members who have their accounts created less than 30 days ago.").format(
+                    self.bot.settings['emojis']['misc']['white-mark']
+                ))
+            elif value == 'kickall':
+                await ctx.send(_("{0} Successfully enabled raidmode, will kick all new members").format(
+                    self.bot.settings['emojis']['misc']['white-mark']
+                ))
+            elif value == 'banall':
+                await ctx.send(_("{0} Successfully enabled raidmode, will ban all new members").format(
+                    self.bot.settings['emojis']['misc']['white-mark']
+                ))
         elif not raidmode and not channel:
             raise commands.MissingRequiredArgument(self.raid_mode_toggle.params['channel'])
         elif raidmode and not value and not channel:
@@ -456,16 +486,35 @@ class Automod(commands.Cog, name='Automoderation'):
         elif raidmode and value:
             await self.bot.db.execute("UPDATE raidmode SET action = $1 WHERE guild_id = $2", the_value, ctx.guild.id)
             self.bot.raidmode[ctx.guild.id]['action'] = the_value
+            if value == 'kick':
+                await ctx.send(_("{0} Set the raidmode action to kick new members who have their accounts created less than 30 days ago.").format(
+                    self.bot.settings['emojis']['misc']['white-mark']
+                ))
+            elif value == 'ban':
+                await ctx.send(_("{0} Set the raidmode action to ban new members who have their accounts created less than 30 days ago.").format(
+                    self.bot.settings['emojis']['misc']['white-mark']
+                ))
+            elif value == 'kickall':
+                await ctx.send(_("{0} Set the raidmode action to kick all new members").format(
+                    self.bot.settings['emojis']['misc']['white-mark']
+                ))
+            elif value == 'banall':
+                await ctx.send(_("{0} Set the raidmode action to ban all new members").format(
+                    self.bot.settings['emojis']['misc']['white-mark']
+                ))
             await ctx.send(_("{0} Set the raidmode action to {1} new members {2}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], action[value], _('who have their account created less than 30 days ago.') if value in ['kick', 'ban'] else ''
             ))
 
-    @raid_mode.command(name='direct-message', aliases=['dm'])
+    @raid_mode.command(name='direct-message', aliases=['dm'],
+                       brief=_("Toggles anti raid mode DMs"))
     @admin(manage_guild=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def raid_mode_dm(self, ctx):
-        """ Toggle if new members should get a DM from bot when getting kicked or banned """
+        _(""" Toggle if new members should get a DM from the bot when joining the server """)
+
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
         raidmode = cm.get(self.bot, 'raidmode', ctx.guild.id)
 
@@ -483,20 +532,24 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.raidmode[ctx.guild.id]['dm'] = True
             return await ctx.send(_("{0} I will now be DMing people when kicking or banning them on raid.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
-    @commands.group(brief='Manage automod whitelist', invoke_without_command=True)
+    @commands.group(brief=_("Manage automod's whitelist"), invoke_without_command=True)
     @moderator(manage_messages=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def whitelist(self, ctx):
+        _(""" Base command for managing automod's whitelist """)
+
         await ctx.send_help(ctx.command)
 
-    @whitelist.command(name='list', brief='A list of whitelisted stuff in this server')
+    @whitelist.command(name='list', brief=_('A list of whitelisted channels and roles from automod'))
     @moderator(manage_messages=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def whitelist_list(self, ctx, what: str):
-        """ See a list of whitelisted roles/channels for automod
-        Types: `roles`, `channels`"""
+        _(""" A list of roles and channels that are whitelisted from the automod.
+        `<what>`: *channels*, *roles* """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
@@ -530,12 +583,15 @@ class Automod(commands.Cog, name='Automoderation'):
                           author=ctx.author)
         await paginator.paginate()
 
-    @whitelist.command(name='add-channel', aliases=['addchannel', 'achannel', 'channeladd'])
+    @whitelist.command(name='add-channel', aliases=['addchannel', 'achannel', 'channeladd'],
+                       brief=_("Add a channel to automod's whitelist "))
     @moderator(manage_channels=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def whitelist_add_channel(self, ctx, *, channel: discord.TextChannel):
-        """ Add a channel to automod whitelist """
+        _(""" Add a channel to automod's whitelist """)
+
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
         check = cm.get(self.bot, 'channels_whitelist', ctx.guild.id)
 
@@ -554,12 +610,15 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.channels_whitelist[ctx.guild.id].append(channel.id)
             await ctx.send(_("{0} Added {1} to the channels whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], channel.mention))
 
-    @whitelist.command(name='add-role', aliases=['addrole', 'arole', 'roleadd'])
+    @whitelist.command(name='add-role', aliases=['addrole', 'arole', 'roleadd'],
+                       brief=_("Add a role to automod's whitelist"))
     @moderator(manage_roles=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def whitelist_add_role(self, ctx, *, role: discord.Role):
-        """ Add a channel to automod whitelist """
+        _(""" Add a role to automod's whitelist """)
+
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
         check = cm.get(self.bot, 'roles_whitelist', ctx.guild.id)
 
@@ -575,8 +634,63 @@ class Automod(commands.Cog, name='Automoderation'):
                 raise commands.BadArgument(_("Role **{0}** is already added to the whitelist.").format(role))
 
             await self.bot.db.execute("INSERT INTO whitelist(guild_id, type, _id) VALUES($1, $2, $3)", ctx.guild.id, 2, role.id)
-            self.bot.roles_whitelist[ctx.guild.id].append(channel.id)
+            self.bot.roles_whitelist[ctx.guild.id].append(role.id)
             await ctx.send(_("{0} Added {1} to the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+
+    @whitelist.command(name='remove-role', aliases=['removerole', 'rrole', 'roleremove'],
+                       brief=_("Remove a role from automod's whitelist"))
+    @moderator(manage_roles=True)
+    @commands.guild_only()
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
+    async def whitelist_remove_role(self, ctx, *, role: discord.Role):
+        _(""" Remove a role from automod's whitelist """)
+
+        automod = cm.get(self.bot, 'automod', ctx.guild.id)
+        check = cm.get(self.bot, 'roles_whitelist', ctx.guild.id)
+
+        if not automod:
+            raise commands.BadArgument(_("Automod is disabled in this server, enable it by using `{0}automod toggle` command").format(ctx.prefix))
+
+        if not check:
+            return await ctx.send(_("{0} It looks like there are no roles whitelisted in the server.").format(
+                self.bot.settings['emojis']['misc']['warn']
+            ))
+
+        elif check:
+            if role.id not in check:
+                raise commands.BadArgument(_("Role **{0}** is not in the whitelist.").format(role))
+
+            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1, type = $2, _id = $3", ctx.guild.id, 2, role.id)
+            self.bot.roles_whitelist[ctx.guild.id].pop(role.id)
+            await ctx.send(_("{0} Removed {1} from the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+
+    @whitelist.command(name='remove-channel', aliases=['removechannel', 'rchannel', 'channelremove'],
+                       brief=_("Remove a channel from automod's whitelist "))
+    @moderator(manage_channels=True)
+    @commands.guild_only()
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
+    async def whitelist_add_channel(self, ctx, *, channel: discord.TextChannel):
+        _(""" Remove a channel from automod's whitelist """)
+
+        automod = cm.get(self.bot, 'automod', ctx.guild.id)
+        check = cm.get(self.bot, 'channels_whitelist', ctx.guild.id)
+
+        if not automod:
+            raise commands.BadArgument(_("Automod is disabled in this server, enable it by using `{0}automod toggle` command").format(ctx.prefix))
+
+        if not check:
+            return await ctx.send(_("{0} It looks like there are no channels whitelisted in the server.").format(
+                self.bot.settings['emojis']['misc']['warn']
+            ))
+        elif check:
+            if channel.id not in check:
+                raise commands.BadArgument(_("Channel {0} is not in the whitelist.").format(channel.mention))
+
+            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1, type = $2, _id = $3", ctx.guild.id, 1, channel.id)
+            self.bot.channels_whitelist[ctx.guild.id].append(channel.id)
+            await ctx.send(_("{0} Removed {1} from the channels whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], channel.mention))
 
 
 def setup(bot):

@@ -31,6 +31,7 @@ from utils.checks import BannedMember, MemberID, moderator, admin
 from utils.paginator import Pages
 from db.cache import CacheManager as cm
 from contextlib import suppress
+from utils.i18n import locale_doc
 
 
 class Arguments(argparse.ArgumentParser):
@@ -116,15 +117,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             message = to_send
             await ctx.send(message, delete_after=10)
 
-    @commands.command(brief='Clean up the bot\'s messages')
+    @commands.command(brief=_("Clean up the bot's messages"))
     @moderator(manage_messages=True)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def cleanup(self, ctx, search=100):
-        """
-        Cleans up the bot's messages from the channel.
-        If the bot has Manage Messages permissions then it will try to delete messages that look like they invoked the bot as well.
-        """
+        _(""" Cleans up the bot's messages from the channel.
+        If the bot has Manage Messages permissions then it will try to delete messages that look like they invoked the bot as well. """)
 
         strategy = self._basic_cleanup_strategy
         if ctx.me.permissions_in(ctx.channel).manage_messages:
@@ -132,7 +132,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
 
         spammers = await strategy(ctx, search)
         deleted = sum(spammers.values())
-        messages = [_('{0} message{1} removed.').format(deleted, _(" was") if deleted == 1 else _("s were"))]
+        messages = [_('{0} message was removed.').format(deleted) if deleted == 1 else _('{0} messages were removed.').format(deleted)]
         if deleted:
             messages.append(_('\nTotal messages by user:'))
             spammers = sorted(spammers.items(), key=lambda t: t[1], reverse=True)
@@ -140,16 +140,15 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
 
         await ctx.send('\n'.join(messages))
 
-    @commands.command(brief="Change member's nickname", aliases=['setnick', 'snick', 'nickset', 'nset', 'nick'])
+    @commands.command(brief=_("Change member's nickname"), aliases=['setnick', 'snick', 'nickset', 'nset', 'nick'])
     @moderator(manage_nicknames=True)
     @commands.bot_has_permissions(manage_nicknames=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def setnickname(self, ctx, members: commands.Greedy[discord.Member], *, new_nick: commands.clean_content = None):
-        """
-        Changes member's nickname in the server.
-        If multiple members are provided, they all get their nicknames changed in the server.
-        """
+        _(""" Changes member's nickname in the server.
+        If multiple members are provided, they all get their nicknames changed in the server. """)
 
         if len(members) == 0:
             return await ctx.send(_("{0} | You're missing an argument - **members**").format(self.bot.settings['emojis']['misc']['warn']))
@@ -217,12 +216,13 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Dehoist members')
+    @commands.command(brief=_("Dehoist members"))
     @moderator(manage_nicknames=True)
     @commands.bot_has_permissions(manage_nicknames=True)
     @commands.guild_only()
+    @locale_doc
     async def dehoist(self, ctx, *, nickname: str = None):
-        """ Dehoists members who have non-alphabetic characters at the start of their name """
+        _(""" Dehoists members who have non-alphabetic characters at the start of their name """)
 
         if nickname and len(nickname) > 32:
             return await ctx.send(_("{0} Nicknames can only be 32 characters long."
@@ -290,16 +290,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Kick member from the server', aliases=['masskick'])
+    @commands.command(brief=_("Kick member from the server"), aliases=['masskick'])
     @moderator(kick_members=True)
     @commands.bot_has_permissions(kick_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def kick(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
-        """
-        Kick a member from the server.
-        If multiple members are provided, they all get kicked from the server.
-        """
+        _(""" Kick a member from the server. If multiple members are provided, they all get kicked from the server. """)
 
         if len(members) == 0:
             return await ctx.send(_("{0} | You're missing an argument - **members**").format(
@@ -385,16 +383,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Ban member from the server', aliases=['massban', 'tempban'])
+    @commands.command(brief=_("Ban member from the server"), aliases=['massban', 'tempban'])
     @moderator(ban_members=True)
     @commands.bot_has_permissions(ban_members=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def ban(self, ctx, members: commands.Greedy[discord.Member], duration: typing.Optional[btime.FutureTime], *, reason: commands.clean_content = None):
-        """
-        Ban a member from the server.
-        If multiple members are provided, they all get banned from the server.
-        """
+        _(""" Ban a member from the server. If multiple members are provided, they all get banned from the server. """)
 
         if len(members) == 0:
             return await ctx.send(_("{0} | You're missing an argument - **members**").format(
@@ -479,16 +475,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Softban member from the server', aliases=['soft-ban'])
+    @commands.command(brief=_("Softban member from the server"), aliases=['soft-ban'])
     @moderator(ban_members=True, manage_messages=True)
     @commands.guild_only()
     @commands.bot_has_permissions(ban_members=True, manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def softban(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
-        """
-        Soft-ban a member from the server.
-        If multiple members are provided, they all get soft-banned from the server.
-        """
+        _(""" Soft-ban a member from the server. If multiple members are provided, they all get soft-banned from the server. """)
 
         if len(members) == 0:
             return await ctx.send(_("{0} | You're missing an argument - **members**").format(
@@ -573,15 +567,15 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Hackban user from the server', aliases=['hack-ban'])
+    @commands.command(brief=_("Hackban user from the server"), aliases=['hack-ban'])
     @moderator(ban_members=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(ban_members=True)
+    @commands.bot_has_permissions(ban_members=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def hackban(self, ctx, users: commands.Greedy[MemberID], *, reason: commands.clean_content = None):
-        """ Hack-ban a user who's not in the server from the server
+        _(""" Hack-ban a user who's not in the server from the server. Users must be IDs else it won't work. """)
 
-        Users must be IDs else it won't work. """
         if len(set(users)) == 0:
             raise commands.MissingRequiredArgument(self.hackban.params['users'])
 
@@ -648,13 +642,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                     self.bot.settings['emojis']['misc']['warn']
                                 ))
 
-    @commands.command(brief='Unban user from the server', aliases=['uba'])
+    @commands.command(brief=_("Unban user from the server"), aliases=['uba'])
     @moderator(ban_members=True)
     @commands.guild_only()
     @commands.bot_has_permissions(ban_members=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def unban(self, ctx, banned_user: BannedMember, *, reason: commands.clean_content = None):
-        """ Unbans a banned user from this server """
+        _(""" Unbans a banned user from this server """)
 
         reason = reason or None
 
@@ -678,13 +673,15 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Unban everyone from the server', aliases=['massunban', 'ubaall', 'massuba'])
+    @commands.command(brief=_("Unban everyone from the server"), aliases=['massunban', 'ubaall', 'massuba'])
     @moderator(ban_members=True)
     @commands.guild_only()
     @commands.bot_has_permissions(ban_members=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def unbanall(self, ctx, *, reason: commands.clean_content = None):
-        """ Unban everyone from the server """
+        _(""" Unban everyone from the server """)
+
         bans = len(await ctx.guild.bans())
 
         if bans == 0:
@@ -753,16 +750,16 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Mute member in the server', aliases=['tempmute'])
+    @commands.command(brief=_("Mute member in the server"), aliases=['tempmute'])
     @moderator(manage_roles=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def mute(self, ctx, members: commands.Greedy[discord.Member], duration: typing.Optional[btime.FutureTime], *, reason: commands.clean_content = None):
-        """ Mute members in the server
-
-        If duration is provided, they'll get unmuted after the duration ends
-        If multiple members are provided, all of them will get muted."""
+        _(""" Mute members in the server
+        If duration is provided, they'll get unmuted after the duration ends.
+        If multiple members are provided, all of them will get muted. """)
 
         reason = reason or None
 
@@ -869,15 +866,15 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Unmute member in the server')
+    @commands.command(brief=_("Unmute member in the server"))
     @moderator(manage_roles=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.user)
+    @locale_doc
     async def unmute(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
-        """ Unmute member in the server
-
-        If multiple members are provided, all of them will get unmuted."""
+        _(""" Unmute member in the server
+        If multiple members are provided, all of them will get unmuted. """)
 
         reason = reason or None
 
@@ -978,16 +975,16 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Voice mute member in the server', aliases=['vmute'])
+    @commands.command(brief=_("Voice mute member in the server"), aliases=['vmute'])
     @moderator(mute_members=True)
     @commands.guild_only()
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def voicemute(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
-        """ Voice mute an annoying member in voice channel.
-
+        _(""" Voice mute an annoying member in voice channel.
         If multiple members are passed, all of them will get voice muted.
-        They need to be in voice channel in order to voice mute them. """
+        They need to be in voice channel in order to voice mute them. """)
 
         reason = reason or None
 
@@ -1069,16 +1066,16 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Voice unmute member in the server', aliases=['vunmute'])
+    @commands.command(brief=_("Voice unmute member in the server"), aliases=['vunmute'])
     @moderator(mute_members=True)
     @commands.guild_only()
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def voiceunmute(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
-        """ Voice unmute an annoying member in voice channel.
-
+        _(""" Voice unmute an annoying member in voice channel.
         If multiple members are passed, all of them will get voice unmuted.
-        They need to be in voice channel in order to voice unmute them. """
+        They need to be in voice channel in order to voice unmute them. """)
 
         reason = reason or None
 
@@ -1156,16 +1153,16 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Warn a member', aliases=['addwarn', 'strike'])
+    @commands.command(brief=_("Warn a member"), aliases=['addwarn', 'strike'])
     @moderator(manage_messages=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def warn(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
-        """ Warn a member in the server
+        _(""" Warn a member in the server
         If multiple members are provided they all will get warned.
-
-        Member will get a DM when he'll get warned, you can use `silent` feature to send warning into DMs annonymously.
-        Example: `warn <member> [--s] [reason]`"""
+        Member will get a DM when he'll get warned, you can use silent feature to send warning into DMs annonymously.
+        Example: `warn <member> [--s] [reason]`""")
 
         if len(set(members)) == 0:
             return await ctx.send(_("{0} | You're missing an argument - **members**").format(
@@ -1248,16 +1245,15 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.group(aliases=['clear', 'delete', 'prune'], brief="Manage messages in the chat", invoke_without_command=True)
+    @commands.group(aliases=['clear', 'delete', 'prune'], brief=_("Manage messages in the chat"), invoke_without_command=True)
     @commands.guild_only()
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
+    @locale_doc
     async def purge(self, ctx, search=100):
-        """
-        Purge messages in the chat. Default amount is set to **100**
-        This will not purge pins.
-        """
+        _(""" Purge messages in the chat. Default amount is set to **100**. This will not purge pins. """)
+
         with suppress(Exception):
             await ctx.message.delete()
 
@@ -1267,83 +1263,88 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             return False
         await self.do_removal(ctx, search, pins)
 
-    @purge.command(brief='Purge all the messages')
+    @purge.command(brief=_("Purge all the messages"))
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
+    @locale_doc
     async def all(self, ctx, search=100):
-        """
-        Purge all the messages in chat. Default amount is set to **100**
-        This will purge everything, pins as well.
-        """
+        _(""" Purge all the messages in chat. Default amount is set to **100**. This will purge everything, pins as well. """)
+
         with suppress(Exception):
             await ctx.message.delete()
         await self.do_removal(ctx, search, lambda e: True)
 
-    @purge.command(brief="User messages", description="Clear messages sent from an user")
+    @purge.command(brief="User messages", description=_("Clear messages sent from an user"))
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
+    @locale_doc
     async def user(self, ctx, member: discord.Member, search=100):
-        """ Removes user messages """
+        _(""" Removes user messages """)
+
         with suppress(Exception):
             await ctx.message.delete()
         await self.do_removal(ctx, search, lambda e: e.author == member)
 
-    @purge.command(name='bot', brief="Bot messages")
+    @purge.command(name='bot', brief=_("Clear bot user messages"))
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
+    @locale_doc
     async def _bot(self, ctx, prefix=None, search=100):
-        """Removes a bot user's messages and messages with their optional prefix."""
+        _("""Removes a bot user's messages and messages with their optional prefix.""")
 
         def predicate(m):
             return (m.webhook_id is None and m.author.bot) or (prefix and m.content.startswith(prefix))
 
         await self.do_removal(ctx, search, predicate)
 
-    @purge.command(brief="Embed messages")
+    @purge.command(brief=_("Clear embedded messages"))
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
+    @locale_doc
     async def embeds(self, ctx, search=100):
-        """Removes messages that have embeds in them."""
+        _("""Removes messages that have embeds in them.""")
+
         await self.do_removal(ctx, search, lambda e: len(e.embeds))
 
-    @purge.command(brief="Image messages")
+    @purge.command(brief=_("Clear messages with images"))
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
+    @locale_doc
     async def images(self, ctx, search=100):
-        """Removes messages that have embeds or attachments."""
+        _("""Removes messages that have embeds or attachments.""")
         await self.do_removal(ctx, search, lambda e: len(e.embeds) or len(e.attachments))
 
-    @purge.command(brief="Messages containing the given word")
+    @purge.command(brief=_("Messages containing the given word"))
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
+    @locale_doc
     async def contains(self, ctx, *, substr: str):
-        """Removes all messages containing a substring.
-        The substring must be at least 3 characters long.
-        """
+        _(""" Removes all messages containing a substring. The substring must be at least 3 characters long. """)
         if len(substr) < 3:
             await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} substring must be at least 3 characters long.")
         else:
             await self.do_removal(ctx, 100, lambda e: substr in e.content)
 
-    @purge.command(name='emoji', brief="Custom emoji messages")
+    @purge.command(name='emoji', brief=_("Delete custom emoji messages"))
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
+    @locale_doc
     async def _emoji(self, ctx, search=100):
-        """Removes all messages containing custom emoji."""
+        _("""Removes all messages containing custom emoji.""")
         custom_emoji = re.compile(r'<:(\w+):(\d+)>')
 
         def predicate(m):
@@ -1351,13 +1352,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
 
         await self.do_removal(ctx, search, predicate)
 
-    @purge.command(brief="Custom messages")
+    @purge.command(brief=_("Delete custom messages"))
     @moderator(manage_messages=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.max_concurrency(1, commands.cooldowns.BucketType.channel, wait=False)
+    @locale_doc
     async def custom(self, ctx, *, args: str):
-        """A more advanced purge command.
+        _("""A more advanced purge command.
         This command uses a powerful "command line" syntax.
         Most options support multiple values to indicate 'any' match.
         If the value has spaces it must be quoted.
@@ -1378,8 +1380,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         `--emoji`: Check if the message has custom emoji.
         `--reactions`: Check if the message has reactions
         `--or`: Use logical OR for all options.
-        `--not`: Use logical NOT for all options.
-        """
+        `--not`: Use logical NOT for all options. """)
+
         parser = Arguments(add_help=False, allow_abbrev=False)
         parser.add_argument('--user', nargs='+')
         parser.add_argument('--contains', nargs='+')
@@ -1452,14 +1454,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         args.search = max(0, min(2000, args.search))  # clamp from 0-2000
         await self.do_removal(ctx, args.search, predicate, before=args.before, after=args.after)
 
-    @commands.command(brief='Nuke the channel', aliases=['clone'])
+    @commands.command(brief=_('Nuke the channel'), aliases=['clone'])
     @admin(manage_channels=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_channels=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def nuke(self, ctx, channel: discord.TextChannel = None, *, reason: commands.clean_content = None):
-        """ Nuke any server in the channel.
-        This command will clone the selected channel and create another one with exact permissions """
+        _(""" Nuke any server in the channel. This command will clone the selected channel and create another one with exact permissions """)
 
         channel = channel or ctx.channel
         reason = reason or None
@@ -1476,13 +1478,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Freeze the server', aliases=['freeze-server'])
+    @commands.command(brief=_("Freeze the server"), aliases=['freeze-server'])
     @moderator(manage_roles=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def freeze(self, ctx, reason: str = None):
-        """ Freezes everyone from sending messages in the server """
+        _(""" Freezes everyone from sending messages in the server """)
 
         permissions = ctx.guild.default_role.permissions
         if permissions.send_messages:
@@ -1495,13 +1498,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         elif not permissions.send_messages:
             await ctx.send(_("{0} Server is already frozen!").format(self.bot.settings['emojis']['misc']['warn']))
 
-    @commands.command(brief='Unfreeze the server', aliases=['unfreeze-server'])
+    @commands.command(brief=_("Unfreeze the server"), aliases=['unfreeze-server'])
     @moderator(manage_roles=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def unfreeze(self, ctx, reason: str = None):
-        """ Unfreezes everyone from sending messages in the server """
+        _(""" Unfreezes everyone from sending messages in the server """)
 
         permissions = ctx.guild.default_role.permissions
 
@@ -1515,13 +1519,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         elif permissions.send_messages:
             await ctx.send(_("{0} Server is not frozen!").format(self.bot.settings['emojis']['misc']['warn']))
 
-    @commands.command(brief='Create a role', aliases=['rolecreate'])
+    @commands.command(brief=_("Create a role"), aliases=['rolecreate'])
     @moderator(manage_roles=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def createrole(self, ctx, *, name: str):
-        """ Create a role in the server """
+        _(""" Create a role in the server """)
 
         if len(name) > 100:
             raise commands.BadArgument(_("Role name can't be longer than 100 characters"))
@@ -1529,16 +1534,16 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             await ctx.guild.create_role(name=name, permissions=ctx.guild.default_role.permissions, color=discord.Color.dark_grey())
             await ctx.send(_("{0} Created role named **{1}**").format(self.bot.settings['emojis']['misc']['white-mark'], name))
 
-    @commands.command(brief='Delete a role', aliases=['delrole', 'roledel', 'roledelete'])
+    @commands.command(brief=_("Delete a role"), aliases=['delrole', 'roledel', 'roledelete'])
     @moderator(manage_roles=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def deleterole(self, ctx, role: discord.Role, *, reason: str = None):
-        """ Delete a role in the server """
+        _(""" Delete a role in the server """)
 
         reason = reason or 'No reason'
-
         if role.position >= ctx.guild.me.top_role.position:
             return await ctx.send(_("{0} I cannot delete that role as it's higher or equal in role hiararchy!").format(
                 self.bot.settings['emojis']['misc']['warn']
@@ -1559,13 +1564,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                 self.bot.settings['emojis']['misc']['warn']
             ))
 
-    @commands.command(brief='Add a role to member(s)', aliases=['arole', 'addrole'], name='add-role')
+    @commands.command(brief=_("Add a role to member(s)"), aliases=['arole', 'addrole'], name='add-role')
     @moderator(manage_roles=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def add_role(self, ctx, members: commands.Greedy[discord.Member], role: discord.Role, *, reason: commands.clean_content = None):
-        """ Add a role to a member. Mentioning multiple members will add a role to multiple members. """
+        _(""" Add a role to a member. Mentioning multiple members will add a role to multiple members. """)
         reason = reason or None
 
         if len(set(members)) == 0:
@@ -1657,13 +1663,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Remove a role to member(s)', aliases=['rrole', 'removerole'], name='remove-role')
+    @commands.command(brief=_("Remove a role to member(s)"), aliases=['rrole', 'removerole'], name='remove-role')
     @moderator(manage_roles=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def remove_role(self, ctx, members: commands.Greedy[discord.Member], role: discord.Role, *, reason: commands.clean_content = None):
-        """ Remove a role to a member. Mentioning multiple members will remove a role from multiple members. """
+        _(""" Remove a role to a member. Mentioning multiple members will remove a role from multiple members. """)
         reason = reason or None
 
         if len(set(members)) == 0:
@@ -1749,13 +1756,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn']
                                     ))
 
-    @commands.command(brief='Edit a reason of a case', aliases=['editcase', 'editreason'])
+    @commands.command(brief=_("Edit a reason of a case"), aliases=['editcase', 'editreason'])
     @moderator(manage_messages=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def reason(self, ctx, case_id: int, *, new_reason: str):
-        """ Edit the reason of a case """
+        _(""" Edit the reason of a case """)
 
         if new_reason and len(new_reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
@@ -1790,13 +1798,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
 
         await ctx.channel.send(content=_('Successfully edited case `#{0}` reason').format(case_id), embed=embed)
 
-    @commands.command(brief='Delete existing case', aliases=['removecase', 'remove'])
+    @commands.command(brief=_("Delete existing case"), aliases=['removecase', 'remove'])
     @moderator(manage_messages=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def deletecase(self, ctx, case_id: int, *, reason: str):
-        """ Delete the existing case """
+        _(""" Delete the existing case """)
 
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
@@ -1834,11 +1843,13 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                 pass
             await ctx.send(message)
 
-    @commands.command(brief="Get case information", aliases=['case'])
+    @commands.command(brief=_("Get case information"), aliases=['case'])
     @moderator(manage_messages=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def showcase(self, ctx, case_id: int):
+        _(""" Get more information of the case """)
 
         case_check = await self.bot.db.fetch("SELECT * FROM modlog WHERE guild_id = $1 AND case_num = $2", ctx.guild.id, case_id)
 
@@ -1859,12 +1870,13 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         embed = message.embeds[0]
         await ctx.send(content=_("Showing you case `#{0}` information").format(case_id), embed=embed)
 
-    @commands.command(brief='Check user history of punishments', aliases=['punishments'])
+    @commands.command(brief=_("Check user history of punishments"), aliases=['punishments'])
     @moderator(manage_messages=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def history(self, ctx, user: discord.User):
-        """ Get a history of user's punishments """
+        _(""" Get a history of user's punishments """)
 
         case_check = await self.bot.db.fetch("SELECT * FROM modlog WHERE guild_id = $1 AND user_id = $2 ORDER BY case_num", ctx.guild.id, user.id)
         no_msg = _("{0} {1} doesn't have any punishments history.").format(self.bot.settings['emojis']['misc']['warn'], user)
@@ -1880,28 +1892,28 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             if not data['reason']:
                 continue
             if data['action'] == 1:
-                action = 'ban'
+                action = _('ban')
                 bans += 1
             elif data['action'] == 2:
-                action = 'kick'
+                action = _('kick')
                 kicks += 1
             elif data['action'] == 3:
-                action = 'softban'
+                action = _('softban')
                 softbans += 1
             elif data['action'] == 4:
-                action = 'mute'
+                action = _('mute')
                 mutes += 1
             elif data['action'] == 5:
-                action = 'warn'
+                action = _('warn')
                 warns += 1
             elif data['action'] == 6:
-                action = 'unban'
+                action = _('unban')
             elif data['action'] == 7:
-                action = 'unmute'
+                action = _('unmute')
             elif data['action'] == 8:
-                action = 'voice mute'
+                action = _('voice mute')
             elif data['action'] == 9:
-                action = 'voice unmute'
+                action = _('voice unmute')
             try:
                 mod = await self.bot.try_user(data['mod_id'])
             except Exception:
@@ -1923,12 +1935,12 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                           author=ctx.author)
         await paginator.paginate()
 
-    @commands.group(brief='Shows the duration of tempmute left.', name='temp-duration', invoke_without_command=True, aliases=['temp-dur'])
+    @commands.group(brief=_("Shows the duration of tempmute left."), name='temp-duration', invoke_without_command=True, aliases=['temp-dur'])
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def temp_duration(self, ctx, user: discord.Member, guild_id: int = None):
-        """ Check the duration of member's tempmute.
-
-        If you're the user, you can run this command in DMs """
+        _(""" Check the duration of member's tempmute.
+        If you're the user, you can run this command in DMs with srver id provided as well """)
 
         if ctx.guild and ctx.author.guild_permissions.manage_messages and not await self.bot.is_owner(ctx.author):
             guild_id = ctx.guild.id
@@ -1937,7 +1949,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             if not temp_mute or temp_mute and not temp_mute['time']:
                 raise commands.BadArgument(_("User is not temp muted."))
 
-            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at, suffix=None)
+            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at.replace(tzinfo=None), suffix=None)
             await ctx.send(_("**{0}** will be unmuted in: `{1}`").format(user, time))
 
         elif ctx.guild and not ctx.author.guild_permissions.manage_messages:
@@ -1953,7 +1965,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             if not temp_mute or temp_mute and not temp_mute['time']:
                 raise commands.BadArgument(_("You're not temp muted?"))
 
-            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at, suffix=None)
+            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at.replace(tzinfo=None), suffix=None)
             await ctx.send(_("You will be unmuted in: `{0}`").format(time))
 
         elif not ctx.guild and not guild_id:
@@ -1964,18 +1976,18 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             if not temp_mute or temp_mute and not temp_mute['time']:
                 raise commands.BadArgument(_("User is not temp muted in that server."))
 
-            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at, suffix=None)
+            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at.replace(tzinfo=None), suffix=None)
+
             guild = self.bot.get_guild(guild_id)
             await ctx.send(f"**{user}** will be unmuted in {guild} in: `{time}`")
 
-    @temp_duration.command(brief="Toggle if users should see their temp mute duration", name='toggle')
+    @temp_duration.command(brief=_("Toggle if users should see their temp mute duration"), name='toggle')
     @admin(manage_guild=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def temp_duration_toggle(self, ctx):
-        """ Toggle if users should be able to see when they're getting unmuted.
-
-        They'll be able to run the command in DMs if it's toggled on. """
+        _(""" Toggle if users should be able to see when they're getting unmuted. They'll be able to run the command in DMs if it's toggled on. """)
         check_duration = cm.get(self.bot, 'check_duration', ctx.guild.id)
 
         if not check_duration:
@@ -1987,13 +1999,14 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             self.bot.check_duration.pop(ctx.guild.id)
             await ctx.send(_("{0} Users won't be able to check their temp-mute duration in their DMs anymore.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
-    @commands.command(brief='Create an emoji', aliases=['cemoji', 'createemoji'], name='create-emoji')
+    @commands.command(brief=_("Create an emoji"), aliases=['cemoji', 'createemoji'], name='create-emoji')
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
     @moderator(manage_emojis=True)
     @commands.bot_has_permissions(manage_emojis=True)
+    @locale_doc
     async def createemoji(self, ctx, emoji_url: str, *, emoji_name: str):
-        """ Create an emoji in the server """
+        _(""" Create an emoji """)
 
         if len(emoji_name) > 32:
             raise commands.BadArgument(_("Emoji name can't be longer than 32 characters, you're {0} characters over").format(len(emoji_name) - 32))

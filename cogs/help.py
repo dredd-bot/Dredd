@@ -33,8 +33,8 @@ class HelpCommand(commands.HelpCommand):
     def __init__(self, *args, **kwargs):
         self.show_hidden = False
         super().__init__(command_attrs={
-                         'help': 'Shows help about bot and/or commands',
-                         'brief': 'See cog/command help',
+                         'help': _('Shows help about bot and/or commands'),
+                         'brief': _('See cog/command help'),
                          'usage': '[category / command]',
                          'cooldown': commands.Cooldown(1, 10, commands.BucketType.user),
                          'name': 'help'})
@@ -54,21 +54,6 @@ class HelpCommand(commands.HelpCommand):
             return f"{command.cog.qualified_name} | {command.qualified_name}"
 
     async def command_callback(self, ctx, *, command=None):
-        """|coro|
-        The actual implementation of the help command.
-        It is not recommended to override this method and instead change
-        the behaviour through the methods that actually get dispatched.
-        - :meth:`send_bot_help`
-        - :meth:`send_cog_help`
-        - :meth:`send_group_help`
-        - :meth:`send_command_help`
-        - :meth:`get_destination`
-        - :meth:`command_not_found`
-        - :meth:`subcommand_not_found`
-        - :meth:`send_error_message`
-        - :meth:`on_help_command_error`
-        - :meth:`prepare_help_command`
-        """
 
         await self.prepare_help_command(ctx, command)
 
@@ -123,8 +108,8 @@ class HelpCommand(commands.HelpCommand):
             prefix = _("**Prefix:** `{0}`").format(p)
         elif self.context.guild is None:
             prefix = _("**Prefix:** `!`")
-        s = "Support"
-        i = "Bot invite"
+        s = _("Support")
+        i = _("Bot invite")
         boats = "[discord.boats](https://discord.boats/bot/667117267405766696/vote)"
         privacy = "[Privacy Policy](https://github.com/TheMoksej/Dredd/blob/master/PrivacyPolicy.md)"
 
@@ -158,7 +143,10 @@ class HelpCommand(commands.HelpCommand):
         emb.set_thumbnail(url=self.context.bot.user.avatar_url)
         updates = self.context.bot.updates
         emb.add_field(name=_("Categories:"), value="\n".join(exts) + "\n\u200b")
-        emb.add_field(name=f"\n{self.context.bot.settings['emojis']['misc']['announce']} **Latest news - {updates['announced'].__format__('%d %b %Y')}**", value=f"{updates['update']}")
+        emb.add_field(name=_("\n{0} **Latest news - {1}**").format(
+            self.context.bot.settings['emojis']['misc']['announce'], updates['announced'].__format__('%d %b %Y')
+        ),
+                             value=f"{updates['update']}")
 
         if ctx.guild:
             emb.set_footer(text=_("You can also click on the reactions below to view commands in each category."))
@@ -236,12 +224,18 @@ class HelpCommand(commands.HelpCommand):
 
         aliases = _("Aliases: ") + '`' + '`, `'.join(command.aliases) + "`" if command.aliases else _('No aliases were found.')
 
-        desc = command.help or _('No help was provided...')
+        desc = _(command.callback.__doc__) if command.callback.__doc__ else _(command.help) or _('No help was provided...')
         desc += f"\n*{aliases}*"
         try:
             await command.can_run(self.context)
         except Exception as e:
             desc += _("\n\n*Either you or I don't have permissions to run this command in this channel*")
+
+        for check in command.checks:
+            if check.__qualname__.startswith('test_command'):
+                desc += _("\n{0} This command is in an early beta and can only be used in whitelisted servers.").format(
+                    self.context.bot.settings['emojis']['misc']['beta']
+                )
 
         emb = discord.Embed(color=self.context.bot.settings['colors']['embed_color'], description=desc)
         emb.set_author(name=self.get_command_signature(command), icon_url=self.context.bot.user.avatar_url)
@@ -279,12 +273,17 @@ class HelpCommand(commands.HelpCommand):
 
         aliases = _("Aliases: ") + '`' + '`, `'.join(group_command.root_parent.aliases) + "`" if group_command.root_parent.aliases else _('No aliases were found.')
 
-        desc = group.help or _("No help was provided...")
+        desc = _(group.callback.__doc__) if group.callback.__doc__ else _(group.help) or _("No help was provided...")
         desc += f"\n*{aliases}*"
         try:
             await group.can_run(self.context)
         except Exception as e:
             desc += _("\n\n*Either you or I don't have permissions to run this command in this channel*")
+
+        for check in group.checks:
+            if check.__qualname__.startswith('test_command'):
+                desc += _("\n<:beta:860234962749095956> This command is in an early beta and can be used only in whitelisted servers.")
+
         if group_command.root_parent.qualified_name == 'jishaku':
             sub_cmd_list = sub_cmd_list[:-2]
 
@@ -320,7 +319,7 @@ class HelpCommand(commands.HelpCommand):
             if cmd.short_doc is None:
                 brief = _('No information.')
             else:
-                brief = cmd.short_doc
+                brief = _(cmd.short_doc)
 
             if not cmd.hidden or not await checks.is_disabled(self.context, cmd):
                 if not await self.context.bot.is_admin(self.context.author):

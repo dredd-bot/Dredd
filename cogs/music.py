@@ -26,9 +26,11 @@ import math
 import random
 
 from discord.ext import commands
-from utils.checks import check_music, is_admin, has_voted
+from utils.checks import check_music, is_admin, has_voted, test_command
 from utils.paginator import Pages
 from contextlib import suppress
+from utils.i18n import locale_doc
+from utils.default import background_error
 
 RURL = re.compile(r'https?://(?:www\.)?.+')
 
@@ -44,6 +46,7 @@ class Track(wavelink.Track):
         self.requester = kwargs.get('requester')
 
 
+# noinspection PyProtectedMember
 class Player(wavelink.Player):
     """Custom wavelink Player class."""
 
@@ -57,12 +60,10 @@ class Player(wavelink.Player):
         self.queue = asyncio.Queue()
         self.controller = None
         self.loop = 0
-        self.volume = 50
+        self.volume = 75
 
         self.waiting = False
         self.updating = False
-
-        # self.mode247 = False
 
         self.pause_votes = set()
         self.resume_votes = set()
@@ -102,6 +103,7 @@ class Player(wavelink.Player):
                 else:
                     pass
 
+        mode247 = self.bot.cache.get(self.bot, 'mode247', self.context.guild.id)
         if self.loop == 0:
             try:
                 self.waiting = True
@@ -109,7 +111,8 @@ class Player(wavelink.Player):
                     track = await self.queue.get()
             except asyncio.TimeoutError:
                 # No music has been played for 5 minutes, cleanup and disconnect...
-                return await self.teardown()
+                if not mode247:
+                    return await self.teardown()
         elif self.loop != 0:
             track = await self.queue.get()
             if self.loop == 1:
@@ -172,6 +175,7 @@ class Player(wavelink.Player):
             pass
 
 
+# noinspection PyProtectedMember
 class Music(commands.Cog, wavelink.WavelinkMixin):
     def __init__(self, bot):
         self.bot = bot
@@ -230,8 +234,8 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             # },
             'US3': {
                 'host': self.bot.config.MUSIC_IP_US2,
-                'port': self.bot.config.MUSIC_PORT_US3,
-                'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP_US2, self.bot.config.MUSIC_PORT_US3),
+                'port': self.bot.config.MUSIC_PORT_EU1,
+                'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP_US2, self.bot.config.MUSIC_PORT_EU1),
                 'password': self.bot.config.MUSIC_US_PASSWORD,
                 'identifier': self.bot.config.MUSIC_NODE_US3,
                 'region': 'us_central'
@@ -263,19 +267,48 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        if before.channel and (not after.channel or after.channel != before.channel):
-            if member.guild.me in before.channel.members:
-                if member.bot:
-                    return
-                humans = [x for x in before.channel.members if not x.bot]
-                if member.guild.me in before.channel.members and len(humans) == 0:
-                    player = self.bot.wavelink.get_player(member.guild.id, cls=Player)
-                    try:
+        try:
+            mode247 = self.bot.cache.get(self.bot, 'mode247', member.guild.id)
+            if before.channel and (not after.channel or after.channel != before.channel) and not mode247:
+                if member.guild.me in before.channel.members:
+                    if member.bot:
+                        return
+                    humans = [x for x in before.channel.members if not x.bot]
+                    if member.guild.me in before.channel.members and len(humans) == 0:
+                        player = self.bot.wavelink.get_player(member.guild.id, cls=Player)
+                        with suppress(Exception):
+                            channel = member.guild.get_channel(self._last_command_channel[member.guild.id])
+                            await channel.send(_("Everyone left the voice channel, I will stop playing music"), delete_after=5)
+                        await player.destroy()
+
+            if before.channel and (not after.channel or after.channel != before.channel) and mode247:
+                if member.guild.me in before.channel.members:
+                    if member.bot:
+                        return
+                    humans = [x for x in before.channel.members if not x.bot]
+                    if member.guild.me in before.channel.members and len(humans) == 0:
+                        player = self.bot.wavelink.get_player(member.guild.id, cls=Player)
+                        with suppress(Exception):
+                            channel = member.guild.get_channel(self._last_command_channel[member.guild.id])
+                            await channel.send(_("Everyone left the voice channel, I will pause the current track"), delete_after=5)
+                        self.bot.mode247[member.guild.id]['last_connection'] = datetime.datetime.utcnow()
+                        await player.set_pause(True)
+
+            elif mode247 and after.channel.id == mode247['channel'] and not member.bot:
+                player = self.bot.wavelink.get_player(member.guild.id, cls=Player)
+                if player.is_paused:
+                    await player.set_pause(False)
+                else:
+                    with suppress(Exception):
                         channel = member.guild.get_channel(self._last_command_channel[member.guild.id])
-                        await channel.send(_("Everyone left the voice channel, I will stop playing music"))
-                    except Exception:
-                        pass
-                    await player.destroy()
+                        await channel.send(_("The queue is empty, please add songs to the queue so I could play them."))
+
+            if member.id == self.bot.user.id and not after.channel:
+                player = self.bot.wavelink.get_player(member.guild.id, cls=Player)
+                self.bot.mode247.pop(member.guild.id, None)
+                await player.destroy()
+        except Exception as exc:  # This is the main reason 24/7 mode is in beta
+            await background_error(self, err_type='Music error', err_msg=exc, guild=member.guild, channel=member.guild.me.voice.channel or after.channel)
 
     def is_dj(self, ctx) -> bool:
         player = self.bot.wavelink.get_player(guild_id=ctx.guild.id, cls=Player, context=ctx)
@@ -294,11 +327,13 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         return required
 
-    @commands.command()
+    @commands.command(brief=_("Connect bot to a voice channel"))
     @check_music(author_channel=True, bot_channel=False, same_channel=True, verify_permissions=True, is_playing=False, is_paused=False)
     @commands.guild_only()
+    @locale_doc
     async def connect(self, ctx):
-        """ Connect bot to a voice channel """
+        _(""" Connect bot to a voice channel """)
+
         player = self.bot.wavelink.get_player(guild_id=ctx.guild.id, cls=Player, context=ctx)
 
         if not player.is_connected:
@@ -309,12 +344,13 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         await ctx.send(_("{0} Connected to **{1}**!").format('🎶', channel.name))
 
-    @commands.command(aliases=['p'])
+    @commands.command(aliases=['p'], brief=_("Search for and add song(s) to the Queue"))
     @check_music(author_channel=True, bot_channel=False, same_channel=True, verify_permissions=True, is_playing=False, is_paused=False)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def play(self, ctx, *, query: str):
-        """Search for and add a song to the Queue."""
+        _(""" Search for and add song(s) to the Queue """)
 
         player = self.bot.wavelink.get_player(guild_id=ctx.guild.id, cls=Player, context=ctx)
 
@@ -331,6 +367,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             return await ctx.send(_('No songs were found with that query. Please try again.'), delete_after=15)
 
         if isinstance(tracks, wavelink.TrackPlaylist):
+            print('yes')
             length = 0
             for track in tracks.tracks:
                 track = Track(track.id, track.info, requester=ctx.author)
@@ -356,12 +393,13 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         if not player.is_playing:
             await player.do_next()
 
-    @commands.command()
+    @commands.command(brief=_("Search for and add song(s) to the Queue"))
     @check_music(author_channel=True, bot_channel=False, same_channel=True, verify_permissions=True, is_playing=False, is_paused=False)
     @commands.guild_only()
     @commands.max_concurrency(1, commands.BucketType.guild)
+    @locale_doc
     async def search(self, ctx, *, query: str):
-        """ Search for and add a song(s) to the Queue. """
+        _(""" Search for and add song(s) to the Queue """)
 
         player = self.bot.wavelink.get_player(guild_id=ctx.guild.id, cls=Player, context=ctx)
 
@@ -424,12 +462,72 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             if not player.is_playing:
                 await player.do_next()
 
-    @commands.command()
+    @commands.command(brief=_("Enqueue the radio station"))
+    @check_music(author_channel=True, bot_channel=False, same_channel=True, verify_permissions=True, is_playing=False, is_paused=False)
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    @commands.guild_only()
+    @locale_doc
+    @test_command()
+    async def radio(self, ctx, *, radio: str = None):
+        _(""" Plays the selected radio station, if you have suggestions for radio stations, feel free to suggest them in the support server""")
+
+        player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
+
+        if not player.is_connected:
+            channel = getattr(ctx.author.voice, 'channel')
+            await player.connect(channel.id)
+
+        if not radio or radio.title() not in self.bot.radio_stations:
+            return await ctx.send(_("You may choose from one of these radio stations:\n• {0}").format('\n• '.join([name for name in self.bot.radio_stations])))
+
+        elif radio and radio.title() in self.bot.radio_stations:
+            tracks = await self.bot.wavelink.get_tracks(f"{self.bot.radio_stations[f'{radio.title()}']}")
+
+            if not tracks:
+                return await ctx.send(_("Uh oh, looks like that radio station broke down."))
+
+            tracks[0].info['title'] = radio.title()
+            track = Track(tracks[0].id, tracks[0].info, requester=ctx.author)
+            await ctx.send(_('{0} Added **{1}** to the Queue!').format('🎶', track.title), delete_after=15)
+            await player.queue.put(track)
+
+            self._last_command_channel[ctx.guild.id] = ctx.channel.id
+            if not player.is_playing:
+                await player.do_next()
+
+    @commands.command(brief=_("Toggle player's 24/7 mode"))
+    @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=False, is_paused=False)
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    @commands.guild_only()
+    @locale_doc
+    @test_command()
+    async def mode247(self, ctx):
+        _(""" Enable or disable the player's 24/7 mode """)
+
+        player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
+        mode247 = self.bot.cache.get(self.bot, 'mode247', ctx.guild.id)
+
+        if self.is_dj(ctx) and not mode247:
+            self.bot.mode247[ctx.guild.id] = {"last_connection": datetime.datetime.utcnow(), 'channel': ctx.guild.me.voice.channel.id, 'text': ctx.channel.id}
+            return await ctx.send(_("{0} Successfuly enabled 24/7 mode, I will stay in the voice channel when everyone leaves.").format(
+                self.bot.settings['emojis']['misc']['white-mark']
+            ))
+        elif self.is_dj(ctx) and mode247:
+            self.bot.mode247.pop(ctx.guild.id)
+            return await ctx.send(_("{0} Successfully disabled 24/7 mode, I will leave the voice channel when everyone leaves.").format(
+                self.bot.settings['emojis']['misc']['white-mark']
+            ))
+        else:
+            return await ctx.send(_("{0} I'm sorry, but only the DJ and people with manage messages permission can toggle the 24/7 mode."))
+
+    @commands.command(brief=_("Pause the currently playing song"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=True)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def pause(self, ctx):
-        """ Pause the currently playing song. """
+        _(""" Pause the currently playing song. """)
+
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if self.is_dj(ctx):
@@ -445,12 +543,14 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             else:
                 return await ctx.send(_('**{0}** has voted to pause the player, {1} more votes are needed to pause.').format(ctx.author, self.required_votes(ctx) - len(player.pause_votes)), delete_after=15)
 
-    @commands.command()
+    @commands.command(brief=_("Resume the currently paused song."))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=True)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def resume(self, ctx):
-        """ Resume the currently paused song. """
+        _(""" Resume the currently paused song. """)
+
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if self.is_dj(ctx):
@@ -466,12 +566,14 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             else:
                 return await ctx.send(_('**{0}** has voted to resume the player, {1} more votes are needed to resume.').format(ctx.author, self.required_votes(ctx) - len(player.resume_votes)), delete_after=15)
 
-    @commands.command()
+    @commands.command(brief=_("Skip the currently playing song."))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def skip(self, ctx):
-        """Skip the currently playing song."""
+        _(""" Skip the currently playing song. """)
+
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if player.queue.qsize() == 0:
@@ -495,12 +597,13 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             else:
                 return await ctx.send(_('**{0}** has voted to skip the current song, {1} more votes are needed to skip.').format(ctx.author, self.required_votes(ctx) - len(player.skip_votes)), delete_after=15)
 
-    @commands.command(aliases=['disconnect', 'dc'])
+    @commands.command(aliases=['disconnect', 'dc'], brief=_("Disconnect the player and controller"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=False, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def stop(self, ctx):
-        """Stop and disconnect the player and controller."""
+        _(""" Stop and disconnect the player and controller. """)
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if self.is_dj(ctx):
@@ -516,13 +619,15 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             else:
                 return await ctx.send(_('**{0}** has voted to stop the player, {1} more votes are needed to stop.').format(ctx.author, self.required_votes(ctx) - len(player.stop_votes)), delete_after=15)
 
-    @commands.command(aliases=['vol'])
+    @commands.command(aliases=['vol'], brief=_("Change the player's volume"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     @has_voted()
+    @locale_doc
     async def volume(self, ctx, *, vol: int):
-        """Set the player volume."""
+        _(""" Change the player's volume """)
+
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if await self.bot.is_booster(ctx.author):  # another perk for boosters/donators
@@ -533,12 +638,13 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         await ctx.send(_('Setting the player volume to **{0}%**').format(vol))
         await player.set_volume(vol)
 
-    @commands.command()
+    @commands.command(brief=_("Seek the currently playing song"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def seek(self, ctx, seconds: int = None):
-        """ Seek the current song """
+        _(""" Seek the currently playing song """)
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if player.current.is_stream:
@@ -556,12 +662,14 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         await player.seek(seek)
         await ctx.send(_("{0} Seeked the current song to `{1}/{2}`").format(self.bot.settings['emojis']['misc']['white-mark'], self.chop_microseconds(datetime.timedelta(milliseconds=int(round(seek)))), str(datetime.timedelta(milliseconds=int(player.current.length)))))
 
-    @commands.command(aliases=['mix'])
+    @commands.command(aliases=['mix'], brief=_("Shuffle the queue"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def shuffle(self, ctx: commands.Context):
-        """Shuffle the players queue."""
+        _("""Shuffle the queue.""")
+
         player = self.bot.wavelink.get_player(guild_id=ctx.guild.id, cls=Player, context=ctx)
 
         if player.queue.qsize() < 3:
@@ -582,12 +690,13 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         else:
             return await ctx.send(_('**{0}** has voted to shuffle the playlist, {1} more votes are needed to shuffle.').format(ctx.author, self.required_votes(ctx) - len(player.shuffle_votes)), delete_after=15)
 
-    @commands.command(aliases=['q'])
+    @commands.command(aliases=['q'], brief=_("See the player's Queue"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def queue(self, ctx):
-        """Retrieve information on the next 5 songs from the queue."""
+        _(""" Retrieve information on the next songs in the queue. """)
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if not player.current or not player.queue._queue:
@@ -596,11 +705,19 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         upcoming = []
         total_duration = 0
         for num, item in list(enumerate(itertools.islice(player.queue._queue, 0, player.queue.qsize()), start=1)):
-            upcoming.append(f"`[{num}]` {item} ({str(datetime.timedelta(milliseconds=int(item.length)))})\n")
-            total_duration += item.length
+            if not item.is_stream:
+                upcoming.append(f"`[{num}]` {item} ({str(datetime.timedelta(milliseconds=int(item.length)))})\n")
+                total_duration += item.length
+            else:
+                upcoming.append(f"`[{num}]` {item} (Live Stream)\n")
+
+        if total_duration != 0:
+            title = _("{0} Queue. Duration: {1}").format(ctx.guild.name, str(datetime.timedelta(milliseconds=int(total_duration))))
+        elif total_duration == 0:
+            title = _("{0} Queue.").format(ctx.guild.name)
 
         paginator = Pages(ctx,
-                          title=_("{0} Queue. Duration: {1}").format(ctx.guild.name, str(datetime.timedelta(milliseconds=int(total_duration)))),
+                          title=title,
                           entries=upcoming,
                           thumbnail=None,
                           per_page=10,
@@ -609,13 +726,15 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
                           author=ctx.author)
         await paginator.paginate()
 
-    @commands.command(aliases=['cq', 'clearqueue'], name='clear-queue')
+    @commands.command(aliases=['cq', 'clearqueue'], name='clear-queue',
+                      brief=_("Clear all the songs from the queue"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.bot_has_permissions(use_external_emojis=True)
     @commands.guild_only()
+    @locale_doc
     async def clear_queue(self, ctx):
-        """ Clear all the songs from the queue """
+        _(""" Clear all the songs from the queue """)
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if not player.queue._queue:
@@ -645,12 +764,14 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         player.queue._queue.clear()
         await ctx.channel.send(_("{0} Successfully cleared {1} songs from the queue.").format(self.bot.settings['emojis']['misc']['white-mark'], tot_songs))
 
-    @commands.command(aliases=['np', 'current'], name='now-playing')
+    @commands.command(aliases=['np', 'current'], name='now-playing',
+                      brief=_("See currently playing song"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def now_playing(self, ctx):
-        """ Retrieve currently playing song. """
+        _(""" Retrieve currently playing song. """)
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         track = player.current
@@ -664,19 +785,22 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         await ctx.send(embed=embed)
 
-    @commands.group(aliases=['setfilter'], name='filter', invoke_without_command=True)
+    @commands.group(aliases=['setfilter'], name='filter', invoke_without_command=True,
+                    brief=_("Manage the player's filter"))
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def _filter(self, ctx):
-        """Change the players filter."""
+        _(""" Base command for managing player's filter """)
         await ctx.send_help(ctx.command)
 
-    @_filter.command(brief="Change the pitch of the song")
+    @_filter.command(brief=_("Change the pitch of the song"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def pitch(self, ctx, pitch: float):
-        """ Set the players pitch."""
+        _(""" Modify the players pitch. """)
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if pitch < 0.1:
@@ -689,16 +813,21 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         await ctx.send(_("{0} Changed the pitch to **{1}x**, give up to 10 seconds for player to take effect").format(self.bot.settings['emojis']['misc']['white-mark'], pitch))
 
-    @_filter.command(brief="Change the speed of the song")
+    @_filter.command(brief=_("Change the speed of the song"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def speed(self, ctx, speed: float):
-        """ Set the players speed."""
+        _(""" Set the players speed.""")
+
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if speed < 0.1:
             return await ctx.send(_("The value you provided is invalid and will crash the player."))
+
+        if player.current.is_stream:
+            return await ctx.send(_("{0} Can't do that on a stream.").format(self.bot.settings['emojis']['misc']['warn']))
 
         try:
             await player.set_filter(wavelink.Timescale(speed=speed, pitch=player.filter.pitch if hasattr(player.filter, 'pitch') else 1.0))
@@ -707,24 +836,28 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         await ctx.send(_("{0} Changed the speed to **{1}x**, give up to 10 seconds for player to take effect").format(self.bot.settings['emojis']['misc']['white-mark'], speed))
 
-    @_filter.command(brief="Reset the filter")
+    @_filter.command(brief=_("Reset the player's filter"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def reset(self, ctx):
-        """ Reset the players pitch and speed """
+        _(""" Reset the players pitch and speed """)
+
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         await player.set_filter(wavelink.Timescale())
 
         await ctx.send(_("{0} Reset the players filter, give up to 10 seconds for player to take effect.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
-    @commands.command()
+    @commands.command(brief=_("Switch the player's loop"))
     @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def loop(self, ctx):
-        """ Switch the players loop """
+        _(""" Switch the players loop """)
+
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
         track = player.current
 

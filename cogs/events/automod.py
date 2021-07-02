@@ -45,7 +45,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
     def new_member(self, member):
         now = datetime.utcnow()
         month = now - timedelta(days=30)
-        return member.created_at.replace(tzinfo=timezone.utc) > month.astimezone(timezone.utc)
+        return member.created_at > month.astimezone(timezone.utc)
 
     # if they send a message
     @commands.Cog.listener('on_message')
@@ -152,7 +152,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                 break
 
     async def anti_spam(self, message):
-        current = message.created_at.replace(tzinfo=timezone.utc).timestamp()
+        current = message.created_at.timestamp()
         reason = _("Spam (sending multiple messages in a short time span)")
         automod = cm.get(self.bot, 'automod', message.guild.id)
         antispam = cm.get(self.bot, 'spam', message.guild.id)
@@ -172,7 +172,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
 
     async def anti_invite(self, message):
         invites = INVITE.findall(message.content)
-        current = message.created_at.replace(tzinfo=timezone.utc).timestamp()
+        current = message.created_at.timestamp()
         reason = _('Advertising')
         automod = cm.get(self.bot, 'automod', message.guild.id)
         antiinvite = cm.get(self.bot, 'invites', message.guild.id)
@@ -196,7 +196,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
 
     async def anti_caps(self, message):
         cap = CAPS.findall(message.content)
-        current = message.created_at.replace(tzinfo=timezone.utc).timestamp()
+        current = message.created_at.timestamp()
         reason = _('Spamming caps')
         automod = cm.get(self.bot, 'automod', message.guild.id)
         masscaps = cm.get(self.bot, 'masscaps', message.guild.id)
@@ -219,7 +219,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
     async def anti_links(self, message):
         link = LINKS.findall(message.content)
         invites = INVITE.search(message.content)
-        current = message.created_at.replace(tzinfo=timezone.utc).timestamp()
+        current = message.created_at.timestamp()
         reason = _('Spamming links')
         automod = cm.get(self.bot, 'automod', message.guild.id)
         antilinks = cm.get(self.bot, 'links', message.guild.id)
@@ -248,7 +248,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                 await self.execute_punishment(antilinks['level'], message, reason, btime.FutureTime(antilinks['time']))
 
     async def anti_mentions(self, message):
-        current = message.created_at.replace(tzinfo=timezone.utc).timestamp()
+        current = message.created_at.timestamp()
         reason = _('Spamming mentions')
         automod = cm.get(self.bot, 'automod', message.guild.id)
         massmention = cm.get(self.bot, 'massmention', message.guild.id)
@@ -304,7 +304,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
         embed = discord.Embed(color=color, timestamp=datetime.now(timezone.utc))
 
         embed.set_author(name=_("Automod Action"), icon_url=member.avatar_url, url=f'https://discord.com/users/{member.id}')
-        embed.title = _("{0} {1}").format(emoji, action)
+        embed.title = f"{emoji} {action}"
         if time:
             msg = _("\n**Duration:** {0}").format(time)
         else:
@@ -350,7 +350,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     if muterole and muterole not in message.author.roles and muterole.position < message.guild.me.top_role.position:
                         await message.author.add_roles(muterole, reason=audit_reason)
                         await default.execute_temporary(self, 1, message.author, message.guild.me, message.guild, muterole, time, reason)
-                        time = btime.human_timedelta(time.dt, source=datetime.utcnow(), suffix=None)
+                        time = btime.human_timedelta(time.dt, suffix=None)
                         await message.channel.send(_("{0} Muted **{1}** for {2}, reason: {3}.").format(self.bot.settings['emojis']['logs']['memberedit'], message.author, time, reason))
                     elif not muterole:
                         if not message.author.permissions_in(message.channel).send_messages:
@@ -397,7 +397,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     if message.author.top_role.position < message.guild.me.top_role.position:
                         await message.guild.ban(message.author, reason=audit_reason)
                         await default.execute_temporary(self, 2, message.author, message.guild.me, message.guild, None, time, reason)
-                        time = btime.human_timedelta(time.dt, source=datetime.utcnow(), suffix=None)
+                        time = btime.human_timedelta(time.dt, suffix=None)
                         await message.channel.send(_("{0} Banned **{1}** for {2}, reason: {3}.").format(self.bot.settings['emojis']['logs']['ban'], message.author, time, reason))
                     else:
                         await self.update_channel_permissions(message, action)

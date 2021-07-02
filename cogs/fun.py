@@ -21,6 +21,7 @@ import urllib.parse
 
 from discord.ext import commands
 from utils import checks
+from utils.i18n import locale_doc
 
 
 class fun(commands.Cog, name="Fun"):
@@ -30,10 +31,11 @@ class fun(commands.Cog, name="Fun"):
         self.help_icon = "<:funn:747192603564441680>"
         self.big_icon = "https://cdn.discordapp.com/emojis/747192603564441680.png?v=1"
 
-    @commands.command(brief="Rate something")
+    @commands.command(brief=_("Rate something"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def rate(self, ctx, *, thing):
-        """ Rates what you desire """
+        _(""" Rates what you desire """)
 
         if len(str(thing)) > 500:
             return await ctx.send(_("{0} The thing is {1} characters over the limit.").format(
@@ -52,12 +54,11 @@ class fun(commands.Cog, name="Fun"):
         rating = f"{num}.{deci}"
         await ctx.send(_("I rate {0} **{1}** out of **100**.").format(thing, rating))
 
-    @commands.command(brief="Talk with a chat bot", aliases=['chat', 'cb', 'chat-bot'])
+    @commands.command(brief=_("Talk with a chat bot"), aliases=['chat', 'cb', 'chat-bot'])
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def chatbot(self, ctx, *, message: str):
-        """
-        Talk about life with a chat bot :)
-        """
+        _(""" Talk about life with a chat bot :) """)
 
         await ctx.channel.trigger_typing()
         try:
@@ -66,9 +67,10 @@ class fun(commands.Cog, name="Fun"):
         except Exception:
             await ctx.reply(_("Looks like the chatbot escaped!"), allowed_mentions=discord.AllowedMentions(replied_user=False))
 
-    @commands.command(brief="F in the chat", aliases=['f'])
+    @commands.command(brief=_("F in the chat"), aliases=['f'])
+    @locale_doc
     async def pressf(self, ctx, *, text: str = None):
-        """ Press F to pay respect """
+        _(""" Press F to pay respect """)
 
         if text and len(text) > 500:
             return await ctx.send(_("{0} The text is {1} characters over the limit.").format(
@@ -79,11 +81,12 @@ class fun(commands.Cog, name="Fun"):
         reason = _(" for **{0}** ").format(text) if text else ""
         await ctx.send(_("**{0}** has paid their respect {1}{2}").format(ctx.author.name, reason, random.choice(hearts)), allowed_mentions=discord.AllowedMentions(users=True))
 
-    @commands.command(description='Do you have a question? Ask the almighty 8ball what you should do',
-                      aliases=['8ball'], brief="Ask the almighty 8ball")
+    @commands.command(aliases=['8ball'], brief=_("Ask the almighty 8ball what you desire "))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def eightball(self, ctx, *, question):
-        """ Do you have a question? Ask the almighty 8ball what you should do """
+        _(""" Do you have a question? Ask the almighty 8ball what you should do """)
+
         await ctx.trigger_typing()
 
         with open("db/lines.json", "r") as f:
@@ -103,12 +106,11 @@ class fun(commands.Cog, name="Fun"):
 
         await ctx.send(to_send, allowed_mentions=discord.AllowedMentions(users=True))
 
-    @commands.command(description='Reverse any text you want', brief="Reverse something")
+    @commands.command(brief=_("Reverse something"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def reverse(self, ctx, *, text: str):
-        """ !poow ,ffuts esreveR
-        Everything you type after reverse will of course, be reversed
-        """
+        _(""" !poow ,ffuts esreveR. Everything you type after reverse will of course, be reversed """)
 
         if len(text) > 500:
             return await ctx.send(_("{0} The text you want to reverse is {1} characters over the limit.").format(
@@ -122,10 +124,11 @@ class fun(commands.Cog, name="Fun"):
 
         await ctx.send(to_send, allowed_mentions=discord.AllowedMentions(users=True))
 
-    @commands.command(brief="Choose between multiple choices", description="For when you wanna settle the score some other way")
+    @commands.command(brief=_("Choose between multiple choices"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def choose(self, ctx, *choices: str):
-        """ Choose between multiple choices. """
+        _(""" Choose between multiple choices. """)
 
         if len(choices) > 10 or len(str(choices)) > 500:
             return await ctx.send(_("{0} There are either too many choices (10) or you're over 500 characters.").format(
@@ -142,10 +145,11 @@ class fun(commands.Cog, name="Fun"):
         except IndexError:
             await ctx.send(_("{0} | I can't choose from an empty list of choices!").format(self.bot.settings['emojis']['misc']['warn']))
 
-    @commands.command(aliases=['howhot'], brief="Check someones hotness")
+    @commands.command(aliases=['howhot'], brief=_("Check someones hotness"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def hot(self, ctx, *, user: discord.Member = None):
-        """ I wonder how hot are you UwU """
+        _(""" I wonder how hot are you ;p """)
 
         user = user or ctx.author
         owner = self.bot.get_user(345457928972533773)
@@ -172,18 +176,22 @@ class fun(commands.Cog, name="Fun"):
             emoji = "\U0001f49e"
         await ctx.send(_("**{0}** is **{1}%** hot. {2}").format(user, f'{hot:.2f}', emoji), allowed_mentions=discord.AllowedMentions(users=True))
 
-    @commands.command(brief="Random dad joke")
+    @commands.command(brief=_("Read a random dad joke"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def dadjoke(self, ctx):
-        """ Read a random dad joke """
+        _(""" Read a random dad joke """)
+
         async with aiohttp.ClientSession() as session:
             resp = await session.get("https://icanhazdadjoke.com", headers={"Accept": "text/plain"})
             await ctx.send((await resp.content.read()).decode("utf-8 "))
 
-    @commands.command(brief="Roast someone")
+    @commands.command(brief=_("Roast someone"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def roast(self, ctx, member: discord.Member = None, *bypass):
-        """ Roast someone in the server. """
+        _(""" Roast someone in the server. """)
+
         member = member or ctx.author
         owner = self.bot.get_user(345457928972533773)
         if member == owner:
@@ -208,6 +216,7 @@ class fun(commands.Cog, name="Fun"):
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def quack(self, ctx):  # You found a secret! Congradulations 🎉
         """ A *~~hidden~~* duck image command.\nPowered by random-d.uk | Not secretly added by Duck <a:BongoCoding:806396390103187526> """
+
         embed = discord.Embed(title='Quack Quack :duck:', color=discord.Color.orange())
         embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
         embed.set_footer(text='Powered by random-d.uk', icon_url="https://cdn.discordapp.com/avatars/426787835044036610/795ed0c0b2da8d6c37c071dc61e0c77f.png")

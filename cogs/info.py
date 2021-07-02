@@ -33,6 +33,7 @@ from io import BytesIO
 from db.cache import CacheManager as CM
 from utils import btime, default, rtfm, checks
 from utils.paginator import Pages
+from utils.i18n import locale_doc
 
 
 class Info(commands.Cog, name='Information', aliases=['Infos']):
@@ -48,7 +49,7 @@ class Info(commands.Cog, name='Information', aliases=['Infos']):
         commit_time = datetime.fromtimestamp(commit.commit_time).astimezone(commit_tz)
 
         # [`hash`](url) message (offset)
-        offset = btime.human_timedelta(commit_time.astimezone(timezone.utc).replace(tzinfo=None), source=datetime.utcnow(), accuracy=1)
+        offset = btime.human_timedelta(commit_time.astimezone(timezone.utc), accuracy=1)
         return f'• [`{short_sha2}`](https://github.com/TheMoksej/Dredd/commit/{commit.hex}) {short} ({offset})'
 
     def get_last_commits(self, count=3):
@@ -56,9 +57,10 @@ class Info(commands.Cog, name='Information', aliases=['Infos']):
         commits = list(itertools.islice(repo.walk(repo.head.target, pygit2.GIT_SORT_TOPOLOGICAL), count))
         return '\n'.join(self.format_commit(c) for c in commits)
 
-    @commands.command(brief="Bot's latency to discord")
+    @commands.command(brief=_("See the bot's latency to discord"))
+    @locale_doc
     async def ping(self, ctx):
-        """ See bot's latency to discord """
+        _(""" See the bot's latency to discord """)
 
         discord_start = time.monotonic()
         async with self.bot.session.get("https://discord.com/") as resp:
@@ -69,9 +71,11 @@ class Info(commands.Cog, name='Information', aliases=['Infos']):
                 discord_ms = "fucking dead"
         await ctx.send(f"\U0001f3d3 Pong   |   {discord_ms}")
 
-    @commands.command(brief="Information about the bot", aliases=['botinfo', 'info', 'bi'])
+    @commands.command(brief=_("A detailed information of the bot"), aliases=['botinfo', 'info', 'bi'])
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def about(self, ctx):
+        _(""" A detailed information of the bot """)
 
         version = self.bot.version
         channel_types = Counter(type(c) for c in self.bot.get_all_channels())
@@ -117,7 +121,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 • Servers: **{12}**
 • Channels: {13} **{14}** | {15} **{16}**\n
 """).format(version, escape_markdown(str(Moksej), as_needed=False), self.bot.settings['emojis']['misc']['python'], discord.__version__, btime.human_timedelta(self.bot.uptime),
-            default.date(self.bot.user.created_at), default.timeago(datetime.utcnow() - self.bot.user.created_at.replace(tzinfo=None)), self.bot.support, self.bot.invite,
+            default.date(self.bot.user.created_at), default.timeago(discord.utils.utcnow() - self.bot.user.created_at), self.bot.support, self.bot.invite,
             self.get_last_commits(), f'{totcmd:,}', f'{mems:,}', f'{len(self.bot.guilds):,}', self.bot.settings['emojis']['logs']['unlock'], f'{text:,}',
             self.bot.settings['emojis']['logs']['vcunlock'], f'{voice:,}', website)
         embed.set_image(
@@ -126,10 +130,10 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         await ctx.send(embed=embed)
 
     @commands.command(name='system', aliases=['sys'])
+    @commands.cooldown(1, 3, commands.BucketType.member)
+    @locale_doc
     async def system(self, ctx):
-        """
-        Display the bots system stats.
-        """
+        _(""" A detailed information of the server the bot is hosted on. """)
 
         embed = discord.Embed(colour=self.bot.settings['colors']['embed_color'])
         embed.description = _("**System CPU:**\n- Frequency: {0} Mhz\n- Cores: {1}\n- Usage: {2}%\n\n"
@@ -148,11 +152,13 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
         return await ctx.send(embed=embed)
 
-    @commands.command(brief='Get user information', aliases=['user', 'ui'])
+    @commands.command(brief=_("Get detailed information about the user"), aliases=['user', 'ui'])
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.guild_only()
+    @locale_doc
     async def userinfo(self, ctx, *, user: typing.Union[discord.User, str] = None):
-        """ Overview about the information of an user """
+        _(""" A defailed information of the user. Fetches the user if they do not share any guilds with the bot. """)
+
         embcolor = self.bot.settings['colors']['embed_color']
         user = await default.find_user(ctx, user)
 
@@ -196,13 +202,13 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 **User ID:** {2}
 **Account created:** {3} ({4})""").format(user, discord_badges,
                                           user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
-                                          btime.human_timedelta(user.created_at.replace(tzinfo=None), source=datetime.utcnow())), inline=False)
+                                          btime.human_timedelta(user.created_at)), inline=False)
             e.add_field(name=_("Server Information:"), value=_("""
 **Nickname:** {0}{1}
 **Joined at:** {2} ({3})
 **Roles:** {4}""").format(nick, nicks[:-2],
                           default.date(member.joined_at),
-                          btime.human_timedelta(member.joined_at.replace(tzinfo=None), source=datetime.utcnow()),
+                          btime.human_timedelta(member.joined_at),
                           ', '.join(uroles) + user_roles))
 
         else:
@@ -221,7 +227,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 **User ID:** {2}
 **Account created:** {3} ({4})""").format(user, discord_badges,
                                           user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
-                                          btime.human_timedelta(user.created_at.replace(tzinfo=None), source=datetime.utcnow())), inline=False)
+                                          btime.human_timedelta(user.created_at)), inline=False)
 
         if await self.bot.is_booster(user):
             media = await default.medias(ctx, user)
@@ -237,11 +243,13 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
         await ctx.send(embed=e)
 
-    @commands.command(name='serverinfo', aliases=['server', 'si'], brief='Get server information')
+    @commands.command(name='serverinfo', aliases=['server', 'si'],
+                      brief=_("Get current server's detailed information"))
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def serverinfo(self, ctx):
-        """ Overview about the information of a server """
+        _(""" A detailed information of the current server """)
 
         if not ctx.guild.chunked:
             await ctx.guild.chunk(cache=True)
@@ -261,7 +269,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         if ctx.channel.permissions_for(ctx.guild.me).ban_members:
             bans += _("\n**Banned:** {0}").format(f'{len(await ctx.guild.bans()):,}')
         nitromsg = _("This server has **{0}** boosts").format(ctx.guild.premium_subscription_count)
-        nitromsg += _("\n{0}").format(default.next_level(ctx))
+        nitromsg += f"\n{default.next_level(ctx)}"
         region = default.region_flags(ctx)
 
         e = discord.Embed(color=self.bot.settings['colors']['embed_color'])
@@ -272,16 +280,16 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 **Name:** {0}
 **ID:** {1}
 **Guild created:** {2} ({3})
-**Region:** {4}
-**Verification level:** {5}
+**Verification level:** {4}
 
-**Owner:** {6}
-**Owner ID:** {7}{8}
+**Owner:** {5}
+**Owner ID:** {6}{7}
 
 **Nitro status:**
-{9}
-""").format(ctx.guild.name, ctx.guild.id, default.date(ctx.guild.created_at), btime.human_timedelta(ctx.guild.created_at.replace(tzinfo=None), source=datetime.utcnow()),
-            region, str(ctx.guild.verification_level).capitalize(),
+{8}
+""").format(ctx.guild.name, ctx.guild.id, default.date(ctx.guild.created_at),
+            btime.human_timedelta(ctx.guild.created_at),
+            str(ctx.guild.verification_level).capitalize(),
             ctx.guild.owner or 'Unknown', ctx.guild.owner.id, ack, nitromsg))
 
         e.add_field(name=_('Other Information:'), value=_("""**Members:** (Total: {0})
@@ -294,20 +302,24 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         info = []
         features = set(ctx.guild.features)
         all_features = {
-            'PARTNERED': 'Partnered',
-            'VERIFIED': 'Verified',
-            'DISCOVERABLE': 'Server Discovery',
-            'COMMUNITY': 'Community server',
-            'INVITE_SPLASH': 'Invite Splash',
-            'VIP_REGIONS': 'VIP Voice Servers',
-            'VANITY_URL': 'Vanity Invite',
-            'MORE_EMOJI': 'More Emoji',
-            'COMMERCE': 'Commerce',
-            'LURKABLE': 'Lurkable',
-            'NEWS': 'News Channels',
-            'ANIMATED_ICON': 'Animated Icon',
-            'BANNER': 'Banner',
-            'WELCOME_SCREEN_ENABLED': "Welcome screen"
+            'ANIMATED_ICON': _('Animated Icon'),
+            'BANNER': _('Banner'),
+            'COMMERCE': _('Commerce'),
+            'COMMUNITY': _('Community server'),
+            'DISCOVERABLE': _('Server Discovery'),
+            'FEATURABLE': _('Featurable'),
+            'INVITE_SPLASH': _('Invite Splash'),
+            'MEMBER_VERIFICATION_GATE_ENABLED': _('Member Verification Gate Enabled'),
+            'NEWS': _('News Channels'),
+            'PARTNERED': _('Partnered'),
+            'PREVIEW_ENABLED': _('Prieview Enabled'),
+            'VANITY_URL': _('Vanity Invite'),
+            'VERIFIED': _('Verified'),
+            'VIP_REGIONS': _('VIP Voice Servers'),
+            'WELCOME_SCREEN_ENABLED': _('Welcome screen'),
+            'TICKETED_EVENTS_ENABLED': _('Ticketed events enabled'),
+            'MONETIZATION_ENABLED': _('Monetization enabled'),
+            'MORE_STICKERS': _('More stickers')
         }
         for feature, label in all_features.items():
             if feature in features:
@@ -324,10 +336,13 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             e.set_image(url=ctx.guild.banner_url_as(format="png"))
         await ctx.send(embed=e)
 
-    @commands.command(aliases=['lc'], brief="Lines count of the code")
+    @commands.command(aliases=['lc'],
+                      brief=_("Lines of python code used making the bot"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def linecount(self, ctx):
-        """ Lines count of the code used creating Dredd """
+        _(""" Lines of python code used making the bot """)
+
         pylines = 0
         pyfiles = 0
         for path, subdirs, files in os.walk('.'):
@@ -344,11 +359,11 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         await ctx.send(_("{0} I am made up of **{1}** files and **{2}** lines of code.\n"
                        "You can look at my source here: https://github.com/TheMoksej/Dredd").format(self.bot.settings['emojis']['misc']['python'], f'{pyfiles:,}', f'{pylines:,}'))
 
-    @commands.command(aliases=['source', 'src', 'github'], brief="Bot's source code")
+    @commands.command(aliases=['source', 'src', 'github'], brief=_("Source code of the bot"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def sourcecode(self, ctx, *, command: str = None):
-        """ View the bot's source code
-        Keep in mind it is [licensed](https://github.com/dredd-bot/Dredd/blob/master/LICENSE 'AGPL-3.0 License')"""
+        _(""" Source code of the bot """)
 
         source_url = 'https://github.com/dredd-bot/Dredd'
         if command is None:
@@ -374,10 +389,11 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         else:
             await ctx.send(_("The source code for this command is too long, you can view it here:\n{0}").format(final_url))
 
-    @commands.command(aliases=['pfp', 'av'], brief="Get users avatar")
+    @commands.command(aliases=['pfp', 'av'], brief=_("Get user's profile picture"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def avatar(self, ctx, *, user: discord.User = None):
-        """ Displays what avatar user is using """
+        _(""" Get user's profile picture. Fetches the user if they do not share any guilds with the bot """)
 
         user = user or ctx.author
         Zenpa = self.bot.get_user(373863656607318018)
@@ -400,11 +416,12 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             embed.set_image(url=gif)
             await ctx.send(embed=embed)
 
-    @commands.command(name='support', brief='Invite to my support server')
+    @commands.command(name='support', brief=_("Get a link to bot's support server"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def support(self, ctx, embed: bool = True):
-        """ Get invite to a support server
-        Pass in `False` after the command to get the non-embedded version!"""
+        _(""" A link to bot's support server. You can pass in boolean to get the non-embedded version of the invite """)
+
         if embed:
             e = discord.Embed(color=self.bot.settings['colors']['embed_color'],
                               description=_("{0} Need help? Feel free to [join the support server!]({1})").format(self.bot.settings['emojis']['avatars']['main'],
@@ -414,11 +431,12 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             await ctx.send(_("{0} Need help? Feel free to join the the support server here: {1}").format(self.bot.settings['emojis']['avatars']['main'],
                                                                                                          self.bot.support))
 
-    @commands.command(name='invite', brief='Invite me to your server!')
+    @commands.command(name='invite', brief=_("Get the bot's invite"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def invite(self, ctx, embed: bool = True):
-        """ Invite me to your server!
-        Pass in `False` after the command to get the non-embedded version!"""
+        _(""" The bot's invite link. You can pass in boolean to get the non-embedded version of the invite """)
+
         if embed:
             e = discord.Embed(color=self.bot.settings['colors']['embed_color'],
                               description=_("{0} Want me in your server? What are you waiting for then? [Invite now!]({1})").format(self.bot.settings['emojis']['avatars']['main'],
@@ -428,10 +446,11 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             await ctx.send(_("{0} Want me in your server? What are you waiting for then? Invite now:\n\n{1}").format(self.bot.settings['emojis']['avatars']['main'],
                                                                                                                      self.bot.invite))
 
-    @commands.command(brief='Vote for the bot')
+    @commands.command(brief=_('Vote for me, please'))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def vote(self, ctx):
-        """ Give me a vote, please. Thanks... """
+        _(""" Links of bot lists where you can vote for the bot """)
 
         botlist = self.bot.bot_lists
         e = discord.Embed(color=self.bot.settings['colors']['embed_color'], title=_("Voting Locations"))
@@ -440,16 +459,20 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         ))
         await ctx.send(embed=e)
 
-    @commands.command(brief='See the bot\'s privacy policy')
+    @commands.command(brief=_("The bot's Privacy Policy and Terms of Use"))
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def privacy(self, ctx):
-        """ See the bot's privacy policy """
+        _(""" The bot's Privacy Policy and Terms of Use """)
+
         await ctx.send(_("{0} You can see my privacy policy here: {1}").format(self.bot.settings['emojis']['social']['privacy'], self.bot.privacy))
 
-    @commands.command(brief='Crediting people who helped')
+    @commands.command(brief=_("A thank you to bot contributors"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def credits(self, ctx):
-        """ A thank you to everyone who helped - designers, bug hunters, contributors. """
+        _(""" A thank you to people who have helped find bugs, work on, and design art for the bot! """)
+
         designers = [f"• {x.name}#{x.discriminator}" for x in self.bot.get_guild(671078170874740756).get_role(679646141926604827).members if x.id != 373863656607318018]
         beta_hunters = [f"{x.name}#{x.discriminator}" for x in self.bot.get_guild(671078170874740756).get_role(764813311329566770).members]
         hunters = [f"{x.name}#{x.discriminator}" for x in self.bot.get_guild(671078170874740756).get_role(679643117510459432).members if f"{x.name}#{x.discriminator}" not in beta_hunters]
@@ -476,15 +499,14 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         e.add_field(name=_('**Contributor(s):**'), value=escape_markdown('\n'.join(contribs), as_needed=False))
         await ctx.send(embed=e)
 
-    @commands.command(brief="List of all the server roles")
+    @commands.command(brief=_("List of roles in the server"))
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def roles(self, ctx, *, role: discord.Role = None):
-        """ List of all the roles in the server
+        _(""" List of all the server roles. Providing the role mention will display all the members in that role """)
 
-        Providing a role mention will show all the members in that role. """
         allroles = []
-
         if not role:
             for num, roles in enumerate(sorted(ctx.guild.roles, reverse=True), start=1):
                 if roles.is_default():
@@ -508,11 +530,12 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                           author=ctx.author)
         await paginator.paginate()
 
-    @commands.command(brief="See the information of the role", aliases=['rinfo', 'ri'])
+    @commands.command(brief=_("Get information of the role"), aliases=['rinfo', 'ri'])
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def roleinfo(self, ctx, *, role: discord.Role):
-        """ Displays the information of the provided role """
+        _(""" Get information of the role """)
 
         embed = discord.Embed(color=role.color, title=_("{0} Information").format(role.name))
         embed.add_field(name=_("__**Basic Information**__"),
@@ -536,11 +559,14 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
         await ctx.send(embed=embed)
 
-    @commands.group(name='nicknames', aliases=['nicks'], brief='Get a list of recent member nicknames', invoke_without_command=True)
+    @commands.group(name='nicknames', aliases=['nicks'],
+                    brief=_('Get a list of recent nicknames member had'), invoke_without_command=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def nicknames(self, ctx, member: discord.Member = None):
-        """ History of member nicknames """
+        _(""" Get a list of 10 nicknames member had in the past 90 days """)
+
         member = member or ctx.author
 
         if CM.get(self.bot, 'nicks_op', f'{ctx.author.id} - {ctx.guild.id}'):
@@ -566,10 +592,11 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
         await ctx.send(recent, allowed_mentions=discord.AllowedMentions.none())
 
-    @commands.command(brief='User permissions in the server', aliases=['perms'])
+    @commands.command(brief=_("See permissions member has in the server"), aliases=['perms'])
     @commands.guild_only()
+    @locale_doc
     async def permissions(self, ctx, member: discord.Member = None):
-        """ See what permissions member has in the server. """
+        _(""" See permissions member has in the server """)
 
         member = member or ctx.author
 
@@ -596,11 +623,13 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                           author=ctx.author)
         await paginator.paginate()
 
-    @commands.command(brief='Disabled commands list', aliases=['disabledcmds'])
+    @commands.command(brief=_("A list of disabled commands"), aliases=['disabledcmds'])
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.guild_only()
+    @locale_doc
     async def disabledcommands(self, ctx):
-        """ List of globally disabled commands and guild disabled commands """
+        _(""" A list of disabled commands globally and in the server """)
+
         cmd, cmds, cogs = [], [], []
         for res in await self.bot.db.fetch("SELECT * FROM discmds"):
             cmd.append(f"\n• **{res['command']}** - {res['reason']}")
@@ -624,11 +653,12 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             e.add_field(name=_("**Disabled categories in this server:**"), value="• {0}".format('\n• '.join(cogs)), inline=False)
         await ctx.send(embed=e)
 
-    @commands.command(brief="Get a list of all the server emotes", aliases=['se', 'emotes'])
+    @commands.command(brief=_("Get a list of all the server emotes"), aliases=['se', 'emotes'])
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.guild_only()
+    @locale_doc
     async def serveremotes(self, ctx):
-        """ Get a list of all the emotes in the server """
+        _(""" Get a list of all the server emotes """)
 
         _all = []
         for num, e in enumerate(ctx.guild.emojis, start=1):
@@ -647,10 +677,12 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                           author=ctx.author)
         await paginator.paginate()
 
-    @commands.command(brief='Get a list of Dredd partners', aliases=['partners', 'plist'])
+    @commands.command(brief=_("A list of bot's partners"), aliases=['partners', 'plist'])
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def partnerslist(self, ctx):
-        """ Displays a list of partners and information how to become a partner """
+        _(""" A list of bot's partners """)
+
         partners = await self.bot.db.fetch("SELECT * FROM partners ORDER BY time ASC")
 
         partner = []
@@ -681,7 +713,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                              "**Partner type:** {2}\n"
                              "**Partnered message:**\n>>> {3}").format(
                                  partnered,
-                                 btime.human_timedelta(res['time'], source=datetime.utcnow(), suffix=None),
+                                 btime.human_timedelta(res['time'], suffix=None),
                                  ptype,
                                  res['message']
                              ))
@@ -702,10 +734,12 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                           show_entry_count=True)
         await paginator.paginate()
 
-    @commands.command(aliases=['showbadges'], brief="List of bot acknowledgements")
+    @commands.command(aliases=['showbadges'], brief=_("A list of user's bot acknowledgements"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def badges(self, ctx, *, user: typing.Union[discord.User, str] = None):
-        """ A list of user's bot acknowledgements and their meaning """
+        _(""" A list of user's bot acknowledgements """)
+
         embcolor = self.bot.settings['colors']['embed_color']
         member = await default.find_user(ctx, user)
         if not member:
@@ -725,11 +759,11 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             return await ctx.send(_("{0} | **{1}** has no bot acknowledgements").format(self.bot.settings['emojis']['misc']['warn'],
                                                                                         member))
 
-    @commands.command(brief='Top commands', aliases=['topcmds'])
+    @commands.command(brief=_("Top 10 most used commands"), aliases=['topcmds'])
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def topcommands(self, ctx, option: str = None):
-        """ See the top 10 used commands.
-        You may also include options: me, guild """
+        _(""" A list of 10 most used commands. You may also include: `me` and `guild` to see a list of your or guild's most used commands """)
         opts = ['me', 'guild']
         if await self.bot.is_owner(ctx.author):
             opts.append(option)
@@ -778,40 +812,38 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         countmsg += '\n```'
         countmsg += index2
 
-        await ctx.send(_("{0}{1}").format(index, countmsg))
+        await ctx.send(f"{index}{countmsg}")
 
-    @commands.command(brief="Get a list of newest users")
+    @commands.command(brief=_("A list of newest members in the server"))
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def newusers(self, ctx, *, count: int):
-        """
-        See the newest members in the server.
-        Limit is set to 10.
-        """
+        _(""" A list of newest members in the server """)
+
         if len(ctx.guild.members) < count:
             return await ctx.send(_("This server has {0} members").format(len(ctx.guild.members)))
         counts = max(min(count, 10), 1)
 
         if not ctx.guild.chunked:
             await self.bot.request_offline_members(ctx.guild)
-        members = sorted(ctx.guild.members, key=lambda m: m.joined_at.replace(tzinfo=None), reverse=True)[:counts]
+        members = sorted(ctx.guild.members, key=lambda m: m.joined_at, reverse=True)[:counts]
         e = discord.Embed(title=_('Newest member(s) in this server:'), colour=self.bot.settings['colors']['embed_color'])
         for num, member in enumerate(members, start=1):
             data = _('**Joined Server at** {0}\n**Account created at** {1}').format(btime.human_timedelta(member.joined_at),
-                                                                                    btime.human_timedelta(member.created_at.replace(tzinfo=None)))
+                                                                                    btime.human_timedelta(member.created_at))
             e.add_field(name=f'`[{num}]` **{member}** ({member.id})', value=data, inline=False)
             if count > 10:
                 e.set_footer(text=_("The limit is set to 10"))
 
         await ctx.send(embed=e)
 
-    @commands.command(brief="Get a list of members with given regex", aliases=['members'])
+    @commands.command(brief="A list of members with specific character(s) in their name", aliases=['members'])
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def listmembers(self, ctx, *, name: str):
-        """
-        List all the members with a given regex
-        """
+        _(""" A list of members with specific character(s) in their name """)
 
         if len(name) > 32:
             return await ctx.send(_("{0} Names can't be longer than 32 characters! "
@@ -834,17 +866,18 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             await ctx.send(embed=e)
 
     # Credits for this go to https://github.com/Rapptz/RoboDanny.
-    @commands.group(aliases=['rtfd'], invoke_without_command=True)
+    @commands.group(aliases=['rtfd'], invoke_without_command=True,
+                    brief=_("Documentation of enhanced discord.py"))
+    @locale_doc
     async def rtfm(self, ctx, *, obj: str = None):
-        """Gives you a documentation link for a discord.py entity.
-        Events, objects, and functions are all supported through a
-        a cruddy fuzzy algorithm.
-        """
+        _(""" Documentation of enhanced discord.py """)
         await rtfm.do_rtfm(self, ctx, 'latest', obj)
 
-    @rtfm.command(name='python', aliases=['py'])
+    @rtfm.command(name='python', aliases=['py'],
+                  brief=_("Documentation of python"))
+    @locale_doc
     async def rtfm_python(self, ctx, *, obj: str = None):
-        """Gives you a documentation link for a Python entity."""
+        _(""" Documentation of python """)
         await rtfm.do_rtfm(self, ctx, 'python', obj)
 
 

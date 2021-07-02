@@ -30,6 +30,7 @@ class booster_only(commands.CheckFailure):
     pass
 
 
+# noinspection PyRedundantParentheses
 class blacklisted():
     pass
 
@@ -183,14 +184,16 @@ def admin(**perms):
 
 def test_command():  # update this embed
     async def predicate(ctx):
+        cache = ctx.bot.cache.get(ctx.bot, 'testers', ctx.guild.id)
         if await ctx.bot.is_admin(ctx.author):
             return True
-        elif not await ctx.bot.is_admin(ctx.author):
-            e = discord.Embed(color=ctx.bot.settings['colors']['deny_color'], description=_("This command is in it's testing phase, please [join the support server]({0}) if you want to know when it'll be available.").format(
-                ctx.bot.support
-            ))
-            await ctx.send(embed=e)
+        elif not await ctx.bot.is_admin(ctx.author) and not cache:
+            await ctx.send(_("This command is in it's testing phase, you can join the support server "
+                             "if you want to apply your guild to be a testing guild or know when the command "
+                             "will be available."))
             return False
+        elif not await ctx.bot.is_admin(ctx.author) and cache:
+            return True
         return False
     return commands.check(predicate)
 
@@ -240,14 +243,14 @@ async def cog_disabled(ctx, cog_name: str):
             return True
         else:
             return False
-        return False
+    return False
 
 
 async def bot_disabled(ctx):
     if ctx.command.parent:
         if CM.get(ctx.bot, 'disabled_commands', str(ctx.command.parent)):
             ch = CM.get(ctx.bot, 'disabled_commands', str(ctx.command.parent))
-            raise DisabledCommand(_("{0} | `{1}` and it's corresponing subcommands are currently disabled for: `{2}`").format(ctx.bot.settings['emojis']['misc']['warn'], ctx.command.parent, ch['reason']))
+            raise DisabledCommand(_("{0} | `{1}` and it's corresponding subcommands are currently disabled for: `{2}`").format(ctx.bot.settings['emojis']['misc']['warn'], ctx.command.parent, ch['reason']))
         elif CM.get(ctx.bot, 'disabled_commands', str(f"{ctx.command.parent} {ctx.command.name}")):
             ch = CM.get(ctx.bot, 'disabled_commands', str(f"{ctx.command.parent} {ctx.command.name}"))
             raise DisabledCommand(_("{0} | `{1} {2}` is currently disabled for: `{3}`").format(
@@ -368,7 +371,9 @@ class MemberID(commands.Converter):
                 return type('_Hackban', (), {'id': argument, '__str__': lambda s: s.id})()
 
 
+# noinspection PyRedundantParentheses
 class CooldownByContent(commands.CooldownMapping):
+    # noinspection PyMethodParameters
     def _bucket_key(ctx, message):
         return (message.channel.id, message.content)
 

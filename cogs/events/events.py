@@ -34,8 +34,11 @@ class Events(commands.Cog):
         if await ctx.bot.is_admin(ctx.author):
             return True
 
-        if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author):
-            return
+        # if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author):
+        #     return
+
+        if ctx.bot.user.id == 663122720044875796 and CM.get(ctx.bot, 'testers', ctx.guild.id):
+            return True
 
         blacklist = await ctx.bot.is_blacklisted(ctx.author)
         if blacklist and blacklist['type'] == 2:
@@ -330,6 +333,9 @@ class Events(commands.Cog):
         # That was basically updating the data in the db and then immediately
         # deleting it. Ex here: https://cdn.dredd-bot.xyz/tI0o2y
         await asyncio.sleep(3)
+
+        if not ctx.guild.chunked:
+            await ctx.guild.chunk(cache=True)
 
         check = CM.get(self.bot, 'blacklist', guild.id)
 

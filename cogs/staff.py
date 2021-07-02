@@ -15,6 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import discord
 import typing
+import json
 
 from discord.ext import commands
 
@@ -650,6 +651,51 @@ class staff(commands.Cog, name="Staff"):
             await ctx.author.send("Couldn't send message to that user. Maybe he's not in the same server with me?")
         except Exception as e:
             await ctx.author.send(e)
+
+    @commands.command(aliases=['addtester', 'atester', 'rtester', 'removetester'])
+    async def tester(self, ctx, guild_id: int):
+        guild = self.bot.get_guild(guild_id)
+        is_tester = CM.get(self.bot, 'testers', guild_id)
+        if not guild and not is_tester:
+            return await ctx.send("I'm not in that guild thus I cannot add them to the testers list.")
+        elif guild and not is_tester:
+            self.bot.testers[guild_id] = guild.name
+            return await ctx.send(f"Added {guild} ({guild_id}) to testers list, they'll be able to use beta commands now.")
+        elif guild and is_tester:
+            self.bot.testers.pop(guild_id)
+            return await ctx.send(f"Removed {guild} ({guild_id}) from testers list.")
+
+    @commands.command(aliases=['radioadd', 'addradio'], brief="Add a radio station")
+    async def addradiostation(self, ctx, url: str, *, name: str):
+
+        with open("db/radio_stations.json", "r") as f:
+            data = json.load(f)
+
+        try:
+            check = data[f"{name}"]
+            return await ctx.send(f"Radio station {name} already exists.")
+        except KeyError:
+            data[f"{name}"] = url
+            self.bot.radio_stations[f"{name}"] = url
+
+        with open("db/radio_stations.json", "w") as f:
+            json.dump(data, f, indent=4)
+        await ctx.send(f"Added {name} to the list.")
+
+    @commands.command(aliases=['radioremove', 'removeradio', 'remradio'], brief="Remove a radio station")
+    async def removeradiostation(self, ctx, *, name: str):
+        with open("db/radio_stations.json", "r") as f:
+            data = json.load(f)
+
+        try:
+            data.pop(f"{name}")
+            self.bot.radio_stations.pop(f"{name}")
+        except KeyError:
+            return await ctx.send(f"Radio station {name} doesn't exist.")
+
+        with open("db/radio_stations.json", "w") as f:
+            json.dump(data, f, indent=4)
+        await ctx.send(f"Removed {name} from the list.")
 
 
 def setup(bot):

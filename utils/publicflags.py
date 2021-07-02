@@ -176,3 +176,7 @@ class BotFlags:
     @flag_value
     def duck(self):
         return 1 << 12
+
+    @flag_value
+    def translator(self):
+        return 1 << 13

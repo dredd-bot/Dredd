@@ -178,21 +178,21 @@ class Logging(commands.Cog):
             except Exception as e:
                 await default.background_error(self, '`member update`', e, before.guild, nick_channel)
 
-        if before.roles != after.roles:
-            roles_channel = before.guild.get_channel(member_update)
-            roles_embed = discord.Embed(color=self.bot.settings['colors']['log_color'],
-                                        timestamp=datetime.now(timezone.utc))
-            roles_embed.set_author(name=_("{0}'s roles were updated").format(before), icon_url=before.avatar_url)
-            roles_embed.title = _("{0}'s roles were updated").format(before)
-            field_title = _("Added") if len(after.roles) > len(before.roles) else _("Removed")
-            field_value = ""
-            if len(after.roles) > len(before.roles):  # Roles added
-                field_value = ''.join([x.mention for x in after.roles if x not in before.roles])
-            elif len(before.roles) > len(after.roles):  # Roles removed
-                field_value = ''.join([x.mention for x in before.roles if x not in after.roles])
-
-            roles_embed.add_field(name=field_title, value=field_value)
-            await roles_channel.send(embed=roles_embed)
+        # if before.roles != after.roles:
+        #     roles_channel = before.guild.get_channel(member_update)
+        #     roles_embed = discord.Embed(color=self.bot.settings['colors']['log_color'],
+        #                                 timestamp=datetime.now(timezone.utc))
+        #     roles_embed.set_author(name=_("{0}'s roles were updated").format(before), icon_url=before.avatar_url)
+        #     roles_embed.title = _("{0}'s roles were updated").format(before)
+        #     field_title = _("Added") if len(after.roles) > len(before.roles) else _("Removed")
+        #     field_value = ""
+        #     if len(after.roles) > len(before.roles):  # Roles added
+        #         field_value = ''.join([x.mention for x in after.roles if x not in before.roles])
+        #     elif len(before.roles) > len(after.roles):  # Roles removed
+        #         field_value = ''.join([x.mention for x in before.roles if x not in after.roles])
+        #
+        #     roles_embed.add_field(name=field_title, value=field_value)
+        #     await roles_channel.send(embed=roles_embed)
 
     @commands.Cog.listener()
     async def on_user_update(self, before, after):
@@ -244,7 +244,7 @@ class Logging(commands.Cog):
         mod, reason = None, ""
         async for entry in guild.audit_logs(action=discord.AuditLogAction.ban, limit=5):
             if entry.target == user:
-                if (datetime.utcnow() - entry.created_at.replace(tzinfo=None)).total_seconds() < 3:
+                if (discord.utils.utcnow() - entry.created_at).total_seconds() < 3:
                     mod = entry.user
                     reason += f"{entry.reason}"
 
@@ -284,7 +284,7 @@ class Logging(commands.Cog):
         mod, reason = None, ""
         async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=50):
             if entry.target == user:
-                if (datetime.utcnow() - entry.created_at.replace(tzinfo=None)).total_seconds() < 3:
+                if (discord.utils.utcnow() - entry.created_at).total_seconds() < 3:
                     mod = entry.user
                     reason += f"{entry.reason}"
 
@@ -400,7 +400,7 @@ class Logging(commands.Cog):
             joinlog_embed.set_author(name=_('{0} joined the server').format(member), icon_url=member.avatar_url)
             joinlog_embed.description = _("**Member:** {0} ({1})\n"
                                           "**Account Created:** {2}").format(
-                                              member.mention, member.id, btime.human_timedelta(member.created_at.replace(tzinfo=None), source=datetime.utcnow())
+                                              member.mention, member.id, btime.human_timedelta(member.created_at)
                                           )
             joinlog_embed.set_footer(text=_("Member #{0}").format(member.guild.member_count))
             try:
@@ -421,7 +421,7 @@ class Logging(commands.Cog):
             joinlog_embed.description = _("**Member:** {0} ({1})\n"
                                           "**Joined server:** {2}\n"
                                           "**Roles:** {3}").format(
-                                              member.mention, member.id, btime.human_timedelta(member.joined_at.replace(tzinfo=None), source=datetime.utcnow()),
+                                              member.mention, member.id, btime.human_timedelta(member.joined_at),
                                               ', '.join(roles[:20]) + f' **(+{len(member.roles) - 20})**' if len(roles) > 20 else ', '.join(roles) if roles else _('No roles.')
                                           )
             joinlog_embed.set_footer(text=_("Members left: {0}").format(member.guild.member_count))
@@ -838,7 +838,7 @@ class Logging(commands.Cog):
         mod, reason = None, ""
         async for entry in guild.audit_logs(action=discord.AuditLogAction.kick, limit=5):
             if entry.target == user:
-                if (datetime.utcnow() - entry.created_at.replace(tzinfo=None)).total_seconds() < 3:
+                if (discord.utils.utcnow() - entry.created_at).total_seconds() < 3:
                     mod = entry.user
                     reason += f"{entry.reason}"
 

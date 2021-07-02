@@ -191,9 +191,10 @@ def bot_acknowledgements(ctx, result, simple=False):
         "bot_owner": f"{ctx.bot.settings['emojis']['ranks']['bot_owner']} " + _("Owner of Dredd"),
         "bot_admin": f"{ctx.bot.settings['emojis']['ranks']['bot_admin']} " + _("Admin of Dredd"),
         "verified": f"{ctx.bot.settings['emojis']['ranks']['verified']} " + _("Staff member in the [support server]({0}) or Dredd's contributor").format(ctx.bot.support),
-        "sponsor": f"{ctx.bot.settings['emojis']['ranks']['sponsor']} " + _("Dredd sponsor"),
+        "translator": f"{ctx.bot.settings['emojis']['ranks']['translator']} " + _("Dredd's Translator"),
+        "sponsor": f"{ctx.bot.settings['emojis']['ranks']['sponsor']} " + _("Dredd's Sponsor"),
         "donator": f"{ctx.bot.settings['emojis']['ranks']['donator']} " + _("Booster of [Dredd's support server]({0}) or Donator").format(ctx.bot.support),
-        "bot_partner": f"{ctx.bot.settings['emojis']['ranks']['bot_partner']} " + _("Dredd Partner"),
+        "bot_partner": f"{ctx.bot.settings['emojis']['ranks']['bot_partner']} " + _("Dredd's Partner"),
         "bug_hunter_lvl1": f"{ctx.bot.settings['emojis']['ranks']['bug_hunter_lvl1']} " + _("Dredd Bug Hunter"),
         "bug_hunter_lvl2": f"{ctx.bot.settings['emojis']['ranks']['bug_hunter_lvl2']} " + _("Dredd BETA Bug Hunter"),
         "early": f"{ctx.bot.settings['emojis']['ranks']['early']} " + _("Dredd Early Supporter"),
@@ -206,6 +207,7 @@ def bot_acknowledgements(ctx, result, simple=False):
         "bot_owner": f"{ctx.bot.settings['emojis']['ranks']['bot_owner']} ",
         "bot_admin": f"{ctx.bot.settings['emojis']['ranks']['bot_admin']} ",
         "verified": f"{ctx.bot.settings['emojis']['ranks']['verified']} ",
+        "translator": f"{ctx.bot.settings['emojis']['ranks']['translator']} ",
         "sponsor": f"{ctx.bot.settings['emojis']['ranks']['sponsor']} ",
         "donator": f"{ctx.bot.settings['emojis']['ranks']['donator']} ",
         "bot_partner": f"{ctx.bot.settings['emojis']['ranks']['bot_partner']} ",
@@ -239,7 +241,8 @@ def server_badges(ctx, result):
     the_badges = {
         'bot_admin': _("{0} Dredd Staff Server").format(ctx.bot.settings['emojis']['ranks']['bot_admin']),
         'verified': _("{} Dredd Verified Server").format(ctx.bot.settings['emojis']['ranks']['verified']),
-        'server_partner': _("{0} Dredd Partnered Server").format(ctx.bot.settings['emojis']['ranks']['server_partner'])
+        'server_partner': _("{0} Dredd Partnered Server").format(ctx.bot.settings['emojis']['ranks']['server_partner']),
+        'duck': "🦆 Duck's Server"
     }
 
     if badges:
@@ -269,6 +272,7 @@ def badge_values(ctx) -> dict:
         'early_supporter': 1024,
         'blocked': 2048,
         'duck': 4096,
+        'translator': 8192,
         'all': -1
     }
 
@@ -288,7 +292,7 @@ def permissions_converter(ctx, permissions):
 
 async def execute_temporary(ctx, action, user, mod, guild, role, duration, reason):
     if isinstance(duration, FutureTime):
-        duration = duration.dt
+        duration = duration.dt.replace(tzinfo=None)
 
     if action == 1:
         await ctx.bot.db.execute("INSERT INTO modactions(time, user_id, action, guild_id, mod_id, role_id, reason) VALUES($1, $2, $3, $4, $5, $6, $7)", None if duration is None else duration, user.id, action, guild.id, mod.id, role.id, reason)
@@ -402,7 +406,7 @@ async def auto_guild_leave(ctx, abusive_user, guild):
 Hey {guild.owner}!
 Just wanted to let you know that I left your server: **{guild.name}** ({guild.id}) as one of your members ({abusive_user} - {abusive_user.id}) was abusing my commands in a channel I can't send messages in.
 
-Since this leave was an automatic leave, you may invite me back, but if same action will occur multiple times, the server might get blacklisted."""
+Since this leave was an automatic leave, you may invite me back, but if same action will occur multiple times, the server will get blacklisted."""
     msg = ''
     try:
         await guild.owner.send(embed=e)
@@ -496,7 +500,7 @@ async def global_cooldown(ctx) -> None:
         await blacklist_log(ctx, 0, 0, ctx.author, reason)
     elif not counter or counter < 3:
         ctx.bot.counter.update({ctx.author.id})
-        ch = ctx.bot.get_channel(ctx.bot.settings['channels']['command-errors'])
+        ch = ctx.bot.get_channel(ctx.bot.settings['channels']['cooldowns'])
         await ch.send(f"{ctx.author} hit the global cooldown limit. They're now at {ctx.bot.counter[ctx.author.id]} hit(s)")
 
 

@@ -27,6 +27,7 @@ from utils.paginator import Pages
 from utils import default, btime, checks
 from db.cache import CacheManager as CM
 from db.cache import LoadCache as LC
+from utils.i18n import locale_doc
 
 
 def to_add_reaction(c):
@@ -56,11 +57,12 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         else:
             self.bot.reminders[ctx.author.id][str(len(check_reminders) + 1)] = {'time': time, 'content': content, 'channel': ctx.channel.id, 'message': ctx.message.id}
 
-    @commands.command(brief="Search the urban dictionary")
+    @commands.command(brief=_("Search the urban dictionary"))
     @commands.guild_only()
     @commands.is_nsfw()
+    @locale_doc
     async def urban(self, ctx, *, urban: str):
-        """ Search for a term in the urban dictionary """
+        _(""" Search for a term in the urban dictionary """)
 
         async with aiohttp.ClientSession() as cs:
             async with cs.get(f'http://api.urbandictionary.com/v0/define?term={urban}') as r:
@@ -88,13 +90,14 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                                              definition, example)
         await ctx.send(text)
 
-    @commands.command(brief="Suggest anything", aliases=['idea'])
+    @commands.command(brief=_("Suggest a feature that you'd like to see implemented"), aliases=['idea'])
     @commands.cooldown(1, 15, commands.BucketType.user)
+    @locale_doc
     async def suggest(self, ctx, *, suggestion: commands.clean_content):
-        """ Suggest anything you want to see in the server/bot!
+        _(""" Suggest anything you want to see in the server/bot!
         Suggestion will be sent to support server for people to vote.
 
-        Please write your suggestion in English"""
+        *Make sure the suggestion is in English*""")
 
         if ctx.guild:
             check = CM.get(self.bot, 'blacklist', ctx.guild.id)
@@ -121,7 +124,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             ids = await self.bot.db.fetch("SELECT suggestion_id FROM suggestions")
             e = discord.Embed(color=self.bot.settings['colors']['embed_color'],
                               title=f"New suggestion from {ctx.author.name} #{len(ids) + 1}",
-                              description=f"> {suggestion}", timestamp=datetime.now(timezone.utc))
+                              description=f"> {suggestion}", timestamp=discord.utils.utcnow())
             e.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
             msg = await logchannel.send(embed=e)
             await msg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
@@ -135,16 +138,19 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             e.set_author(name=_("Suggestion sent as #{0}").format(len(ids) + 1), icon_url=ctx.author.avatar_url)
             return await ctx.send(embed=e)
 
-    @commands.group(brief='Track and untrack suggestions', aliases=['ideas'], invoke_without_command=True)
+    @commands.group(brief=_("Track and untrack suggestions"), aliases=['ideas'], invoke_without_command=True)
     @commands.cooldown(1, 15, commands.BucketType.user)
+    @locale_doc
     async def suggestion(self, ctx):
-        """ Base command for tracking suggestions """
+        _(""" Base command for tracking suggestions """)
         await ctx.send_help(ctx.command)
 
-    @suggestion.command(name='track', aliases=['t'], brief='Track a suggestion')
+    @suggestion.command(name='track', aliases=['t'], brief=_("Track a suggestion"))
     @commands.cooldown(1, 15, commands.BucketType.user)
+    @locale_doc
     async def suggestion_track(self, ctx, id: int):
-        """ Start tracking a suggestion """
+        _(""" Start tracking a suggestion """)
+
         check = await self.bot.db.fetchval("SELECT * FROM track_suggestions WHERE user_id = $1 AND _id = $2", ctx.author.id, id)
         suggestions = await self.bot.db.fetchval("SELECT * FROM suggestions WHERE suggestion_id = $1", id)
 
@@ -158,10 +164,12 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.settings['emojis']['misc']['white-mark'], id
             ))
 
-    @suggestion.command(name='untrack', aliases=['u'], brief='Untrack a suggestion')
+    @suggestion.command(name='untrack', aliases=['u'], brief=_("Untrack a suggestion"))
     @commands.cooldown(1, 15, commands.BucketType.user)
+    @locale_doc
     async def suggestion_untrack(self, ctx, id: int):
-        """ Stop tracking a suggestion """
+        _(""" Stop tracking a suggestion """)
+
         check = await self.bot.db.fetchval("SELECT * FROM track_suggestions WHERE user_id = $1 AND _id = $2", ctx.author.id, id)
         suggestions = await self.bot.db.fetchval("SELECT * FROM suggestions WHERE suggestion_id = $1", id)
         owner = await self.bot.db.fetchval("SELECT * FROM suggestions WHERE suggestion_id = $1 AND user_id = $2", id, ctx.author.id)
@@ -178,16 +186,18 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.settings['emojis']['misc']['white-mark'], id
             ))
 
-    @commands.group(brief='Manage your todo list', invoke_without_command=True)
+    @commands.group(brief=_("Manage your todo list"), invoke_without_command=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def todo(self, ctx):
-        """ Have anything to do later and you think you won't remember? You can manage your todo list with this command!"""
+        _(""" Base command for managing your todo list """)
         await ctx.send_help(ctx.command)
 
-    @todo.command(name='add', brief='Add a todo to your list', aliases=['a'])
+    @todo.command(name='add', brief=_("Add a todo to your list"), aliases=['a'])
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def todo_add(self, ctx, *, todo: commands.clean_content):
-        """ Add a todo to your list """
+        _(""" Add a todo to your list """)
         check = await self.bot.db.fetchval("SELECT * FROM todos WHERE user_id = $1 AND todo = $2", ctx.author.id, todo)
 
         if check is not None:
@@ -202,10 +212,12 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(todo, as_needed=True), count
             ))
 
-    @todo.command(name='edit', brief='Edit your todo', aliases=['e'])
+    @todo.command(name='edit', brief=_("Edit your todo"), aliases=['e'])
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def todo_edit(self, ctx, pos: int, *, todo: commands.clean_content):
-        """ Edit your todos """
+        _(""" Edit your todos """)
+
         todos = await self.bot.db.fetch("SELECT DISTINCT todo, time, ROW_NUMBER () OVER (ORDER BY time) FROM todos WHERE user_id = $1 ORDER BY time", ctx.author.id)
         if not todos:
             return await ctx.send(_("{0} You don't have any items in your todo list.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -225,11 +237,12 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             self.bot.settings['emojis']['misc']['white-mark'], pos, escape_markdown(todo, as_needed=True)
         ))
 
-    @todo.command(name='swap', brief='Swap 2 todo\'s', aliases=['s'])
+    @todo.command(name='swap', brief=_("Swap 2 todo's in places"), aliases=['s'])
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def todo_swap(self, ctx, swap: int, to: int):
-        """ Swap 2 todo's around. This will swap the time when todos have been added.
-        Syntax: `todo swap 1, 5` -> this will swap 1 with 5 """
+        _(""" Swap 2 todo's around. This will swap the time when todos have been added. """)
+
         todos = await self.bot.db.fetch("SELECT DISTINCT todo, time, ROW_NUMBER () OVER (ORDER BY time) FROM todos WHERE user_id = $1 ORDER BY time", ctx.author.id)
         if not todos:
             return await ctx.send(_("{0} You don't have any items in your todo list.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -251,10 +264,12 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             self.bot.settings['emojis']['misc']['white-mark'], swap, to
         ))
 
-    @todo.command(name='list', aliases=['l'], brief='Check your todo list')
+    @todo.command(name='list', aliases=['l'], brief=_("Check your todo list"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def todo_list(self, ctx):
-        """ Once you've added todos to your todo list you can use this command to check them. """
+        _(""" Check your todo list """)
+
         todos = await self.bot.db.fetch("SELECT DISTINCT todo, time, ROW_NUMBER () OVER (ORDER BY time) FROM todos WHERE user_id = $1 ORDER BY time", ctx.author.id)
         if not todos:
             return await ctx.send(_("{0} You don't have any items in your todo list.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -275,10 +290,11 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                           show_entry_count=True)
         await paginator.paginate()
 
-    @todo.command(name='info', aliases=['i'], brief='Information about your todo item')
+    @todo.command(name='info', aliases=['i'], brief=_("Information about your todo item"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def todo_info(self, ctx, pos: int):
-        """ Get more information about your todo item """
+        _(""" Get more information about your todo item """)
         todo = await self.bot.db.fetch("SELECT DISTINCT todo, time, jump_url, ROW_NUMBER () OVER (ORDER BY time) FROM todos WHERE user_id = $1 ORDER BY time", ctx.author.id)
 
         if not todo:
@@ -292,14 +308,15 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         dots = '...'
         e.description = _("""**Todo:** {0}\n\n**Todo position:** {1}/{2}\n**Todo added:** {3}\n**Jump url:** [click here to jump]({4})""").format(
             f"{todo[pos-1]['todo']}" if len(todo[pos - 1]['todo']) < 1800 else f"{escape_markdown(todo[pos - 1]['todo'][:1800] + dots, as_needed=False)}",
-            pos, len(todo), btime.human_timedelta(todo[pos - 1]['time']), todo[pos - 1]['jump_url']
+            pos, len(todo), btime.human_timedelta(todo[pos - 1]['time'], source=datetime.now()), todo[pos - 1]['jump_url']
         )
         await ctx.send(embed=e)
 
-    @todo.command(name='remove', aliases=['r'], brief='Remove a todo from your list')
+    @todo.command(name='remove', aliases=['r'], brief=_("Remove a todo from your list"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def todo_remove(self, ctx, *, pos: str):
-        """ Remove a todo from your list """
+        _(""" Remove a todo from your list """)
         todos = await self.bot.db.fetch("SELECT DISTINCT todo, time, ROW_NUMBER () OVER (ORDER BY time) FROM todos WHERE user_id = $1 ORDER BY time", ctx.author.id)
         if not todos:
             return await ctx.send(_("{0} You don't have any items in your todo list.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -322,10 +339,11 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             self.bot.settings['emojis']['misc']['white-mark'], len(todo_ids), contents
         ))
 
-    @todo.command(aliases=['c'], brief='Clear your todos')
+    @todo.command(aliases=['c'], brief=_("Clear your todos"))
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def clear(self, ctx):
-        """ Clear your todo list """
+        _(""" Clear your todo list """)
 
         todos = await self.bot.db.fetch('SELECT * FROM todos WHERE user_id = $1 ORDER BY time', ctx.author.id)
         if not todos:
@@ -364,12 +382,13 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 pass
             await checkmsg.edit(content=_("Canceling..."), delete_after=15)
 
-    @commands.command(brief='Set your AFK status in the current server', aliases=['afk'])
+    @commands.command(brief=_("Set your AFK status in the current server"), aliases=['afk'])
     @commands.guild_only()
     @checks.has_voted()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def setafk(self, ctx, *, note: commands.clean_content = "I'm currently AFK"):
-        """ Set your AFK status in the current server so users who mention you would know that you're AFK """
+        _(""" Set your AFK status in the current server so users who mention you would know that you're AFK """)
         check = CM.get(self.bot, 'afk', f"{str(ctx.guild.id)}, {str(ctx.author.id)}")
         check1 = CM.get(self.bot, 'afk', f"{str(ctx.author.id)}")
 
@@ -395,12 +414,13 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))
 
-    @commands.command(brief='Set your AFK status globally', aliases=['globalafk', 'gafk'])
+    @commands.command(brief=_("Set your AFK status globally"), aliases=['globalafk', 'gafk'])
     @commands.guild_only()
     @checks.has_voted()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def setglobalafk(self, ctx, *, note: commands.clean_content = "I'm currently AFK"):
-        """ Set your AFK status in all the shared servers with the bot so users who mention you would know that you're AFK """
+        _(""" Set your AFK status in all the shared servers with the bot so users who mention you would know that you're AFK """)
 
         check = CM.get(self.bot, 'afk', f"{str(ctx.author.id)}")
         check1 = await self.bot.db.fetchval("SELECT count(*) FROM afk WHERE user_id = $1 AND guild_id IS NOT NULL", ctx.author.id)
@@ -427,10 +447,12 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))
 
-    @commands.command(brief='See the latest deleted message in a channel.')
+    @commands.command(brief=_("See the latest deleted message in a channel."))
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def snipe(self, ctx, *, channel: discord.TextChannel = None):
+        _(""" Snipe latest deleted message in the current or mentioned channel """)
         channel = channel or ctx.channel
 
         snipe = CM.get(self.bot, 'snipes', channel.id)
@@ -462,17 +484,19 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             await ctx.send(embed=e)
 
     # toggle commands for activity and snipes
-    @commands.group(brief='Toggle your data logging', invoke_without_command=True)
+    @commands.group(brief=_("Toggle your data logging"), invoke_without_command=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def toggle(self, ctx):
-        """ Toggle your data logging. This only applies to snipes, nicknames and statuses """
+        _(""" Base command for toggling your data logging. This only applies to snipes, nicknames """)
         await ctx.send_help(ctx.command)
 
-    @toggle.command(brief='Toggle your snipes logging', aliases=['snipe'], name='snipes')
+    @toggle.command(brief=_("Toggle your snipes logging"), aliases=['snipe'], name='snipes')
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def toggle_snipes(self, ctx):
-        """ Toggle your snipes (deleted messages)
-        This applies to all the servers we share """
+        _(""" Toggle your snipes (deleted messages) logging
+        This applies to all the servers we share """)
         check = CM.get(self.bot, 'snipes_op', ctx.author.id)
 
         def checks(r, u):
@@ -526,11 +550,12 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.dispatch('command_error', ctx, e)
                 return
 
-    @toggle.command(brief='Toggle your nicknames logging', aliases=['nicks'], name='nicknames')
+    @toggle.command(brief=_("Toggle your nicknames logging"), aliases=['nicks'], name='nicknames')
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def toggle_nicknames(self, ctx):
-        """ Toggle your nicknames logging
-        This applies to all the servers we share """
+        _(""" Toggle your nicknames logging
+        This applies to all the servers we share """)
         check = CM.get(self.bot, 'nicks_op', f'{ctx.author.id} - {ctx.guild.id}')
 
         def checks(r, u):
@@ -583,12 +608,13 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.dispatch('command_error', ctx, e)
                 return
 
-    @commands.command(brief='Create a poll', aliases=['poll'])
+    @commands.command(brief=_("Create a poll"), aliases=['poll'])
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def createpoll(self, ctx, channel: typing.Optional[discord.TextChannel], *, questions_and_answers: str):
-        """ Create a poll with upto 10 options.
-        Separate the options with a `|` between them. """
+        _(""" Create a poll with upto 10 options.
+        Separate the options with a `|` between them """)
 
         if "|" in questions_and_answers:
             next_question = "|"
@@ -629,14 +655,21 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         for reaction, x in reactions:
             await msg.add_reaction(reaction)
 
-        await ctx.send(_("{0} Successfully created poll in {1}!").format(
-            self.bot.settings['emojis']['misc']['white-mark'], _('this channel') if channel == ctx.channel else channel.mention
-        ))
+        if channel == ctx.channel:
+            await ctx.send(_("{0} Successfully created poll in this channel!").format(
+                self.bot.settings['emojis']['misc']['white-mark']
+            ))
+        elif channel != ctx.channel:
+            await ctx.send(_("{0} Successfully created poll in {1}!").format(
+                self.bot.settings['emojis']['misc']['white-mark'], channel.mention
+            ))
 
-    @commands.command(brief='Get lyrics of a song.', aliases=['song'])
+    @commands.command(brief=_("Get lyrics of a song."), aliases=['song'])
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def lyrics(self, ctx, *, song: str):
-        """"""
+        _(""" Get a lyrics of a song """)
+
         try:
             await ctx.send(_("{0} Searching for song lyrics - {1}").format(
                 self.bot.settings['emojis']['misc']['loading'], song
@@ -652,22 +685,24 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         embed.set_thumbnail(url=song.thumbnail)
         await ctx.send(embed=embed)
 
-    @commands.group(brief='Manage your reminders', aliases=['reminds', 'rm', 'reminder', 'remindme'], invoke_without_command=True)
+    @commands.group(brief=_("Manage your reminders"), aliases=['reminds', 'rm', 'reminder', 'remindme'], invoke_without_command=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def remind(self, ctx, *, remind: btime.UserFriendlyTime(commands.context, default="\u2026")):
-        """ Create a reminder for yourself.
-        Example usage: `remind 1h do homework`"""
+        _(""" Create a reminder for yourself. Example usage: `remind 1h do homework`""")
+
         try:
             await self.create_reminder(ctx, remind.arg, remind.dt)
-            time = btime.human_timedelta(remind.dt, source=ctx.message.created_at)
+            time = btime.human_timedelta(remind.dt, source=ctx.message.created_at.replace(tzinfo=None))
             await ctx.send(_("Alright, reminding you in {0}: {1}").format(time, remind.arg))
         except AttributeError:
             return
 
-    @remind.command(brief='A list with your reminders', name='list')
+    @remind.command(brief=_("A list with your reminders"), name='list')
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def remind_list(self, ctx):
-        """ Check your reminders list """
+        _(""" Check your reminders list """)
         check_reminders = CM.get(self.bot, 'reminders', ctx.author.id)
 
         if not check_reminders:
@@ -675,7 +710,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
 
         reminders = []
         for result in check_reminders:
-            when = btime.human_timedelta(check_reminders[result]['time'], source=ctx.message.created_at)
+            when = btime.human_timedelta(check_reminders[result]['time'], source=ctx.message.created_at.replace(tzinfo=None))
             content = check_reminders[result]['content']
             reminders.append(_("`[{0}]` Reminding in **{1}**\n{2}\n").format(result, when, content[:150] + '...' if len(content) > 150 else content))
 
@@ -688,10 +723,11 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                           show_entry_count=True)
         await paginator.paginate()
 
-    @remind.command(brief='Remove a reminder', name='remove')
+    @remind.command(brief=_("Remove a reminder"), name='remove')
     @commands.cooldown(1, 5, commands.BucketType.user)
+    @locale_doc
     async def reminder_remove(self, ctx, reminder: str):
-        """ Remove an unwanted reminder """
+        _(""" Remove an unwanted reminder """)
         check_reminders = CM.get(self.bot, 'reminders', ctx.author.id)
 
         if not check_reminders:

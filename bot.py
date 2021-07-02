@@ -59,7 +59,7 @@ async def run():
 
     bot = Bot(description=description, db=db)
     if not hasattr(bot, 'uptime'):
-        bot.uptime = datetime.datetime.now()
+        bot.uptime = discord.utils.utcnow()
     try:
         await LoadCache.start(bot)
         bot.session = aiohttp.ClientSession(loop=bot.loop)
@@ -186,8 +186,11 @@ class Bot(commands.AutoShardedBot):
         self.guilds_data = {}
         self.loop = asyncio.get_event_loop()
         self.guild_loop = {}
-        self.to_dispatch = {}
+        self.to_unmute = {}
+        self.to_unban = {}
         self.music_guilds = {}
+
+        self.testers = {}
 
         # ranks
         self.devs = {}
@@ -196,6 +199,7 @@ class Bot(commands.AutoShardedBot):
         self.lockdown = False
         self.auto_reply = True
         self.settings = {}
+        self.radio_stations = {}
         self.blacklist = {}
         self.check_duration = {}
 
@@ -243,6 +247,7 @@ class Bot(commands.AutoShardedBot):
         self.disabled_commands = {}
         self.translations = {}
         self.reminders = {}
+        self.mode247 = {}
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)

@@ -26,6 +26,8 @@ from io import BytesIO
 from utils import btime, default
 from datetime import datetime, timedelta
 from db.cache import CacheManager as cm
+from cogs.music import Player
+from contextlib import suppress
 
 
 class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
@@ -37,9 +39,11 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         self.temp_mute.start()
         self.reminders.start()
         self.dispatch_unmute.start()
+        self.dispatch_unban.start()
         self.delete_nicknames.start()
         self.backups.start()
         self.del_member_count.start()
+        self.clear_mode247.start()
         self.client = gmailpy.Client(mail=bot.config.BACKUP_USER, password=bot.config.BACKUP_PASSWORD)
 
     def cog_unload(self):
@@ -48,9 +52,11 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         self.temp_mute.cancel()
         self.reminders.cancel()
         self.dispatch_unmute.cancel()
+        self.dispatch_unban.cancel()
         self.delete_nicknames.cancel()
         self.backups.cancel()
         self.del_member_count.cancel()
+        self.clear_mode247.cancel()
 
     @tasks.loop(seconds=1)
     async def guild_data(self):
@@ -79,10 +85,14 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                         user = await self.bot.try_user(int(result.split(', ')[0]))
                         guild = self.bot.get_guild(int(result.split(', ')[1]))
                         mod = await self.bot.try_user(int(check['moderator']))
+                        to_disp = cm.get(self.bot, 'to_unban', guild.id)
+                        if not to_disp:
+                            self.bot.to_unban[guild.id] = {'users': [], 'mod': mod}
                         await default.execute_untemporary(self, 2, user, guild)
                         await guild.unban(user, reason='Auto Unban')
-                        self.bot.dispatch('unban', guild, mod, [user], 'Auto Unban')
-        except Exception:
+                        self.bot.to_unban[guild.id]['users'].append(user)
+        except Exception as e:
+            print(e)
             pass
 
     @tasks.loop(seconds=1)
@@ -98,23 +108,35 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                         user = await self.bot.try_user(int(result.split(', ')[0]))
                         guild = self.bot.get_guild(int(result.split(', ')[1]))
                         mod = await self.bot.try_user(int(check['moderator']))
-                        to_disp = cm.get(self.bot, 'to_dispatch', guild.id)
+                        to_disp = cm.get(self.bot, 'to_unmute', guild.id)
                         if not to_disp:
-                            self.bot.to_dispatch[guild.id] = {'users': [], 'mod': mod}
+                            self.bot.to_unmute[guild.id] = {'users': [], 'mod': mod}
                         await default.execute_untemporary(self, 1, user, guild)
                         role = guild.get_role(int(check['role']))
                         if role:
                             member = guild.get_member(user.id)
                             await member.remove_roles(role, reason='Auto Unmute')
-                        self.bot.to_dispatch[guild.id]['users'].append(member)
+                        self.bot.to_unmute[guild.id]['users'].append(member)
         except Exception as e:
             pass
 
     @tasks.loop(seconds=10)
     async def dispatch_unmute(self):
-        for guild in self.bot.to_dispatch:
-            self.bot.dispatch('unmute', self.bot.get_guild(guild), self.bot.to_dispatch[guild]['mod'], self.bot.to_dispatch[guild]['users'], 'Auto Unmute')
-            self.bot.to_dispatch.pop(guild, None)
+        try:
+            for guild in self.bot.to_unmute:
+                self.bot.dispatch('unmute', self.bot.get_guild(guild), self.bot.to_unmute[guild]['mod'], self.bot.to_unmute[guild]['users'], 'Auto Unmute')
+                self.bot.to_unmute.pop(guild, None)
+        except Exception:
+            pass
+
+    @tasks.loop(seconds=10)
+    async def dispatch_unban(self):
+        try:
+            for guild in self.bot.to_unban:
+                self.bot.dispatch('unban', self.bot.get_guild(guild), self.bot.to_unban[guild]['mod'], self.bot.to_unban[guild]['users'], 'Auto Unban')
+                self.bot.to_unban.pop(guild, None)
+        except Exception as e:
+            pass
 
     @tasks.loop(seconds=1)
     async def reminders(self):
@@ -179,6 +201,22 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         guild = self.bot.get_guild(568567800910839811)
         await self.bot.get_channel(618583328458670090).edit(name=f"Member Count: {len(guild.members)}")
 
+    @tasks.loop(minutes=30)
+    async def clear_mode247(self):
+        for guild in self.bot.mode247:
+            now = datetime.utcnow()
+            last_connection = self.bot.mode247[guild]['last_connection'] + timedelta(hours=12)
+            seconds = (last_connection - now).total_seconds()
+            guild = self.bot.get_guild(guild)
+            if seconds <= 0 and guild:
+                player = self.bot.wavelink.get_player(guild.id, cls=Player)
+                channel = guild.get_channel(self.bot.mode247[guild.id]['text'])
+                with suppress(Exception):
+                    await channel.send(_("No one has connected to a voice channel in over 12 hours, to save up "
+                                         "bot's resources I'll be destroying the player and leaving the voice channel."))
+                await player.destroy()
+                self.bot.mode247.pop(guild)
+
     @guild_data.before_loop
     async def before_guild_delete(self):
         await self.bot.wait_until_ready()
@@ -213,6 +251,21 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
     async def before_del_member_count(self):
         await self.bot.wait_until_ready()
         print("[BACKGROUND] Started updating DEL member count")
+
+    @clear_mode247.before_loop
+    async def before_clear_mode247(self):
+        await self.bot.wait_until_ready()
+        print("[BACKGROUND] Started leaving inactive voice channels")
+
+    @dispatch_unmute.before_loop
+    async def before_dispatch_unmute(self):
+        await self.bot.wait_until_ready()
+        print("[BACKGROUND] Started dispatching mutes.")
+
+    @dispatch_unban.before_loop
+    async def before_dispatch_unban(self):
+        await self.bot.wait_until_ready()
+        print("[BACKGROUND] Started dispatching bans.")
 
 
 def setup(bot):

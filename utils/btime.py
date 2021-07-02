@@ -15,10 +15,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import datetime
 import re
+import discord
 
 import parsedatetime as pdt
 from dateutil.relativedelta import relativedelta
 from discord.ext import commands
+from utils import default
 
 
 class plural:
@@ -52,7 +54,7 @@ class HumanTime:
     calendar = pdt.Calendar(version=pdt.VERSION_CONTEXT_STYLE)
 
     def __init__(self, argument, *, now=None):
-        now = now or datetime.datetime.utcnow()
+        now = now or discord.utils.utcnow()
         dt, status = self.calendar.parseDT(argument, sourceTime=now)
         if not status.hasDateOrTime:
             raise commands.BadArgument('invalid time provided, try e.g. "tomorrow" or "3 days"')
@@ -62,11 +64,11 @@ class HumanTime:
             dt = dt.replace(hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond)
 
         self.dt = dt
-        self._past = dt < now.replace(tzinfo=None)
+        self._past = dt < now
 
     @classmethod
     async def convert(cls, ctx, argument):
-        return cls(argument, now=ctx.message.created_at.replace(tzinfo=None))
+        return cls(argument, now=ctx.message.created_at)
 
 
 class ShortTime:
@@ -85,8 +87,8 @@ class ShortTime:
             raise commands.BadArgument('invalid time provided')
 
         data = {k: int(v) for k, v in match.groupdict(default=0).items()}
-        now = now or datetime.datetime.utcnow()
-        self.dt = now.replace(tzinfo=None) + relativedelta(**data)
+        now = now or discord.utils.utcnow()
+        self.dt = now + relativedelta(**data)
 
     @classmethod
     async def convert(cls, ctx, argument):
@@ -96,7 +98,7 @@ class ShortTime:
 class Time(HumanTime):
     def __init__(self, argument, *, now=None):
         try:
-            o = ShortTime(argument, now=now.replace(tzinfo=None))
+            o = ShortTime(argument, now=now)
         except Exception:
             super().__init__(argument)
         else:
@@ -122,7 +124,7 @@ class UserFriendlyTime(commands.Converter):
         self.default = default
 
     async def check_constraints(self, ctx, now, remaining):
-        if self.dt < now:
+        if self.dt < now.replace(tzinfo=None):
             raise commands.BadArgument(_('This time is in the past.'))
 
         if not remaining:
@@ -137,13 +139,14 @@ class UserFriendlyTime(commands.Converter):
         try:
             calendar = HumanTime.calendar
             # regex = ShortTime.compiled
-            now = ctx.message.created_at.replace(tzinfo=None)
+            now = ctx.message.created_at
 
             match = None  # regex.match(argument)
             if match is not None and match.group(0):
                 data = {k: int(v) for k, v in match.groupdict(default=0).items()}
                 remaining = argument[match.end():].strip()
                 self.dt = now + relativedelta(**data)
+                print(f"L152 - {self.dt}")
                 return await self.check_constraints(ctx, now, remaining)
 
             if argument.endswith('from now'):
@@ -180,13 +183,14 @@ class UserFriendlyTime(commands.Converter):
                 remaining = argument[:begin].strip()
 
             return await self.check_constraints(ctx, now, remaining)
-        except Exception as e:
-            return await ctx.channel.send(e)
-            raise commands.BadArgument(_("Sorry, but I did not understand what you meant. You probably didn't specify the time or you specified it in another language (not English)"))
+        except Exception as exc:
+            return await ctx.channel.send(default.traceback_maker(exc))
+            raise commands.BadArgument(_("Sorry, but I did not understand what you meant. You probably didn't specify the time "
+                                         "or you specified it in another language (not English)"))
 
 
 def human_timedelta(dt, *, source=None, accuracy=3, brief=False, suffix=True):
-    now = source or datetime.datetime.now()
+    now = source or discord.utils.utcnow()
     # Microsecond free zone
     now = now.replace(microsecond=0)
     dt = dt.replace(microsecond=0)
@@ -196,11 +200,11 @@ def human_timedelta(dt, *, source=None, accuracy=3, brief=False, suffix=True):
     # accurate once you go over 1 week in terms of accuracy since you have to
     # hardcode a month as 30 or 31 days.
     # A query like "11 months" can be interpreted as "!1 months and 6 days"
-    if dt.replace(tzinfo=None) > now.replace(tzinfo=None):
-        delta = relativedelta(dt, now.replace(tzinfo=None))
+    if dt > now:
+        delta = relativedelta(dt, now)
         suffix = ''
     else:
-        delta = relativedelta(now.replace(tzinfo=None), dt)
+        delta = relativedelta(now, dt)
         suffix = ' ago' if suffix else ''
 
     attrs = [

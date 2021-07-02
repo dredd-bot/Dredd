@@ -192,6 +192,9 @@ class Others(commands.Cog):
             headers = {"Authorization": self.bot.config.DBLIST_TOKEN}
             data = {"guilds": len(self.bot.guilds), "users": sum([x.member_count for x in self.bot.guilds])}
             r = await self.bot.session.post('https://discordbotlist.com/api/v1/bots/667117267405766696/stats', headers=headers, data=data)
+            if 500 % (r.status + 1) == 500:
+                raise Exception("The API is having issues")
+
             response = await r.json()
 
             if response['success']:

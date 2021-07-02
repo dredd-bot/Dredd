@@ -25,6 +25,7 @@ from utils import default, i18n
 from utils.checks import admin, moderator, is_guild_disabled
 from utils.paginator import Pages
 from contextlib import suppress
+from utils.i18n import locale_doc
 # from datetime import datetime
 
 
@@ -34,12 +35,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         self.help_icon = "<:settingss:695707235833085982>"
         self.big_icon = "https://cdn.discordapp.com/emojis/695707235833085982.png?v=1"
 
-    @commands.group(brief='Manage bot\'s prefix in the server',
+    @commands.group(brief=_("Manage bot's prefix in the server"),
                     invoke_without_command=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def prefix(self, ctx):
-        """ View your server's prefix """
+        _(""" View and manage your server's prefix """)
+
         prefix = self.bot.cache.get(self.bot, 'prefix', ctx.guild.id)
 
         if prefix:
@@ -56,11 +59,12 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
 
     @prefix.command(name='set',
                     aliases=['change'],
-                    brief='Change my prefix in the server')
+                    brief=_("Change my prefix in the server"))
     @commands.guild_only()
     @admin(manage_guild=True)
+    @locale_doc
     async def prefix_set(self, ctx, prefix: str):
-        """ Change my prefix in the server """
+        _(""" Change my prefix in the server """)
 
         if len(prefix) > 7:
             return await ctx.send(_("{0} A prefix can only be 7 characters long! You're {1} characters over.").format(self.bot.settings['emojis']['misc']['warn'], len(prefix) - 7))
@@ -71,12 +75,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         self.bot.prefix[ctx.guild.id] = prefix
         await ctx.send(_("{0} Changed my prefix in this server to `{1}`").format(self.bot.settings['emojis']['misc']['white-mark'], prefix))
 
-    @commands.command(name='set-language', brief="Change bot's language in the server", aliases=['setlanguage', 'setlang'])
+    @commands.command(name='set-language', brief=_("Change bot's language in the server"), aliases=['setlanguage', 'setlang'])
     @admin(manage_guild=True)
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
     async def setlanguage(self, ctx, language: str):
-        """ Change the bot's language in the current server to your prefered one (if available) """
+        _(""" Change the bot's language in the current server to your prefered one (if available) """)
+
         if language not in i18n.locales:
             return await ctx.send(_("{0} Looks like that language doesn't exist, available languages are: {1}").format(
                 self.bot.settings['emojis']['misc']['warn'], '`' + '`, `'.join([x for x in i18n.locales]) + '`'
@@ -86,12 +92,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             self.bot.translations[ctx.guild.id] = language
             await ctx.send(_("{0} Changed the bot language to `{1}`").format(self.bot.settings['emojis']['misc']['white-mark'], language))
 
-    @commands.group(brief='A rough overview on server settings',
+    @commands.group(brief=_("A rough overview on server settings"),
                     aliases=['settings', 'guildsettings'],
                     invoke_without_command=True)
     @commands.guild_only()
+    @locale_doc
     async def serversettings(self, ctx):
-        """ Rough overview on server settings, such as logging and more. """
+        _(""" Rough overview on server settings, such as logging and more. """)
+
         logs = default.server_logs(ctx, ctx.guild, simple=False)
         muterole = await default.get_muterole(ctx, ctx.guild)
         prefix = self.bot.cache.get(self.bot, 'prefix', ctx.guild.id)
@@ -130,12 +138,13 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             embed.add_field(name=_('Leave Message'), value=message, inline=False)
         await ctx.send(embed=embed)
 
-    @serversettings.command(name='joinembed', brief='View welcoming embed')
+    @serversettings.command(name='joinembed', brief=_("View welcoming embed"))
     @commands.guild_only()
+    @locale_doc
     async def serversettings_joinembed(self, ctx):
-        """ View welcoming messages embed """
-        joinmessage = self.bot.cache.get(self.bot, 'joinmessage', ctx.guild.id)
+        _(""" View welcoming messages embed """)
 
+        joinmessage = self.bot.cache.get(self.bot, 'joinmessage', ctx.guild.id)
         if not joinmessage:
             return await ctx.send(_("{0} Welcome messages are disabled in this server.").format(self.bot.settings['emojis']['misc']['warn']))
 
@@ -153,12 +162,13 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                             "Please make sure you're using the correct format by visiting this website <https://embedbuilder.nadekobot.me/>").format(self.bot.settings['emojis']['misc']['warn']))
                 await ctx.send(content=_("Your welcome embed looks like this: *plain text is not displayed*"), embed=embed)
 
-    @serversettings.command(name='leaveembed', brief='View leaving embed')
+    @serversettings.command(name='leaveembed', brief=_("View leaving embed"))
     @commands.guild_only()
+    @locale_doc
     async def serversettings_leaveembed(self, ctx):
-        """ View leaving messages embed """
-        leavemessage = self.bot.cache.get(self.bot, 'leavemessage', ctx.guild.id)
+        _(""" View leaving messages embed """)
 
+        leavemessage = self.bot.cache.get(self.bot, 'leavemessage', ctx.guild.id)
         if not leavemessage:
             return await ctx.send(_("{0} Leave messages are disabled in this server.").format(self.bot.settings['emojis']['misc']['warn']))
 
@@ -176,28 +186,27 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                             "Please make sure you're using the correct format by visiting this website <https://embedbuilder.nadekobot.me/>").format(self.bot.settings['emojis']['misc']['warn']))
                 await ctx.send(content=_("Your leave embed looks like this: *plain text is not displayed*"), embed=embed)
 
-    @commands.group(brief='Toggle logging on or off',
+    @commands.group(brief=_("Toggle logging on or off"),
                     aliases=['logging'],
                     invoke_without_command=True)
     @admin(manage_guild=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def togglelog(self, ctx):
-        """ Enable or disable logging in the server
-
-        To enable logging you need to provide channel after option, and to disable, you leave the channel argument empty. """
+        _(""" Base command for managign logging in the server """)
         await ctx.send_help(ctx.command)
 
-    @togglelog.command(aliases=['memberlogging', 'memberlog'], brief="Toggle member logging in the server")
+    @togglelog.command(aliases=['memberlogging', 'memberlog'], brief=_("Toggle member logging in the server"))
     @admin(manage_guild=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def memberlogs(self, ctx, channel: discord.TextChannel = None):
-        """ This enabled or disabled member logging
-
-        Member logging includes: avatar changes, nickname changes, username changes. """
+        _(""" This enables or disables member logging.
+        Member logging includes: avatar changes, nickname changes, username changes. """)
 
         if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -222,15 +231,16 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} Successfully enabled member logs. I will now send member updates in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                            channel.mention))
 
-    @togglelog.command(aliases=['joinlogging', 'joinlog', 'newmembers', 'memberjoins'], name='joinlogs', brief="Toggle join logs in the server")
+    @togglelog.command(aliases=['joinlogging', 'joinlog', 'newmembers', 'memberjoins'], name='joinlogs',
+                       brief=_("Toggle join logs in the server"))
     @admin(manage_guild=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def togglelog_joinlogs(self, ctx, channel: discord.TextChannel = None):
-        """ This enabled or disabled new members logging
-
-        New member logging includes: join logging. """
+        _(""" This enables or disables new members logging
+        New member logging includes: join logging. """)
 
         if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -257,15 +267,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} Successfully enabled new member logging. I will now send member updates in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                                   channel.mention))
 
-    @togglelog.command(aliases=['leavelogging', 'leavelog', 'memberleaves'], name='leavelogs', brief="Toggle leave logs in the server")
+    @togglelog.command(aliases=['leavelogging', 'leavelog', 'memberleaves'], name='leavelogs', brief=_("Toggle leave logs in the server"))
     @admin(manage_guild=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def togglelog_leavelogs(self, ctx, channel: discord.TextChannel = None):
-        """ This enables or disables member leave logging
-
-        Member leave logging includes: leave logging. """
+        _(""" This enables or disables member leave logging.
+        Member leave logging includes: leave logging. """)
 
         if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -292,15 +302,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} Successfully changed the leave member logging channel. I will now send member leaves in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                                                channel.mention))
 
-    @togglelog.command(aliases=['serverlogs'], name='guildlogs', brief="Toggle guild logs in the server")
+    @togglelog.command(aliases=['serverlogs'], name='guildlogs', brief=_("Toggle guild logs in the server"))
     @admin(manage_guild=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def togglelog_guildlogs(self, ctx, channel: discord.TextChannel = None):
-        """ This enables or disables guild changes logging
-
-        Guild changes logging includes: name, region, icon, afk channel, mfa level, verification level, default notifications. """
+        _(""" This enables or disables guild changes logging.
+        Guild changes logging includes: name, region, icon, afk channel, mfa level, verification level, default notifications. """)
 
         if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -325,13 +335,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} Successfully enabled guild updates logging. I will now send guild updates in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                                     channel.mention))
 
-    @togglelog.command(aliases=['msgedits', 'msgedit', 'editmessages'], name='messageedits', brief="Toggle edit message logs in the server")
+    @togglelog.command(aliases=['msgedits', 'msgedit', 'editmessages'], name='messageedits',
+                       brief=_("Toggle edit message logs in the server"))
     @admin(manage_guild=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def togglelog_messageedits(self, ctx, channel: discord.TextChannel = None):
-        """ This enables or disables messages edit logging """
+        _(""" This enables or disables messages edit logging """)
 
         if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -356,13 +368,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} Enabled edit message logging in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                        channel.mention))
 
-    @togglelog.command(aliases=['msgdeletes', 'msgdelete', 'deletemessages'], name='messagedeletes', brief="Toggle delete message logs in the server.")
+    @togglelog.command(aliases=['msgdeletes', 'msgdelete', 'deletemessages'], name='messagedeletes', brief=_("Toggle delete message logs in the server."))
     @admin(manage_guild=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def togglelog_messagedeletes(self, ctx, channel: discord.TextChannel = None):
-        """ This enables or disables messages deleting logging """
+        _(""" This enables or disables messages deleting logging """)
 
         if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -387,15 +400,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} Enabled deleted message logging in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                           channel.mention))
 
-    @togglelog.command(aliases=['modlogs'], name='moderation', brief="Toggle moderation logs")
+    @togglelog.command(aliases=['modlogs'], name='moderation', brief=_("Toggle moderation logs"))
     @admin(manage_guild=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def togglelog_moderation(self, ctx, channel: discord.TextChannel = None):
-        """ This enables or disables moderation logging
-
-        Moderation logging includes: bans, kicks, mutes, unbans, unmutes. """
+        _(""" This enables or disables moderation logging
+        Moderation logging includes: bans, kicks, mutes, unbans, unmutes. """)
 
         if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -420,13 +433,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} Enabled moderation logging in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                      channel.mention))
 
-    @togglelog.command(name='all', brief="Toggle all the logs in the server")
+    @togglelog.command(name='all', brief=_("Toggle all the logs in the server"))
     @admin(manage_guild=True)
     @commands.bot_has_permissions(manage_messages=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def togglelog_all(self, ctx, channel: discord.TextChannel = None):
-        """ This enables all the logging """
+        _(""" This enables all the logging """)
 
         if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -459,15 +473,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} Enabled logging in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                           channel.mention))
 
-    @commands.command(name='anti-hoist', brief='Toggle anti hoist')
+    @commands.command(name='anti-hoist', brief=_("Toggle anti hoist"))
     @moderator(manage_nicknames=True)
     @commands.bot_has_permissions(manage_nicknames=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def antihoist(self, ctx, channel: discord.TextChannel = None, new_nickname: str = None):
-        """ Toggle anti hoist (non-alphabetic characters infront of the name, i.e. `! I'm a hoister`)
-
-        When toggled on it will dehoist members that have just joined the server or have just edited their nickname """
+        _(""" Toggle anti hoist (non-alphabetic characters infront of the name, i.e. `! I'm a hoister`)
+        When toggled on it will dehoist members that have just joined the server or have just edited their nickname """)
 
         check = self.bot.cache.get(self.bot, 'antihoist', ctx.guild.id)
 
@@ -495,24 +509,23 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} Enabled anti hoist logging in {1} and set the new nickname to {2}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                      channel.mention, new_nickname))
 
-    @commands.group(brief='Edit the welcoming messages', invoke_without_command=True)
+    @commands.group(brief=_("Edit the welcoming messages"), invoke_without_command=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
+    @locale_doc
     async def welcoming(self, ctx):
-        """ Setup the welcoming messages with this command subcommands """
+        _(""" Base command for managing welcoming messages in the server """)
         await ctx.send_help(ctx.command)
 
-    @welcoming.command(name='channel', brief='Set the channel for welcoming messages')
+    @welcoming.command(name='channel', brief=_("Set the channel for welcoming messages"))
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_channels=True)
+    @locale_doc
     async def welcoming_channel(self, ctx, *, channel: discord.TextChannel = None):
-        """
-        Set a channel where welcoming messages should be sent to.
-
-        Make sure bot has permissions to send messages in that channel.
-        """
+        _(""" Set a channel where welcoming messages should be sent to.
+        Make sure bot has permissions to send messages in that channel. """)
 
         if channel and (not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links):
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -539,15 +552,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                                                                    channel.mention))
 
     @welcoming.command(name='message',
-                       brief="Set the welcoming message",
+                       brief=_("Set the welcoming message"),
                        aliases=['msg', 'm'])
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
+    @locale_doc
     async def welcoming_message(self, ctx, *, message: str = None):
-        """ Set the welcoming messages in the server
-
-        Passing no message will reset your welcoming message to the default one """
+        _(""" Set the welcoming messages in the server
+        Passing no message will reset your welcoming message to the default one """)
 
         joinmessage = self.bot.cache.get(self.bot, 'joinmessage', ctx.guild.id)
 
@@ -594,12 +607,13 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await ctx.send(content=_("**Here is your new welcome embed:**{0}").format(plainText), embed=welcoming_embed)
 
     @welcoming.command(name='toggle',
-                       brief='Toggle welcoming messages type')
+                       brief=_("Toggle welcoming messages type"))
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
+    @locale_doc
     async def welcoming_toggle(self, ctx):
-        """ Toggle welcoming messages between embedded and plain text. """
+        _(""" Toggle welcoming messages between embedded and plain text. """)
 
         joinmessage = self.bot.cache.get(self.bot, 'joinmessage', ctx.guild.id)
 
@@ -621,13 +635,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await ctx.send(_("{0} Welcome messages will now be sent in embeds.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
     @welcoming.command(name='bots',
-                       brief="Toggle bot welcoming messages",
+                       brief=_("Toggle bot welcoming messages"),
                        aliases=['robots', 'bot'])
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
+    @locale_doc
     async def welcoming_bots(self, ctx):
-        """ Toggle whether or not bot joins should be logged. """
+        _(""" Toggle whether or not bot joins should be logged. """)
 
         joinmessage = self.bot.cache.get(self.bot, 'joinmessage', ctx.guild.id)
 
@@ -646,24 +661,23 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 self.bot.joinmessage[ctx.guild.id]['log_bots'] = True
                 await ctx.send(_("{0} I will now longer welcome bots.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
-    @commands.group(brief='Edit the leaving messages', invoke_without_command=True)
+    @commands.group(brief=_("Edit the leaving messages"), invoke_without_command=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
+    @locale_doc
     async def leaving(self, ctx):
-        """ Setup the leaving messages with this command subcommands """
+        _(""" Base command for managing leaving messages in the server """)
         await ctx.send_help(ctx.command)
 
-    @leaving.command(name='channel', brief='Set the channel for leaving messages')
+    @leaving.command(name='channel', brief=_("Set the channel for leaving messages"))
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_channels=True)
+    @locale_doc
     async def leaving_channel(self, ctx, *, channel: discord.TextChannel = None):
-        """
-        Set a channel where leaving messages should be sent to.
-
-        Make sure bot has permissions to send messages in that channel.
-        """
+        _(""" Set a channel where leaving messages should be sent to.
+        Make sure bot has permissions to send messages in that channel. """)
 
         if channel and (not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links):
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
@@ -690,15 +704,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                                                                                                               channel.mention))
 
     @leaving.command(name='message',
-                     brief="Set the leaving message",
+                     brief=_("Set the leaving message"),
                      aliases=['msg', 'm'])
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
+    @locale_doc
     async def leaving_message(self, ctx, *, message: str = None):
-        """ Set the leaving messages in the server
-
-        Passing no message will reset your leaving message to the default one """
+        _(""" Set the leaving messages in the server
+        Passing no message will reset your leaving message to the default one """)
 
         leavemessage = self.bot.cache.get(self.bot, 'leavemessage', ctx.guild.id)
 
@@ -745,12 +759,13 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await ctx.send(content=_("**Here is your new leave member embed message:**{0}").format(plainText), embed=leaving_embed)
 
     @leaving.command(name='toggle',
-                     brief='Toggle leaving messages type')
+                     brief=_("Toggle leaving messages type"))
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
+    @locale_doc
     async def leaving_toggle(self, ctx):
-        """ Toggle leaving messages between embedded and plain text. """
+        _(""" Toggle leaving messages between embedded and plain text. """)
 
         leavemessage = self.bot.cache.get(self.bot, 'leavemessage', ctx.guild.id)
 
@@ -772,13 +787,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await ctx.send(_("{0} Leave messages will now be sent in embeds.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
     @leaving.command(name='bots',
-                     brief="Toggle bot leaving",
+                     brief=_("Toggle bot leaving"),
                      aliases=['robots', 'bot'])
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
+    @locale_doc
     async def leaving_bots(self, ctx):
-        """ Toggle whether or not bot leaves should be logged. """
+        _(""" Toggle whether or not bot leaves should be logged. """)
 
         leavemessage = self.bot.cache.get(self.bot, 'leavemessage', ctx.guild.id)
 
@@ -798,38 +814,41 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await ctx.send(_("{0} Bot leave messages have been turned on.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
     @commands.group(name='joinrole',
-                    brief="Toggle role on join",
+                    brief=_("Toggle role on join"),
                     invoke_without_command=True)
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def joinrole(self, ctx):
-        """ Setup role on join in your server """
+        _(""" Base command for managing role on join """)
         await ctx.send_help(ctx.command)
 
     @joinrole.group(name='people',
-                    brief='Set role on join for users',
+                    brief=_("Set role on join for users"),
                     aliases=['humans'],
                     invoke_without_command=True)
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def joinrole_people(self, ctx, role: discord.Role = None):
-        """ Choose what role will be given to new users """
+        _(""" Choose what role will be given to new users """)
 
         await ctx.send_help(ctx.command)
 
     @joinrole_people.command(name='add',
-                             brief='Add a role on join for people',
+                             brief=_("Add a role on join for people"),
                              aliases=['a'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def joinrole_people_add(self, ctx, *, role: discord.Role):
-        """ Add a role to role on join for people """
+        _(""" Add a role to role on join for people """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
         mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
@@ -856,14 +875,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await ctx.send(_("{0} Added {1} to join role for people.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @joinrole_people.command(name='remove',
-                             brief='Remove a role on join for people',
+                             brief=_("Remove a role on join for people"),
                              aliases=['r'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def joinrole_people_remove(self, ctx, *, role: discord.Role):
-        """ Remove a role from role on join for people """
+        _(""" Remove a role from role on join for people """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
         mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
@@ -881,14 +901,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await ctx.send(_("{0} Removed {1} from join role for people.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @joinrole_people.command(name='list',
-                             brief='See all the roles on join for people',
+                             brief=_("See all the roles on join for people"),
                              aliases=['l'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
     async def joinrole_people_list(self, ctx):
-        """ See all the roles for role on join for people """
+        _(""" See all the roles for role on join for people """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
 
@@ -900,7 +920,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             for num, role in enumerate(joinrole['people'], start=1):
                 the_role = ctx.guild.get_role(role)
 
-                list_of_roles.append(_("`[{0}]` {1} ({2})\n").format(num, the_role.mention if the_role else _('Role not found'), role))
+                list_of_roles.append("`[{0}]` {1} ({2})\n".format(num, the_role.mention if the_role else _('Role not found'), role))
 
             paginator = Pages(ctx,
                               title=_("Role on join for people"),
@@ -916,27 +936,29 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} There are no role on join roles for people set.").format(self.bot.settings['emojis']['misc']['warn']))
 
     @joinrole.group(name='bots',
-                    brief='Set role on join for bots',
+                    brief=_("Set role on join for bots"),
                     aliases=['robots'],
                     invoke_without_command=True)
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def joinrole_bots(self, ctx):
-        """ Manage role on join for bots """
+        _(""" Manage role on join for bots """)
 
         await ctx.send_help(ctx.command)
 
     @joinrole_bots.command(name='add',
-                           brief='Add a role on join for bots',
+                           brief=_("Add a role on join for bots"),
                            aliases=['a'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def joinrole_bots_add(self, ctx, *, role: discord.Role):
-        """ Add a role to role on join for bots """
+        _(""" Add a role to role on join for bots """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
         mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
@@ -963,14 +985,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await ctx.send(_("{0} Added {1} to join role for bots.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @joinrole_bots.command(name='remove',
-                           brief='Remove a role on join for bots',
+                           brief=_("Remove a role on join for bots"),
                            aliases=['r'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def joinrole_bots_remove(self, ctx, *, role: discord.Role):
-        """ Remove a role from role on join for bots """
+        _(""" Remove a role from role on join for bots """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
         mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
@@ -988,14 +1011,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await ctx.send(_("{0} Removed {1} from join role for bots.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @joinrole_bots.command(name='list',
-                           brief='See all the roles on join for bots',
+                           brief=_("See all the roles on join for bots"),
                            aliases=['l'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def joinrole_bots_list(self, ctx):
-        """ See all the roles for role on join for bots """
+        _(""" See all the roles for role on join for bots """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
 
@@ -1007,7 +1031,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             for num, role in enumerate(joinrole['bots'], start=1):
                 the_role = ctx.guild.get_role(role)
 
-                list_of_roles.append(_("`[{0}]` {1} ({2})\n").format(num, the_role.mention if the_role else _('Role not found'), role))
+                list_of_roles.append("`[{0}]` {1} ({2})\n".format(num, the_role.mention if the_role else _('Role not found'), role))
 
             paginator = Pages(ctx,
                               title=_("Role on join for bots"),
@@ -1023,14 +1047,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             return await ctx.send(_("{0} There are no role on join roles for bots set.").format(self.bot.settings['emojis']['misc']['warn']))
 
     @joinrole.command(name='toggle',
-                      brief='Toggle role on join',
+                      brief=_("Toggle role on join"),
                       aliases=['tog'])
     @admin(manage_roles=True)
     @commands.guild_only()
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def joinrole_toggle(self, ctx):
-        """ Toggle role on join on and off """
+        _(""" Toggle role on join on and off """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
 
@@ -1045,16 +1070,16 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await ctx.send(_("{0} I've successfuly disabled role on join.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
     @commands.command(name='muterole',
-                      brief='Set a custom mute role',
+                      brief=_("Set a custom mute role"),
                       aliases=['silentrole'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def muterole(self, ctx, arg: typing.Union[discord.Role, str]):
-        """ Setup a custom mute role in your server
-
-        You can also reset the mute role by using argument `reset`"""
+        _(""" Setup a custom mute role in your server
+        You can also reset the mute role by using argument `reset` """)
 
         mute_role = self.bot.cache.get(self.bot, 'mute_role', ctx.guild.id)
 
@@ -1084,15 +1109,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await ctx.send(_("{0} Updated the muted role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
 
     @commands.command(name='modrole',
-                      brief='Set a custom mod role',
+                      brief=_("Set a custom mod role"),
                       aliases=['moderatorrole'])
     @admin(administrator=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def modrole(self, ctx, arg: typing.Union[discord.Role, str]):
-        """ Setup a custom mod role in your server
-
-        You can also reset the mod role by using argument `reset`"""
+        _(""" Setup a custom mod role in your server
+        You can also reset the mod role by using argument `reset` """)
 
         mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
@@ -1124,15 +1149,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await ctx.send(_("{0} Changed a custom moderator role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
 
     @commands.command(name='adminrole',
-                      brief='Set a custom admin role',
+                      brief=_("Set a custom admin role"),
                       aliases=['administratorrole'])
     @admin(administrator=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @locale_doc
     async def adminrole(self, ctx, arg: typing.Union[discord.Role, str]):
-        """ Setup a custom admin role in your server
-
-        You can also reset the admin role by using argument `reset`"""
+        _(""" Setup a custom admin role in your server
+        You can also reset the admin role by using argument `reset` """)
 
         admin_role = self.bot.cache.get(self.bot, 'admin_role', ctx.guild.id)
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
@@ -1164,13 +1189,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await ctx.send(_("{0} Changed a custom admin role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
 
     @commands.command(name='disable-command',
-                      brief='Disable a command in the server',
+                      brief=_("Disable a command in the server"),
                       aliases=['disablecommand', 'discmd'])
     @admin(administrator=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def disable_command(self, ctx, *, command: str):
-        """ Disable commands in the server """
+        _(""" Disable a command in the server """)
 
         cmd = self.bot.get_command(command)
 
@@ -1199,13 +1225,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command}` was successfully disabled")
 
     @commands.command(name='enable-command',
-                      brief='Enable a command in the server',
+                      brief=_("Enable a command in the server"),
                       aliases=['enablecommand', 'enbcmd'])
     @admin(administrator=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def enable_command(self, ctx, *, command: str):
-        """ Enable commands in the server """
+        _(""" Enable a command in the server """)
 
         cmd = self.bot.get_command(command)
 
@@ -1234,13 +1261,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command}` was successfully re-enabled")
 
     @commands.command(name='disable-category',
-                      brief='Disable category in the server',
+                      brief=_("Disable category in the server"),
                       aliases=['disable-cog', 'disablecog'])
     @admin(administrator=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def disable_category(self, ctx, *, category: str):
-        """ Disable category you don't want people to use in the server """
+        _(""" Disable category you don't want people to use in the server """)
 
         cog = self.bot.get_cog(category.title())
 
@@ -1263,13 +1291,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         ))
 
     @commands.command(name='enable-category',
-                      brief='Enable category in the server',
+                      brief=_("Enable category in the server"),
                       aliases=['enable-cog', 'enablecog'])
     @admin(administrator=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def enable_category(self, ctx, *, category: str):
-        """ Enable category which you've previously disbled """
+        _(""" Enable category which you've previously disbled """)
 
         cog = self.bot.get_cog(category.title())
 
@@ -1288,23 +1317,27 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         ))
 
     @commands.group(name='reaction-roles',
-                    brief="Setup reaction roles in the server",
+                    brief=_("Setup reaction roles in the server"),
                     aliases=['rr', 'rroles', 'reactroles', 'reactionroles'],
                     invoke_without_command=True)
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True, manage_messages=True)
     @commands.guild_only()
+    @locale_doc
     async def reaction_roles(self, ctx):
+        _(""" Base command for managing reaction roles """)
         await ctx.send_help(ctx.command)
 
     @reaction_roles.command(name='new',
-                            brief="Create a new reaction role",
+                            brief=_("Create a new reaction role"),
                             aliases=['add'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True, manage_messages=True)
     @commands.max_concurrency(1, commands.cooldowns.BucketType.guild, wait=False)
     @commands.guild_only()
+    @locale_doc
     async def reaction_roles_add(self, ctx):
+        _(""" Start an interactive setup to create reaction roles """)
         try:
             def check(m):
                 return m.author == ctx.author and m.channel.id == ctx.channel.id
@@ -1549,12 +1582,13 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         except discord.errors.NotFound:
             return
 
-    @reaction_roles.command(name='list', aliases=['l'], brief="Get a list of reaction roles in the server")
+    @reaction_roles.command(name='list', aliases=['l'], brief=_("Get a list of reaction roles in the server"))
     @admin(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def reaction_roles_list(self, ctx):
-        """ Get a list of reaction roles in the server """
+        _(""" Get a list of reaction roles in the server """)
 
         check = await self.bot.db.fetch("SELECT * FROM reactionroles WHERE guild_id = $1", ctx.guild.id)
 
@@ -1601,12 +1635,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                           author=ctx.author)
         await paginator.paginate()
 
-    @reaction_roles.command(name='delete', aliases=['del'], brief="Delete reaction roles in the server")
+    @reaction_roles.command(name='delete', aliases=['del'], brief=_("Delete reaction roles in the server"))
     @admin(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
+    @locale_doc
     async def reaction_roles_delete(self, ctx, message_id: str):
-        """ Delete reaction roles in the server """
+        _(""" Delete reaction roles in the server """)
+
         if not message_id.isdigit():
             raise commands.BadArgument(_("Message ID must not include letters, only numbers"))
 
