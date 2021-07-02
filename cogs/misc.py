@@ -408,8 +408,8 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))
         elif check is None:
-            await self.bot.db.execute("INSERT INTO afk(user_id, guild_id, message, time) VALUES($1, $2, $3, $4)", ctx.author.id, ctx.guild.id, note, datetime.now())
-            self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"] = {'note': note, 'time': datetime.now()}
+            await self.bot.db.execute("INSERT INTO afk(user_id, guild_id, message, time) VALUES($1, $2, $3, $4)", ctx.author.id, ctx.guild.id, note, datetime.utcnow())
+            self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"] = {'note': note, 'time': datetime.utcnow()}
             await ctx.send(_("{0} ** Set your AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))
@@ -441,8 +441,8 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))
         elif check is None:
-            await self.bot.db.execute("INSERT INTO afk(user_id, message, time) VALUES($1, $2, $3)", ctx.author.id, note, datetime.now())
-            self.bot.afk[f"{str(ctx.author.id)}"] = {'note': note, 'time': datetime.now()}
+            await self.bot.db.execute("INSERT INTO afk(user_id, message, time) VALUES($1, $2, $3)", ctx.author.id, note, datetime.utcnow())
+            self.bot.afk[f"{str(ctx.author.id)}"] = {'note': note, 'time': datetime.utcnow()}
             await ctx.send(_("{0} ** Set your global AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))

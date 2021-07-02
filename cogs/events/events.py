@@ -304,7 +304,7 @@ class Events(commands.Cog):
         e.description = f"""
 **Guild:** {guild.name} ({guild.id})
 **Owner:** [{owner}](https://discord.com/users/{owner.id}) ({owner.id})
-**Created at:** {btime.human_timedelta(guild.created_at.replace(tzinfo=None), source=datetime.utcnow())}
+**Created at:** {btime.human_timedelta(guild.created_at, source=discord.utils.utcnow())}
 **Members:** {len(guild.humans)} users and {bots} bots (Total: {guild.member_count})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice
@@ -360,7 +360,7 @@ class Events(commands.Cog):
             e.description = f"""
 **Guild:** {guild.name} ({guild.id})
 **Owner:** [{guild.owner}](https://discord.com/users/{guild.owner.id}) ({guild.owner.id})
-**Created at:** {btime.human_timedelta(guild.created_at.replace(tzinfo=None), source=datetime.utcnow())}
+**Created at:** {btime.human_timedelta(guild.created_at)}
 **Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count if hasattr(guild, 'member_count') else len(guild.members)})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice
@@ -431,7 +431,7 @@ class Events(commands.Cog):
             if CM.get(self.bot, 'nicks_op', f'{before.id} - {before.guild.id}'):
                 return
             nick = before.nick or before.name
-            await self.bot.db.execute("INSERT INTO nicknames(user_id, guild_id, nickname, time) VALUES($1, $2, $3, $4)", after.id, after.guild.id, nick, datetime.now())
+            await self.bot.db.execute("INSERT INTO nicknames(user_id, guild_id, nickname, time) VALUES($1, $2, $3, $4)", after.id, after.guild.id, nick, datetime.utcnow())
 
     @commands.Cog.listener('on_message')
     async def afk_status(self, message):
@@ -452,7 +452,7 @@ class Events(commands.Cog):
             self.bot.afk.pop(f'{str(message.guild.id)}, {str(message.author.id)}')
         elif afks2:
             await message.channel.send(_("Welcome back {0}! You were away for **{1}**. Your AFK state has been removed.").format(
-                    message.author.mention, btime.human_timedelta(afks2['time'], suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
+                    message.author.mention, btime.human_timedelta(afks2['time'], source=datetime.utcnow(), suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
             await self.bot.db.execute("DELETE FROM afk WHERE user_id = $1", message.author.id)
             self.bot.afk.pop(f'{str(message.author.id)}')
 
@@ -467,7 +467,7 @@ class Events(commands.Cog):
                 member = message.guild.get_member(user.id)
                 to_send += (_("Hey! **{0}** has been AFK for **{1}**"
                               " for - **{2}**.").format(
-                                member.display_name, btime.human_timedelta(check['time'], suffix=None),
+                                member.display_name, btime.human_timedelta(check['time'], source=datetime.utcnow(), suffix=None),
                                 afkmsg
                             ))
                 try:
@@ -491,7 +491,7 @@ class Events(commands.Cog):
         if message.stickers != []:
             message.content += _("\n*Sticker* - {0}").format(message.stickers[0].name)
 
-        self.bot.snipes[message.channel.id] = {'message': message.content, 'deleted_at': datetime.now(), 'author': message.author.id, 'nsfw': message.channel.is_nsfw()}
+        self.bot.snipes[message.channel.id] = {'message': message.content, 'deleted_at': discord.utils.utcnow(), 'author': message.author.id, 'nsfw': message.channel.is_nsfw()}
 
 
 def setup(bot):
