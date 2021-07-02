@@ -234,8 +234,8 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             # },
             'US3': {
                 'host': self.bot.config.MUSIC_IP_US2,
-                'port': self.bot.config.MUSIC_PORT_EU1,
-                'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP_US2, self.bot.config.MUSIC_PORT_EU1),
+                'port': self.bot.config.MUSIC_PORT_US3,
+                'rest_uri': 'http://{0}:{1}'.format(self.bot.config.MUSIC_IP_US2, self.bot.config.MUSIC_PORT_US3),
                 'password': self.bot.config.MUSIC_US_PASSWORD,
                 'identifier': self.bot.config.MUSIC_NODE_US3,
                 'region': 'us_central'

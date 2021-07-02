@@ -334,15 +334,15 @@ class Events(commands.Cog):
         # deleting it. Ex here: https://cdn.dredd-bot.xyz/tI0o2y
         await asyncio.sleep(3)
 
-        if not ctx.guild.chunked:
-            await ctx.guild.chunk(cache=True)
-
         check = CM.get(self.bot, 'blacklist', guild.id)
 
         bots = len(guild.bots)
         tch = len(guild.text_channels)
         vch = len(guild.voice_channels)
-        ratio = f'{int(100 / guild.member_count * bots)}'
+        if hasattr(guild, 'member_count'):
+            ratio = f'{int(100 / guild.member_count * bots)}'
+        else:
+            ratio = f'{int(100 / len(guild.members) * bots)}'
         e = discord.Embed(timestamp=datetime.now(timezone.utc))
         e.set_author(name=guild.name, icon_url=guild.icon_url)
         with suppress(Exception):
@@ -361,7 +361,7 @@ class Events(commands.Cog):
 **Guild:** {guild.name} ({guild.id})
 **Owner:** [{guild.owner}](https://discord.com/users/{guild.owner.id}) ({guild.owner.id})
 **Created at:** {btime.human_timedelta(guild.created_at.replace(tzinfo=None), source=datetime.utcnow())}
-**Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count})
+**Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count if hasattr(guild, 'member_count') else len(guild.members)})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice
 **Icon url:** [Click here]({guild.icon_url})
@@ -373,7 +373,7 @@ class Events(commands.Cog):
             e.title = 'I\'ve left a guild'
             e.description = f"""
 **Guild:** {guild.name} ({guild.id})
-**Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count})
+**Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count if hasattr(guild, 'member_count') else len(guild.members)})
 **Users/Bots ratio:** {ratio}%
 **Icon url:** [Click here]({guild.icon_url})
 """
