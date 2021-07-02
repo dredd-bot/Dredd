@@ -447,12 +447,12 @@ class Events(commands.Cog):
         afks2 = CM.get(self.bot, 'afk', f'{str(message.author.id)}')
         if afks:
             await message.channel.send(_("Welcome back {0}! You were away for **{1}**. Your AFK state has been removed.").format(
-                    message.author.mention, btime.human_timedelta(afks['time'], suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
+                    message.author.mention, btime.human_timedelta(afks['time'], source=datetime.utcnow(), suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
             await self.bot.db.execute("DELETE FROM afk WHERE user_id = $1 AND guild_id = $2", message.author.id, message.guild.id)
             self.bot.afk.pop(f'{str(message.guild.id)}, {str(message.author.id)}')
         elif afks2:
             await message.channel.send(_("Welcome back {0}! You were away for **{1}**. Your AFK state has been removed.").format(
-                    message.author.mention, btime.human_timedelta(afks2['time'], suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
+                    message.author.mention, btime.human_timedelta(afks2['time'], source=datetime.utcnow(), suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
             await self.bot.db.execute("DELETE FROM afk WHERE user_id = $1", message.author.id)
             self.bot.afk.pop(f'{str(message.author.id)}')
 
@@ -467,7 +467,7 @@ class Events(commands.Cog):
                 member = message.guild.get_member(user.id)
                 to_send += (_("Hey! **{0}** has been AFK for **{1}**"
                               " for - **{2}**.").format(
-                                member.display_name, btime.human_timedelta(check['time'], suffix=None),
+                                member.display_name, btime.human_timedelta(check['time'], source=datetime.utcnow(), suffix=None),
                                 afkmsg
                             ))
                 try:
