@@ -333,7 +333,7 @@ class owner(commands.Cog, name="Owner"):
 
         try:
             message = await self.bot.get_guild(self.bot.settings['servers']['main']).get_channel(self.bot.settings['channels']['suggestions']).fetch_message(db_check[0]['msg_id'])
-            user = await self.bot.get_user(db_check[0]['user_id']) or '*unable to get*'
+            user = self.bot.get_user(db_check[0]['user_id']) or '*unable to get*'
             return await ctx.send(f"Displaying suggestion `#{suggestion}` suggested by {user}", embed=message.embeds[0])
         except discord.errors.NotFound:
             return await ctx.send("Was unable to fetch the message :/")
