@@ -491,7 +491,7 @@ class Events(commands.Cog):
         if message.stickers != []:
             message.content += _("\n*Sticker* - {0}").format(message.stickers[0].name)
 
-        self.bot.snipes[message.channel.id] = {'message': message.content, 'deleted_at': datetime.now(), 'author': message.author.id, 'nsfw': message.channel.is_nsfw()}
+        self.bot.snipes[message.channel.id] = {'message': message.content, 'deleted_at': discord.utils.utcnow(), 'author': message.author.id, 'nsfw': message.channel.is_nsfw()}
 
 
 def setup(bot):
