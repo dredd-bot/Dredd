@@ -183,8 +183,9 @@ class UserFriendlyTime(commands.Converter):
                 remaining = argument[:begin].strip()
 
             return await self.check_constraints(ctx, now, remaining)
+        except commands.BadArgument as exc:
+            return await ctx.send(exc)
         except Exception as exc:
-            return await ctx.channel.send(default.traceback_maker(exc))
             raise commands.BadArgument(_("Sorry, but I did not understand what you meant. You probably didn't specify the time "
                                          "or you specified it in another language (not English)"))
 
