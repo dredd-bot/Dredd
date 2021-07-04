@@ -366,7 +366,7 @@ class Events(commands.Cog):
 **Channels:** {tch} text / {vch} voice
 **Icon url:** [Click here]({guild.icon_url})
 """
-            e.add_field(name='Blacklist info:', value=f"Blacklisted by **{mod}** {btime.human_timedelta(check['issued'])}.\n**Reason:** {reason}\n**Liftable:** {lift}")
+            e.add_field(name='Blacklist info:', value=f"Blacklisted by **{mod}** {btime.human_timedelta(check['issued'], source=datetime.now())}.\n**Reason:** {reason}\n**Liftable:** {lift}")
             chan = self.bot.get_channel(self.bot.settings['channels']['joins-leaves'])
             return await chan.send(embed=e)
         else:
