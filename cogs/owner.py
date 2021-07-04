@@ -224,7 +224,7 @@ class owner(commands.Cog, name="Owner"):
             msg = []
             for num, res in enumerate(past, start=1):
                 dev = self.bot.get_user(res['dev'])
-                msg.append(f"`[{num}]` {escape_markdown(str(user), as_needed=False)} - {'Liftable' if res['liftable'] == 0 else 'Not liftable'}\nIssued by **{dev}** {btime.human_timedelta(res['issued'])}\n**Reason:** {res['reason']}\n")
+                msg.append(f"`[{num}]` {escape_markdown(str(user), as_needed=False)} - {'Liftable' if res['liftable'] == 0 else 'Not liftable'}\nIssued by **{dev}** {btime.human_timedelta(res['issued'], source=datetime.now())}\n**Reason:** {res['reason']}\n")
             e.add_field(name='Previous blacklists:', value=''.join(msg))
         await ctx.send(embed=e)
 
@@ -281,7 +281,7 @@ class owner(commands.Cog, name="Owner"):
         e.add_field(name='Other information:', value=f"""
 **Total channels/roles:** {len(guild.channels)} channels / {len(guild.roles)} roles
 **Server created at:** {default.date(guild.created_at)}
-**Joined server at:** {btime.human_timedelta(guild.get_member(self.bot.user.id).joined_at.replace(tzinfo=None), source=datetime.utcnow())} ({default.date(guild.get_member(self.bot.user.id).joined_at)})
+**Joined server at:** {btime.human_timedelta(guild.get_member(self.bot.user.id).joined_at)} ({default.date(guild.get_member(self.bot.user.id).joined_at)})
 **Prefix:** {escape_markdown(prefix)}
 **Language:** {language}
 **Mute role:** {f"{muterole.id}" if muterole else 'Not found'}
@@ -292,7 +292,7 @@ class owner(commands.Cog, name="Owner"):
             msg = []
             for num, res in enumerate(past, start=1):
                 dev = self.bot.get_user(res['dev'])
-                msg.append(f"`[{num}]` {escape_markdown(str(guild), as_needed=False)} - {'Liftable' if res['liftable'] == 0 else 'Not liftable'}\nIssued by **{dev}** {btime.human_timedelta(res['issued'])}\n**Reason:** {res['reason']}\n")
+                msg.append(f"`[{num}]` {escape_markdown(str(guild), as_needed=False)} - {'Liftable' if res['liftable'] == 0 else 'Not liftable'}\nIssued by **{dev}** {btime.human_timedelta(res['issued'], source=datetime.now())}\n**Reason:** {res['reason']}\n")
             e.add_field(name='Previous blacklists:', value=f"{sug_check}\n" + ''.join(msg), inline=False)
         e.set_thumbnail(url=guild.icon_url)
         await ctx.send(embed=e)
