@@ -713,7 +713,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                              "**Partner type:** {2}\n"
                              "**Partnered message:**\n>>> {3}").format(
                                  partnered,
-                                 btime.human_timedelta(res['time'], suffix=None),
+                                 btime.human_timedelta(res['time'], source=datetime.utcnow(), suffix=None),
                                  ptype,
                                  res['message']
                              ))
