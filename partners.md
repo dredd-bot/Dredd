@@ -13,14 +13,13 @@ Dredd is a multipurpose Discord bot that is aiming to become one of the best non
 • Automoderation
 • Role on Join
 • Leaving & Welcoming Messages
-• Todo List
+• Todo Lists
 • Message Sniping
-• Music
+• Music & Radios
 • Reaction Roles
 • Reminders
 
-**Invite Dredd now** - https://dredd-bot.xyz/invite
-**Join the support server** - https://discord.gg/f3MaASW
-```
+**Invite Dredd now** - <https://dredd-bot.xyz/invite>
+**Join the support server** - https://discord.gg/f3MaASW```
 
 #### Message must **not** be in a code block.
