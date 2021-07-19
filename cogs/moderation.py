@@ -39,6 +39,7 @@ class Arguments(argparse.ArgumentParser):
         raise RuntimeError(message)
 
 
+# noinspection PyProtectedMember
 class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     def __init__(self, bot):
         self.bot = bot
@@ -157,8 +158,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             return await ctx.send(_("{0} Nicknames can only be 32 characters long."
                                     " You're {1} characters over.").format(self.bot.settings['emojis']['misc']['warn'], len(new_nick) - 32))
 
-        if len(set(members)) > 10:
-            return await ctx.send(_("{0} | You can only change 10 members nickname at once."))
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only change 15 members nickname at once."))
 
         if len(set(members)) != 0:
             changed, failed, success, fail = [], [], 0, 0
@@ -312,8 +313,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
-        if len(set(members)) > 10:
-            return await ctx.send(_("{0} | You can only kick 10 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only kick 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
 
         if len(set(members)) != 0:
             kicked, failed, success_kick, success, fail = [], [], [], 0, 0
@@ -405,8 +406,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
-        if len(set(members)) > 10:
-            return await ctx.send(_("{0} | You can only ban 10 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only ban 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
 
         if len(set(members)) != 0:
             banned, failed, success_ban, success, fail = [], [], [], 0, 0
@@ -497,8 +498,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
-        if len(set(members)) > 10:
-            return await ctx.send(_("{0} | You can only soft-ban 10 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only soft-ban 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
 
         if len(set(members)) != 0:
             banned, failed, success_ban, success, fail = [], [], [], 0, 0
@@ -572,15 +573,13 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.guild_only()
     @commands.bot_has_permissions(ban_members=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
+    @commands.max_concurrency(1, commands.BucketType.guild)
     @locale_doc
     async def hackban(self, ctx, users: commands.Greedy[MemberID], *, reason: commands.clean_content = None):
         _(""" Hack-ban a user who's not in the server from the server. Users must be IDs else it won't work. """)
 
         if len(set(users)) == 0:
             raise commands.MissingRequiredArgument(self.hackban.params['users'])
-
-        if len(set(users)) > 20:
-            return await ctx.send(_("{0} | You can only hack-ban 20 users at once.").format(self.bot.settings['emojis']['misc']['warn']))
 
         reason = reason or None
 
@@ -607,6 +606,13 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                 failed.append(_("{0} User doesn't seem to exist, are you sure the ID is correct?").format(user))
                 fail_count += 1
                 continue
+
+            with suppress(discord.NotFound):
+                ban_check = await ctx.guild.fetch_ban(discord.Object(id=user.id))
+                if ban_check:
+                    failed.append(_("{0} ({0.id}) - **User is already banned.**").format(user))
+                    fail_count += 1
+                    continue
             reason = _('No reason provided.') if reason is None else reason
             await ctx.guild.ban(user, reason=default.responsible(ctx.author, reason), delete_message_days=0)
             success.append(_("{0} ({0.id})").format(user))
@@ -617,23 +623,31 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             booted, not_booted = "", ""
             if success and not failed:
                 booted += _("**I've successfully hack-banned {0} member(s):**\n").format(suc_count)
-                for num, res in enumerate(success, start=0):
+                for num, res in enumerate(success[:15], start=0):
                     booted += f"`[{num+1}]` {res}\n"
+                if len(success) > 15:
+                    booted += f"**(+{len(success) - 15})**"
                 await ctx.send(booted)
                 self.bot.dispatch('hackban', ctx.guild, ctx.author, banned, reason)
             if success and failed:
                 booted += _("**I've successfully hack-banned {0} member(s):**\n").format(suc_count)
                 not_booted += _("**However, I failed to hack-ban the following {0} member(s):**\n").format(fail_count)
-                for num, res in enumerate(success, start=0):
+                for num, res in enumerate(success[:15], start=0):
                     booted += f"`[{num+1}]` {res}\n"
-                for num, res in enumerate(failed, start=0):
+                for num, res in enumerate(failed[:15], start=0):
                     not_booted += f"`[{num+1}]` {res}\n"
+                if len(success) > 15:
+                    booted += f"**(+{len(success) - 15})**"
+                if len(failed) > 15:
+                    not_booted += f"**(+{len(failed) - 15})**"
                 await ctx.send(booted + not_booted)
                 self.bot.dispatch('hackban', ctx.guild, ctx.author, banned, reason)
             if not success and failed:
                 not_booted += _("**I failed to hack-ban all the members:**\n")
-                for num, res in enumerate(failed, start=0):
+                for num, res in enumerate(failed[:15], start=0):
                     not_booted += f"`[{num+1}]` {res}\n"
+                if len(failed) > 15:
+                    not_booted += f"**(+{len(failed) - 15})**"
                 await ctx.send(not_booted)
         except Exception as e:
             self.bot.dispatch('silent_error', ctx, e)
@@ -776,8 +790,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
-        if len(set(members)) > 10:
-            return await ctx.send(_("{0} | You can only mute 10 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only mute 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
 
         if muterole.position > ctx.guild.me.top_role.position:
             return await ctx.send(_("{0} | The muted role is above me in the role hierarchy, "
@@ -891,8 +905,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
-        if len(set(members)) > 10:
-            return await ctx.send(_("{0} | You can only unmute 10 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only unmute 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
 
         if muterole.position > ctx.guild.me.top_role.position:
             return await ctx.send(_("{0} | The muted role is above me in the role hierarchy, "
@@ -999,8 +1013,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
-        if len(set(members)) > 10:
-            return await ctx.send(_("{0} | You can only voice mute 10 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only voice mute 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
 
         if len(set(members)) != 0:
             voice_muted, notmuted, success_vmute, success, fail = [], [], [], 0, 0
@@ -1090,8 +1104,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
-        if len(set(members)) > 10:
-            return await ctx.send(_("{0} | You can only voice unmute 10 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only voice unmute 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
 
         if len(set(members)) != 0:
             voice_unmuted, notmuted, success_unvmute, success, fail = [], [], [], 0, 0
@@ -1175,8 +1189,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
-        if len(set(members)) > 10:
-            return await ctx.send(_("{0} | You can only warn 10 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only warn 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
 
         if len(set(members)) > 0:
             warned, failed, success_warn, success, fail = [], [], [], 0, 0
@@ -1762,8 +1776,29 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_permissions(manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def reason(self, ctx, case_id: int, *, new_reason: str):
-        _(""" Edit the reason of a case """)
+    @commands.max_concurrency(1, commands.BucketType.guild)
+    async def reason(self, ctx, case_id: str, *, new_reason: str):
+        _(""" Edit the reason of a case. You can also edit multiple cases by adding `~` before a number """)
+
+        last_cases = None
+        if case_id.isdigit():
+            case_id = int(case_id)
+        elif not case_id.isdigit():
+            if case_id.startswith('~'):
+                case_id = case_id[1:]
+                if not case_id.isdigit():
+                    return await ctx.send(_("{0} The format for editing multiple cases is wrong, the correct format is `~<number of cases>`").format(
+                        self.bot.settings['emojis']['misc']['warn']
+                    ))
+                else:
+                    try:
+                        last_cases = int(case_id)
+                    except ValueError:
+                        return await ctx.send(_("{0} Please make sure the number is valid.").format(self.bot.settings['emojis']['misc']['warn']))
+            else:
+                return await ctx.send(_("{0} The format for editing multiple cases is wrong, the correct format is `~<number of cases>`").format(
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
         if new_reason and len(new_reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
@@ -1771,32 +1806,69 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                                         self.bot.settings['emojis']['misc']['warn'], len(new_reason) - 450
                                     ))
 
-        case_check = await self.bot.db.fetch("SELECT * FROM modlog WHERE guild_id = $1 AND case_num = $2", ctx.guild.id, case_id)
+        if last_cases:
+            total_cases = cm.get(self.bot, 'case_num', ctx.guild.id)
+            if not total_cases:
+                return await ctx.send(_("{0} Can't seem to find any cases in this server.").format(self.bot.settings['emoji']['misc']['warn']))
+            elif last_cases > total_cases:
+                return await ctx.send(_("{0} There are only {1} cases available to edit.").format(self.bot.settings['emoji']['misc']['warn'], total_cases))
 
-        if not case_check:
-            return await ctx.send(_("{0} Case `#{1}` doesn't exist.").format(self.bot.settings['emojis']['misc']['warn'], case_id))
+            else:
+                await ctx.send(_("{0} Started editing last {1} case(s), this might take a while.").format(ctx.bot.settings['emojis']['misc']['loading'], total_cases))
+                edited, edited_cases = 0, []
+                for loop in range(last_cases):
+                    case_id = total_cases - (last_cases - edited)
+                    case_check = await self.bot.db.fetch("SELECT * FROM modlog WHERE guild_id = $1 AND case_num = $2", ctx.guild.id, case_id)
+                    if case_check:
+                        channel = ctx.guild.get_channel(case_check[0]['channel_id'])
+                        try:
+                            message = await channel.fetch_message(case_check[0]['message_id'])
+                        except Exception:
+                            message = None
+                        edited += 1
+                        if message:
+                            old_reason = await self.bot.db.fetchval("SELECT reason FROM modlog WHERE guild_id = $1 AND case_num = $2", ctx.guild.id, case_id)
+                            old_reason = old_reason or "No reason"
+                            embed = message.embeds[0]
+                            new_description = embed.description[:-len(old_reason)] + new_reason  # not using .replace cause then it replaces even usernames etc
+                            embed.description = new_description
+                            await message.edit(embed=embed)
+                            query = 'UPDATE modlog SET reason = $1 WHERE guild_id = $2 AND case_num = $3'
+                            await self.bot.db.execute(query, new_reason, ctx.guild.id, case_id)
+                            edited_cases.append(str(case_id))
+                            await asyncio.sleep(2)  # to make sure we don't get ratelimited
+                if edited_cases:
+                    return await ctx.send(_("{0} Successfully edited cases - {1}").format(self.bot.settings['emojis']['misc']['white-mark'], '`' + '`, `'.join(edited_cases) + '`'))
+                else:
+                    return await ctx.send(_("{0} Failed to edit last {1} case(s), this might be because the log message was deleted").format(self.bot.settings['emojis']['misc']['warn'], last_cases))
 
-        channel = ctx.guild.get_channel(case_check[0]['channel_id'])
-        try:
-            message = await channel.fetch_message(case_check[0]['message_id'])
-        except discord.NotFound:
-            return await ctx.send(_("{0} Unknown message! Make sure I have permissions "
-                                    "to see the logging channel and if that message exists.").format(self.bot.settings['emojis']['misc']['warn']))
-        except discord.Forbidden:
-            return await ctx.send(_("{0} Looks like I'm missing permissions to get that message").format(self.bot.settings['emojis']['misc']['warn']))
-        except discord.HTTPException:
-            return await ctx.send(_("{0} Retrieving the message failed.").format(self.bot.settings['emojis']['misc']['warn']))
+        else:
+            case_check = await self.bot.db.fetch("SELECT * FROM modlog WHERE guild_id = $1 AND case_num = $2", ctx.guild.id, case_id)
 
-        old_reason = await self.bot.db.fetchval("SELECT reason FROM modlog WHERE guild_id = $1 AND case_num = $2", ctx.guild.id, case_id)
-        old_reason = old_reason or "No reason"
-        embed = message.embeds[0]
-        new_description = embed.description[:-len(old_reason)] + new_reason  # not using .replace cause then it replaces even usernames etc
-        embed.description = new_description
-        await message.edit(embed=embed)
-        query = 'UPDATE modlog SET reason = $1 WHERE guild_id = $2 AND case_num = $3'
-        await self.bot.db.execute(query, new_reason, ctx.guild.id, case_id)
+            if not case_check:
+                return await ctx.send(_("{0} Case `#{1}` doesn't exist.").format(self.bot.settings['emojis']['misc']['warn'], case_id))
 
-        await ctx.channel.send(content=_('Successfully edited case `#{0}` reason').format(case_id), embed=embed)
+            channel = ctx.guild.get_channel(case_check[0]['channel_id'])
+            try:
+                message = await channel.fetch_message(case_check[0]['message_id'])
+            except discord.NotFound:
+                return await ctx.send(_("{0} Unknown message! Make sure I have permissions "
+                                        "to see the logging channel and if that message exists.").format(self.bot.settings['emojis']['misc']['warn']))
+            except discord.Forbidden:
+                return await ctx.send(_("{0} Looks like I'm missing permissions to get that message").format(self.bot.settings['emojis']['misc']['warn']))
+            except discord.HTTPException:
+                return await ctx.send(_("{0} Retrieving the message failed.").format(self.bot.settings['emojis']['misc']['warn']))
+
+            old_reason = await self.bot.db.fetchval("SELECT reason FROM modlog WHERE guild_id = $1 AND case_num = $2", ctx.guild.id, case_id)
+            old_reason = old_reason or "No reason"
+            embed = message.embeds[0]
+            new_description = embed.description[:-len(old_reason)] + new_reason  # not using .replace cause then it replaces even usernames etc
+            embed.description = new_description
+            await message.edit(embed=embed)
+            query = 'UPDATE modlog SET reason = $1 WHERE guild_id = $2 AND case_num = $3'
+            await self.bot.db.execute(query, new_reason, ctx.guild.id, case_id)
+
+            await ctx.channel.send(content=_('Successfully edited case `#{0}` reason').format(case_id), embed=embed)
 
     @commands.command(brief=_("Delete existing case"), aliases=['removecase', 'remove'])
     @moderator(manage_messages=True)
@@ -1870,7 +1942,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         embed = message.embeds[0]
         await ctx.send(content=_("Showing you case `#{0}` information").format(case_id), embed=embed)
 
-    @commands.command(brief=_("Check user history of punishments"), aliases=['punishments'])
+    @commands.command(brief=_("Check user history of punishments"), aliases=['punishments', 'warnings'])
     @moderator(manage_messages=True)
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)

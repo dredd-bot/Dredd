@@ -21,11 +21,12 @@ import json
 import aiohttp
 import db.cache
 import urllib
+import wavelink
 
 from discord.ext import commands
 
 from utils.Nullify import clean
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from utils.publicflags import UserFlags, BotFlags
 from discord.utils import escape_markdown
 from utils.btime import human_timedelta, FutureTime
@@ -198,7 +199,7 @@ def bot_acknowledgements(ctx, result, simple=False):
         "bug_hunter_lvl1": f"{ctx.bot.settings['emojis']['ranks']['bug_hunter_lvl1']} " + _("Dredd Bug Hunter"),
         "bug_hunter_lvl2": f"{ctx.bot.settings['emojis']['ranks']['bug_hunter_lvl2']} " + _("Dredd BETA Bug Hunter"),
         "early": f"{ctx.bot.settings['emojis']['ranks']['early']} " + _("Dredd Early Supporter"),
-        "early_supporter": f"{ctx.bot.settings['emojis']['ranks']['early_supporter']} " + _("Dredd super early supporter"),
+        "early_supporter": f"{ctx.bot.settings['emojis']['ranks']['early_supporter']} " + _("Dredd Super Early Supporter"),
         "blocked": f"{ctx.bot.settings['emojis']['ranks']['blocked']} " + _("Blacklisted user"),
         "duck": "🦆 " + _("A special badge for Duck :duck:")
     }
@@ -295,13 +296,15 @@ async def execute_temporary(ctx, action, user, mod, guild, role, duration, reaso
         duration = duration.dt.replace(tzinfo=None)
 
     if action == 1:
-        await ctx.bot.db.execute("INSERT INTO modactions(time, user_id, action, guild_id, mod_id, role_id, reason) VALUES($1, $2, $3, $4, $5, $6, $7)", None if duration is None else duration, user.id, action, guild.id, mod.id, role.id, reason)
+        await ctx.bot.db.execute("INSERT INTO modactions(time, user_id, action, guild_id, mod_id, role_id, reason) VALUES($1, $2, $3, $4, $5, $6, $7)", None if duration is None else duration, user.id, action, guild.id,
+                                 mod.id, role.id, reason)
         if duration:
             ctx.bot.temp_mutes[f"{user.id}, {guild.id}"] = {'time': duration, 'reason': reason, 'role': role.id, 'moderator': mod.id}
         elif not duration:
             ctx.bot.mutes[f"{user.id}, {guild.id}"] = {'reason': reason, 'role': role.id, 'moderator': mod.id}
     elif action == 2:
-        await ctx.bot.db.execute("INSERT INTO modactions(time, user_id, action, guild_id, mod_id, role_id, reason) VALUES($1, $2, $3, $4, $5, $6, $7)", None if duration is None else duration, user.id, action, guild.id, mod.id, None, reason)
+        await ctx.bot.db.execute("INSERT INTO modactions(time, user_id, action, guild_id, mod_id, role_id, reason) VALUES($1, $2, $3, $4, $5, $6, $7)", None if duration is None else duration, user.id, action, guild.id,
+                                 mod.id, None, reason)
         if duration:
             ctx.bot.temp_bans[f"{user.id}, {guild.id}"] = {'time': duration, 'reason': reason, 'moderator': mod.id}
         elif not duration:
@@ -312,8 +315,10 @@ async def execute_untemporary(ctx, action, user, guild):
     await ctx.bot.db.execute("DELETE FROM modactions WHERE user_id = $1 AND guild_id = $2", user.id, guild.id)
     if action == 1:
         ctx.bot.temp_mutes.pop(f"{user.id}, {guild.id}", None)
+        ctx.bot.mutes.pop(f"{user.id}, {guild.id}", None)
     elif action == 2:
         ctx.bot.temp_bans.pop(f"{user.id}, {guild.id}", None)
+        ctx.bot.bans.pop(f"{user.id}, {guild.id}", None)
 
 
 async def get_muterole(ctx, guild, error=False):
@@ -514,7 +519,7 @@ async def dm_reply(ctx, message):
         return res.text
     except Exception as e:
         ctx.bot.dispatch('silent_error', ctx, e)
-        ctx.bot.auto_reply = False
+        ctx.bot.auto_creply = False
         message = "Chat bot would've replied to you but looks like he has ran away"
         return message
 
@@ -529,3 +534,61 @@ def automod_values(value):
     }
 
     return values[value]
+
+
+async def spotify_support(ctx, spotify, search_type, spotify_id, Track, Player) -> None:
+    player = ctx.bot.wavelink.get_player(guild_id=ctx.guild.id, cls=Player, context=ctx)
+    spotify_client = spotify.Client(ctx.bot.config.SPOTIFY_CLIENT, ctx.bot.config.SPOTIFY_SECRET)
+    spotify_http_client = spotify.HTTPClient(ctx.bot.config.SPOTIFY_CLIENT, ctx.bot.config.SPOTIFY_SECRET)
+
+    if search_type == "playlist":
+        results = spotify.Playlist(client=spotify_client, data=await spotify_http_client.get_playlist(spotify_id))
+        try:
+            search_tracks = await results.get_all_tracks()
+        except Exception:
+            raise commands.CommandError(_("I was not able to find this playlist! Please try again or use a different link."))
+
+    elif search_type == "album":
+        results = await spotify_client.get_album(spotify_id=spotify_id)
+        try:
+            search_tracks = await results.get_all_tracks()
+        except Exception:
+            raise commands.CommandError(_("I was not able to find this album! Please try again or use a different link."))
+
+    elif search_type == 'track':
+        results = await spotify_client.get_track(spotify_id=spotify_id)
+        search_tracks = [results]
+
+    tracks = [
+        Track('spotify',
+              {
+                  'title': track.name or 'Unknown', 'author': ', '.join(artist.name for artist in track.artists) or 'Unknown',
+                  'length': track.duration or 0, 'identifier': track.id or 'Unknown', 'uri': track.url or 'spotify',
+                  'isStream': False, 'isSeekable': False, 'position': 0, 'thumbnail': track.images[0].url if track.images else None
+              },
+              requester=ctx.author,
+              ) for track in search_tracks
+    ]
+
+    if not tracks:
+        raise commands.CommandError(_("The URL you put is either not valid or doesn't exist!"))
+
+    if search_type == "playlist":
+        for track in tracks:
+            player.queue.put_nowait(track)
+
+        await ctx.send(_('{0} Added the playlist **{1}**'
+                         ' with {2} songs to the queue!').format('🎶', results.name, len(tracks)), delete_after=15)
+    elif search_type == "album":
+        for track in tracks:
+            player.queue.put_nowait(track)
+
+        await ctx.send(_('{0} Added the album **{1}**'
+                         ' with {2} songs to the queue!').format('🎶', results.name, len(tracks)), delete_after=15)
+    else:
+        if player.is_playing:
+            await ctx.send(_('{0} Added **{1}** to the Queue!').format('🎶', tracks[0].title), delete_after=15)
+        player.queue.put_nowait(tracks[0])
+
+    if not player.is_playing:
+        await player.do_next()

@@ -15,6 +15,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import discord
 import asyncio
+import re
 
 from discord.ext import commands
 from discord.utils import escape_markdown
@@ -23,6 +24,9 @@ from db.cache import CacheManager as CM
 from utils import btime, checks, default
 from datetime import datetime, timedelta, timezone
 from contextlib import suppress
+
+LINKS = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|%[0-9a-fA-F][0-9a-fA-F])+")
+INVITE = re.compile(r'discord(?:\.com/invite|app\.com/invite|\.gg)/?([a-zA-Z0-9\-]{2,32})')
 
 
 class Events(commands.Cog):
@@ -34,8 +38,11 @@ class Events(commands.Cog):
         if await ctx.bot.is_admin(ctx.author):
             return True
 
-        # if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author):
-        #     return
+        if ctx.guild.id == 835844760194908160:
+            return True
+
+        if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author):
+            return
 
         if ctx.bot.user.id == 663122720044875796 and CM.get(ctx.bot, 'testers', ctx.guild.id):
             return True
@@ -65,7 +72,7 @@ class Events(commands.Cog):
         m += "\nName: {0} ({0.id})".format(self.bot.user)
         m += f"\nTime taken to boot: {btime.human_timedelta(self.bot.uptime, suffix=None)}"
         print(m)
-        await self.bot.change_presence(status='online', activity=discord.Activity(type=discord.ActivityType.playing, name="-help"))
+        await self.bot.change_presence(status='online', activity=discord.Activity(type=discord.ActivityType.playing, name="-help or @Dredd help"))
 
         support_guild = self.bot.get_guild(self.bot.settings['servers']['main'])
         await support_guild.chunk(cache=True)
@@ -93,6 +100,8 @@ class Events(commands.Cog):
                 return await message.channel.send(_("My prefix in this server is `{0}` or {1}!").format(prefix, self.bot.user.mention))
 
         elif ctx.guild is None:
+            if self.bot.user.id == 663122720044875796 and not await self.bot.is_owner(message.author):
+                return
             check = CM.get(self.bot, 'dms', message.author.id)
             blacklist = CM.get(self.bot, 'blacklist', message.author.id)
             if blacklist:
@@ -131,6 +140,15 @@ class Events(commands.Cog):
             if not dmid:
                 self.bot.dm[total_dms + 1] = message.author.id
                 dmid = total_dms + 1
+
+            invites = INVITE.findall(message.content)
+            links = LINKS.findall(message.content)
+            if invites:
+                for invite in invites:
+                    message.content = message.content.replace(invite, f"{self.bot.support.split('/')[3]}")
+            if links:
+                for link in links:
+                    message.content = message.content.replace(link, '[link](https://cdn.dredd-bot.xyz/iOGRhc)')
 
             msgembed = discord.Embed(
                 description=message.content, color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
@@ -254,7 +272,7 @@ class Events(commands.Cog):
             print("Updated the stats - guild join")
 
         prefix = self.bot.settings['default']['prefix']
-        await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix) VALUES($1, $2) ON CONFLICT (guild_id) DO UPDATE SET prefix = $2 WHERE guilds.guild_id = $1", guild.id, prefix)
+        await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix, language) VALUES($1, $2) ON CONFLICT (guild_id) DO UPDATE SET prefix = $2 WHERE guilds.guild_id = $1", guild.id, prefix, 'en_US')
         self.bot.prefix[guild.id] = prefix
         Zenpa = self.bot.get_user(373863656607318018) or "Zenpa#6736"
         Moksej = self.bot.get_user(345457928972533773) or "Moksej#3335"

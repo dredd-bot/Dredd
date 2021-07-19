@@ -248,7 +248,7 @@ class Logging(commands.Cog):
                     mod = entry.user
                     reason += f"{entry.reason}"
 
-        if mod == self.bot.user:
+        if mod == self.bot.user or not mod:
             return
         reason = reason if reason != "None" else "No reason"
 
@@ -282,13 +282,13 @@ class Logging(commands.Cog):
         if not guild.me.guild_permissions.view_audit_log:
             return
         mod, reason = None, ""
-        async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=50):
+        async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=5):
             if entry.target == user:
-                if (discord.utils.utcnow() - entry.created_at).total_seconds() < 3:
+                if (discord.utils.utcnow() - entry.created_at).total_seconds() < 4:
                     mod = entry.user
                     reason += f"{entry.reason}"
 
-        if mod == self.bot.user:
+        if mod == self.bot.user or not mod:
             return
         reason = reason if reason != "None" else "No reason"
 
@@ -554,6 +554,8 @@ class Logging(commands.Cog):
                 leavemessage = leavemessage.replace("{{member.name}}", discord.utils.escape_markdown(member.name, as_needed=True))
                 leavemessage = leavemessage.replace("{{server.name}}", member.guild.name)
                 leavemessage = leavemessage.replace("{{server.members}}", str(member.guild.member_count))
+                leavemessage = leavemessage.replace("{0}", member.display_name)
+                leavemessage = leavemessage.replace("{1}", str(member.guild.member_count))
             all_mentions = discord.AllowedMentions(users=True, roles=False, everyone=False)
 
             if is_embed:

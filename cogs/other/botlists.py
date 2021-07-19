@@ -31,25 +31,14 @@ class DiscordExtremeList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.update_stats.start()
-        self.delapi = delpy.Client(bot, bot.config.DEL_TOKEN, loop=bot.loop)
+        self.delapi = delpy.Client(bot, bot.config.DEL_TOKEN)
+        self.delapi.start_loop(wait_for=1800)
 
         self.help_icon = ''
         self.big_icon = ''
 
     def cog_unload(self):
-        self.update_stats.cancel()
-
-    @tasks.loop(minutes=30.0)
-    async def update_stats(self):
-        try:
-            await self.delapi.post_stats(guildCount=len(self.bot.guilds), shardCount=len(self.bot.shards))
-        except Exception as e:
-            await botlist_exception(self, 'Discord Extreme List', e)
-
-    @update_stats.before_loop
-    async def before_guild_delete(self):
-        await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started posting guild count to DiscordExtremeList")
+        self.delapi.cancel_loop()
 
 
 class DiscordLabs(commands.Cog):

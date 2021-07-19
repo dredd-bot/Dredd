@@ -25,7 +25,6 @@ import psutil
 import sr_api
 import async_cleverbot as ac
 
-
 from discord.ext import commands
 from db.cache import LoadCache, CacheManager
 from utils import i18n
@@ -182,6 +181,7 @@ class Bot(commands.AutoShardedBot):
         self.updates = {}
         self.snipes = {}
         self.sr_api = sr_api.Client()
+        self.voted = {}
 
         self.guilds_data = {}
         self.loop = asyncio.get_event_loop()

@@ -24,15 +24,17 @@ import datetime
 import async_timeout
 import math
 import random
+import spotify
 
 from discord.ext import commands
 from utils.checks import check_music, is_admin, has_voted, test_command
 from utils.paginator import Pages
 from contextlib import suppress
 from utils.i18n import locale_doc
-from utils.default import background_error
+from utils.default import background_error, spotify_support
 
 RURL = re.compile(r'https?://(?:www\.)?.+')
+SPOTIFY_RURL = re.compile(r'https?://open.spotify.com/(?P<type>album|playlist|track)/(?P<id>[a-zA-Z0-9]+)')
 
 
 class Track(wavelink.Track):
@@ -104,20 +106,27 @@ class Player(wavelink.Player):
                     pass
 
         mode247 = self.bot.cache.get(self.bot, 'mode247', self.context.guild.id)
+        spotify_track = None
         if self.loop == 0:
             try:
                 self.waiting = True
                 with async_timeout.timeout(300):
-                    track = await self.queue.get()
+                    track = self.queue.get_nowait()
+                    if track.id == "spotify":
+                        spotify_track = await self.bot.wavelink.get_tracks(f"ytsearch:{track.title} {track.author} audio")
+                        track = Track(spotify_track[0].id, spotify_track[0].info, requester=track.requester)
             except asyncio.TimeoutError:
                 # No music has been played for 5 minutes, cleanup and disconnect...
                 if not mode247:
                     return await self.teardown()
         elif self.loop != 0:
-            track = await self.queue.get()
+            track = self.queue.get_nowait()
             if self.loop == 1:
                 self.queue._queue.appendleft(track)
             else:
+                if track.id == "spotify":
+                    spotify_track = await self.bot.wavelink.get_tracks(f"ytsearch:{track.title} {track.author} audio")
+                    track = Track(spotify_track[0].id, spotify_track[0].info, requester=track.requester)
                 await self.queue.put(track)
 
         try:
@@ -294,7 +303,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
                         self.bot.mode247[member.guild.id]['last_connection'] = datetime.datetime.utcnow()
                         await player.set_pause(True)
 
-            elif mode247 and after.channel.id == mode247['channel'] and not member.bot:
+            elif mode247 and not before.channel and after.channel.id == mode247['channel'] and not member.bot:
                 player = self.bot.wavelink.get_player(member.guild.id, cls=Player)
                 if player.is_paused:
                     await player.set_pause(False)
@@ -359,18 +368,22 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             await player.connect(channel.id)
 
         query = query.strip('<>')
-        if not RURL.match(query):
+        if not RURL.match(query) and not SPOTIFY_RURL.match(query):
             query = f'ytsearch:{query}'
+        elif SPOTIFY_RURL.match(query):
+            url_check = SPOTIFY_RURL.match(query)
+            search_type = url_check.group('type')
+            search_id = url_check.group('id')
+
+            return await spotify_support(ctx, spotify=spotify, search_type=search_type, spotify_id=search_id, Track=Track, Player=Player)
 
         tracks = await self.bot.wavelink.get_tracks(query)
         if not tracks:
             return await ctx.send(_('No songs were found with that query. Please try again.'), delete_after=15)
 
         if isinstance(tracks, wavelink.TrackPlaylist):
-            print('yes')
             length = 0
             for track in tracks.tracks:
-                track = Track(track.id, track.info, requester=ctx.author)
                 await player.queue.put(track)
                 length += track.length
             try:
@@ -530,6 +543,9 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
 
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
+        if player.current.is_stream:
+            return await ctx.send(_("{0} You cannot pause live streams.").format(self.bot.settings['emojis']['misc']['warn']))
+
         if self.is_dj(ctx):
             await player.set_pause(True)
             return await ctx.send(_('{0} An admin or DJ has stopped the player.').format(self.bot.settings['emojis']['misc']['white-mark']), delete_after=20)
@@ -643,21 +659,41 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     @locale_doc
-    async def seek(self, ctx, seconds: int = None):
+    async def seek(self, ctx, seconds: str):
         _(""" Seek the currently playing song """)
         player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
 
         if player.current.is_stream:
             return await ctx.send(_("{0} Can't do that on a stream.").format(self.bot.settings['emojis']['misc']['warn']))
 
-        seconds = seconds or 0
-
-        if 0 < (player.position + (seconds * 1000)) < player.current.length:  # should be 0 < x < end
-            seek = player.position + (seconds * 1000)
-        elif not (player.current.length - (seconds * 1000)) < player.current.length:
-            seek = 0
-        elif (player.position + (seconds * 1000)) > player.current.length:  # past the end
-            return await ctx.send(_("{0} You can't seek past the song.").format(self.bot.settings['emojis']['misc']['warn']))
+        if seconds.isdigit():
+            seconds = int(seconds)
+            if 0 < (player.position + (seconds * 1000)) < player.current.length:  # should be 0 < x < end
+                seek = player.position + (seconds * 1000)
+            elif not (player.current.length - (seconds * 1000)) < player.current.length:
+                seek = 0
+            elif (player.position + (seconds * 1000)) > player.current.length:  # past the end
+                return await ctx.send(_("{0} You can't seek past the song.").format(self.bot.settings['emojis']['misc']['warn']))
+        else:
+            seconds = seconds.split(':')
+            if len(seconds) > 3 or len(seconds) == 1:
+                return await ctx.send(_("{0} Time format doesn't seem to be correct, make sure it's `x:xx:xx` for hours, `x:xx` for minutes and `xx` for seconds.").format(
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
+            if len(seconds) == 3:
+                hours, minutes, secs = seconds[0], seconds[1], seconds[2]
+            elif len(seconds) == 2:
+                hours, minutes, secs = '0', seconds[0], seconds[1]
+            if not hours.isdigit() or not minutes.isdigit() or not secs.isdigit():
+                return await ctx.send(_("{0} The time you've provided contains letters, please make sure you only use numbers").format(
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
+            else:
+                hours, minutes, secs = int(hours) * 60 * 60, int(minutes) * 60, int(secs)
+                seconds = hours + minutes + secs
+                seek = seconds * 1000
+                if (seconds * 1000) > player.current.length:  # past the end
+                    return await ctx.send(_("{0} You can't seek past the song.").format(self.bot.settings['emojis']['misc']['warn']))
 
         await player.seek(seek)
         await ctx.send(_("{0} Seeked the current song to `{1}/{2}`").format(self.bot.settings['emojis']['misc']['white-mark'], self.chop_microseconds(datetime.timedelta(milliseconds=int(round(seek)))), str(datetime.timedelta(milliseconds=int(player.current.length)))))
@@ -706,25 +742,49 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         total_duration = 0
         for num, item in list(enumerate(itertools.islice(player.queue._queue, 0, player.queue.qsize()), start=1)):
             if not item.is_stream:
-                upcoming.append(f"`[{num}]` {item} ({str(datetime.timedelta(milliseconds=int(item.length)))})\n")
+                upcoming.append(f"`[{num}]` {item} ({str(self.chop_microseconds(datetime.timedelta(milliseconds=int(item.length))))})\n")
                 total_duration += item.length
             else:
                 upcoming.append(f"`[{num}]` {item} (Live Stream)\n")
 
         if total_duration != 0:
-            title = _("{0} Queue. Duration: {1}").format(ctx.guild.name, str(datetime.timedelta(milliseconds=int(total_duration))))
+            footer = _("Total songs in the queue: {0} | Duration: {1}").format(player.queue.qsize(), str(self.chop_microseconds(datetime.timedelta(milliseconds=int(total_duration)))))
         elif total_duration == 0:
-            title = _("{0} Queue.").format(ctx.guild.name)
+            footer = _("Total songs in the queue: {0}").format(player.queue.qsize())
 
         paginator = Pages(ctx,
-                          title=title,
+                          title=_("{0} Queue").format(ctx.guild.name),
                           entries=upcoming,
                           thumbnail=None,
                           per_page=10,
                           embed_color=self.bot.settings['colors']['embed_color'],
-                          footertext=_("Total songs in the queue: {0}").format(player.queue.qsize()),
+                          footertext=footer,
                           author=ctx.author)
         await paginator.paginate()
+
+    @commands.command(aliases=['rq', 'removequeue', 'remqueue'], name='remove-queue',
+                      brief=_("Remove a song from the queue"))
+    @check_music(author_channel=True, bot_channel=True, same_channel=True, verify_permissions=True, is_playing=True, is_paused=False)
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    @commands.bot_has_permissions(use_external_emojis=True)
+    @commands.guild_only()
+    @locale_doc
+    async def remove_queue(self, ctx, song_pos: int):
+        _(""" Remove a song from the queue """)
+        player = self.bot.wavelink.get_player(ctx.guild.id, cls=Player, context=ctx)
+
+        if not player.queue._queue:
+            return await ctx.send(_('There are no songs in the queue.'), delete_after=20)
+
+        total_songs = player.queue.qsize()
+        if song_pos > total_songs:
+            return await ctx.send(_("{0} There are only {1} songs in the queue").format(self.bot.settings['emojis']['misc']['warn'], total_songs))
+
+        song_name = player.queue._queue[song_pos - 1].title
+        del player.queue._queue[song_pos - 1]
+        return await ctx.send(_("{0} Removed song {1} from the queue, there are now {2} songs left in the queue.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], song_name, player.queue.qsize()
+        ))
 
     @commands.command(aliases=['cq', 'clearqueue'], name='clear-queue',
                       brief=_("Clear all the songs from the queue"))

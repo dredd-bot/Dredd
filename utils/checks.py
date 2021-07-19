@@ -18,7 +18,7 @@ import aiohttp
 
 from discord.ext import commands
 from db.cache import CacheManager as CM
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from cogs import music
 
 
@@ -51,6 +51,10 @@ class DisabledCommand(commands.CheckFailure):
     pass
 
 
+def add_vote(bot, user, time=datetime.utcnow(), voted=True):
+    bot.voted[user] = {"voted": voted, "expire": time + timedelta(hours=12) if voted else time + timedelta(seconds=10)}
+
+
 def has_voted():
     async def predicate(ctx):
         if await ctx.bot.is_booster(ctx.author):
@@ -58,9 +62,23 @@ def has_voted():
         elif ctx.guild.id == 709521003759403063:
             return True
         else:
+            get_vote = ctx.bot.cache.get(ctx.bot, "voted", ctx.author.id)
+            if get_vote:
+                time = (get_vote["expire"] - datetime.utcnow()).total_seconds()
+                if get_vote["voted"] and time > 0:
+                    return True
+                elif get_vote["voted"] and time <= 0:
+                    ctx.bot.voted.pop(ctx.author.id)
+                    pass
+                elif not get_vote["voted"] and time > 0:
+                    raise not_voted()
+                elif not get_vote["voted"] and time <= 0:
+                    ctx.bot.voted.pop(ctx.author.id)
+                    pass
             try:
                 try:
                     if await ctx.bot.dblpy.get_user_vote(ctx.author.id):
+                        add_vote(ctx.bot, ctx.author.id, True)
                         return True
                 except Exception:
                     pass
@@ -72,10 +90,13 @@ def has_voted():
                         e = discord.Embed(color=color['deny_color'], title='Something failed')
                         e.set_author(name=f"Hey {ctx.author}!", icon_url=ctx.author.avatar_url)
                         if js['error'] is False and js['didVote'] is False:
+                            add_vote(ctx.bot, ctx.author.id, False)
                             raise not_voted()
                         elif js['error'] is False and js['didVote'] is True:
+                            add_vote(ctx.bot, ctx.author.id, time=datetime.utcfromtimestamp(js['data'][0]['timestamp']))
                             return True
                         elif js['error'] is True:
+                            ctx.bot.dispatch('silent_error', ctx, js['message'], trace_error=False)
                             e.description = _("Oops!\nError occured while fetching your vote: {0}").format(js['message'])
                             await ctx.send(embed=e)
                             return False
@@ -188,7 +209,7 @@ def test_command():  # update this embed
         if await ctx.bot.is_admin(ctx.author):
             return True
         elif not await ctx.bot.is_admin(ctx.author) and not cache:
-            await ctx.send(_("This command is in it's testing phase, you can join the support server "
+            await ctx.send(_("This command is in its testing phase, you can join the support server "
                              "if you want to apply your guild to be a testing guild or know when the command "
                              "will be available."))
             return False
@@ -250,7 +271,7 @@ async def bot_disabled(ctx):
     if ctx.command.parent:
         if CM.get(ctx.bot, 'disabled_commands', str(ctx.command.parent)):
             ch = CM.get(ctx.bot, 'disabled_commands', str(ctx.command.parent))
-            raise DisabledCommand(_("{0} | `{1}` and it's corresponding subcommands are currently disabled for: `{2}`").format(ctx.bot.settings['emojis']['misc']['warn'], ctx.command.parent, ch['reason']))
+            raise DisabledCommand(_("{0} | `{1}` and its corresponding subcommands are currently disabled for: `{2}`").format(ctx.bot.settings['emojis']['misc']['warn'], ctx.command.parent, ch['reason']))
         elif CM.get(ctx.bot, 'disabled_commands', str(f"{ctx.command.parent} {ctx.command.name}")):
             ch = CM.get(ctx.bot, 'disabled_commands', str(f"{ctx.command.parent} {ctx.command.name}"))
             raise DisabledCommand(_("{0} | `{1} {2}` is currently disabled for: `{3}`").format(
@@ -362,13 +383,7 @@ class MemberID(commands.Converter):
         if not argument.isdigit():
             raise commands.BadArgument("User needs to be an ID")
         elif argument.isdigit():
-            member_id = int(argument, base=10)
-            try:
-                ban_check = await ctx.guild.fetch_ban(discord.Object(id=member_id))
-                if ban_check:
-                    raise commands.BadArgument(_('This user is already banned.')) from None
-            except discord.NotFound:
-                return type('_Hackban', (), {'id': argument, '__str__': lambda s: s.id})()
+            return type('_Hackban', (), {'id': argument, '__str__': lambda s: s.id})()
 
 
 # noinspection PyRedundantParentheses
