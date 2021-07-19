@@ -30,7 +30,6 @@ from utils import default
 class DiscordExtremeList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.update_stats.start()
         self.delapi = delpy.Client(bot, bot.config.DEL_TOKEN)
         self.delapi.start_loop(wait_for=1800)
 
