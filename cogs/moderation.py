@@ -1814,7 +1814,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                 return await ctx.send(_("{0} There are only {1} cases available to edit.").format(self.bot.settings['emoji']['misc']['warn'], total_cases))
 
             else:
-                await ctx.send(_("{0} Started editing last {1} case(s), this might take a while.").format(ctx.bot.settings['emojis']['misc']['loading'], total_cases))
+                await ctx.send(_("{0} Started editing last {1} case(s), this might take a while.").format(ctx.bot.settings['emojis']['misc']['loading'], last_cases))
                 edited, edited_cases = 0, []
                 for loop in range(last_cases):
                     case_id = total_cases - (last_cases - edited)
