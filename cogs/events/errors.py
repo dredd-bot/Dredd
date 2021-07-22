@@ -249,6 +249,9 @@ class CommandError(commands.Cog, name="CommandError",
         elif isinstance(exc, commands.errors.ExpectedClosingQuoteError):
             return await ctx.send(_("{0} | Looks like you haven't closed the quote").format(self.bot.settings['emojis']['misc']['warn']))
 
+        elif isinstance(exc, commands.errors.InvalidEndOfQuotedStringError):
+            return await ctx.send(_("{0} | Expected space after the quote, but received another quote").format(self.bot.settings['emojis']['misc']['warn']))
+
         if str(exc) == "'NoneType' object has no attribute 'add_reaction'":  # no other way to prevent this
             return await ctx.send(_("{0} | Failed to add the reactions, please reinvoke the command.").format(self.bot.settings['emojis']['misc']['warn']))
 

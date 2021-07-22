@@ -272,7 +272,7 @@ class Events(commands.Cog):
             print("Updated the stats - guild join")
 
         prefix = self.bot.settings['default']['prefix']
-        await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix, language) VALUES($1, $2) ON CONFLICT (guild_id) DO UPDATE SET prefix = $2 WHERE guilds.guild_id = $1", guild.id, prefix, 'en_US')
+        await self.bot.db.execute("INSERT INTO guilds(guild_id, prefix, language) VALUES($1, $2, $3) ON CONFLICT (guild_id) DO UPDATE SET prefix = $2 WHERE guilds.guild_id = $1", guild.id, prefix, 'en_US')
         self.bot.prefix[guild.id] = prefix
         Zenpa = self.bot.get_user(373863656607318018) or "Zenpa#6736"
         Moksej = self.bot.get_user(345457928972533773) or "Moksej#3335"
