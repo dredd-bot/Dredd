@@ -546,14 +546,14 @@ async def spotify_support(ctx, spotify, search_type, spotify_id, Track, Player) 
         try:
             search_tracks = await results.get_all_tracks()
         except Exception:
-            raise commands.CommandError(_("I was not able to find this playlist! Please try again or use a different link."))
+            return await ctx.send(_("I was not able to find this playlist! Please try again or use a different link."))
 
     elif search_type == "album":
         results = await spotify_client.get_album(spotify_id=spotify_id)
         try:
             search_tracks = await results.get_all_tracks()
         except Exception:
-            raise commands.CommandError(_("I was not able to find this album! Please try again or use a different link."))
+            return await ctx.send(_("I was not able to find this album! Please try again or use a different link."))
 
     elif search_type == 'track':
         results = await spotify_client.get_track(spotify_id=spotify_id)
@@ -571,7 +571,7 @@ async def spotify_support(ctx, spotify, search_type, spotify_id, Track, Player) 
     ]
 
     if not tracks:
-        raise commands.CommandError(_("The URL you put is either not valid or doesn't exist!"))
+        return await ctx.send(_("The URL you put is either not valid or doesn't exist!"))
 
     if search_type == "playlist":
         for track in tracks:
