@@ -90,7 +90,7 @@ def has_voted():
                         e = discord.Embed(color=color['deny_color'], title='Something failed')
                         e.set_author(name=f"Hey {ctx.author}!", icon_url=ctx.author.avatar_url)
                         if js['error'] is False and js['didVote'] is False:
-                            add_vote(ctx.bot, ctx.author.id, False)
+                            add_vote(ctx.bot, ctx.author.id, voted=False)
                             raise not_voted()
                         elif js['error'] is False and js['didVote'] is True:
                             add_vote(ctx.bot, ctx.author.id, time=datetime.utcfromtimestamp(js['data'][0]['timestamp']))
