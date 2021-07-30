@@ -62,7 +62,7 @@ class Player(wavelink.Player):
         self.queue = asyncio.Queue()
         self.controller = None
         self.loop = 0
-        self.volume = 25
+        self.volume = 75
 
         self.waiting = False
         self.updating = False
