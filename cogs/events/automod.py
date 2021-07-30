@@ -17,10 +17,11 @@ import discord
 import re
 import asyncio
 
-from discord.ext import commands
+from discord.ext import commands, tasks
 from datetime import datetime, timezone, timedelta
 from db.cache import CacheManager as cm
 from contextlib import suppress
+from collections import defaultdict
 
 from utils.checks import CooldownByContent
 from utils import default, btime
@@ -39,13 +40,44 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
         self.user_cooldowns = commands.CooldownMapping.from_cooldown(10, 12.0, commands.BucketType.user)  # checks for member spam
         self.invite_cooldown = commands.CooldownMapping.from_cooldown(5, 60.0, commands.BucketType.member)  # checks for invites
         self.link_cooldown = commands.CooldownMapping.from_cooldown(5, 60.0, commands.BucketType.member)
-        self.caps_content = commands.CooldownMapping.from_cooldown(8, 10.0, commands.BucketType.member)  # checks for cpas
+        self.caps_content = commands.CooldownMapping.from_cooldown(6, 10.0, commands.BucketType.member)  # checks for cpas
         self.mentions_limit = commands.CooldownMapping.from_cooldown(5, 17.0, commands.BucketType.member)
+
+        self.new_users = commands.CooldownMapping.from_cooldown(30, 35.0, commands.BucketType.channel)
+
+        self.batch_messages = defaultdict(list)
+
+        self.send_messages.add_exception_type(RuntimeError)
+        self.send_messages.start()
+
+    def cog_unload(self):
+        self.send_messages.cancel()
+
+    @tasks.loop(seconds=10)
+    async def send_messages(self):
+        for ((guild_id, channel_id), messages) in self.batch_messages.items():
+            guild = self.bot.get_guild(guild_id)
+            channel = guild and guild.get_channel(channel_id)
+            if not channel:
+                continue
+
+            paginator = commands.Paginator(suffix='', prefix='')
+            for message in messages:
+                paginator.add_line(message)
+
+            for page in paginator.pages:
+                try:
+                    await channel.send(page)
+                except discord.HTTPException:
+                    pass
+
+            self.batch_messages.clear()
 
     def new_member(self, member):
         now = datetime.utcnow()
+        seven_days = now - timedelta(days=7)
         month = now - timedelta(days=30)
-        return member.created_at > month.astimezone(timezone.utc)
+        return member.created_at > month.astimezone(timezone.utc) and member.joined_at > seven_days.astimezone(timezone.utc)
 
     # if they send a message
     @commands.Cog.listener('on_message')
@@ -60,7 +92,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
         if message.author.bot:  # author is a bot
             return
 
-        if message.author not in message.guild.members:  # They were banned but messages are still being sent cause discord
+        if not isinstance(message.author, discord.Member):
             return
 
         if message.author.guild_permissions.manage_messages and automod['ignore_admins']:  # Member has MANAGE_MESSAGES permissions and bot is configured to ignore admins/mods
@@ -94,13 +126,13 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             return
 
         automod = cm.get(self.bot, 'automod', message.guild.id)
-        if not automod or not message.guild:
+        if not automod:
             return
 
         if message.author.bot:  # author is a bot
             return
 
-        if message.author not in message.guild.members:  # They were banned but messages are still being sent cause discord
+        if not isinstance(message.author, discord.Member):
             return
 
         if message.author.guild_permissions.manage_messages and automod['ignore_admins']:  # Member has MANAGE_MESSAGES permissions and bot is configured to ignore admins/mods
@@ -160,15 +192,21 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
         if not antispam:
             return
 
+        if self.new_member(message.author):
+            content_bucket = self.new_users.get_bucket(message)
+            if content_bucket.update_rate_limit(current):
+                content_bucket.reset()
+                return await self.execute_punishment(antispam['level'], message, reason, btime.FutureTime(antispam['time']))
+
         content_bucket = self.messages_cooldown.get_bucket(message)
         if content_bucket.update_rate_limit(current):
             content_bucket.reset()
-            await self.execute_punishment(antispam['level'], message, reason, btime.FutureTime(antispam['time']))
+            return await self.execute_punishment(antispam['level'], message, reason, btime.FutureTime(antispam['time']))
 
         user_bucket = self.user_cooldowns.get_bucket(message)
         if user_bucket.update_rate_limit(current):
             user_bucket.reset()
-            await self.execute_punishment(antispam['level'], message, reason, btime.FutureTime(antispam['time']))
+            return await self.execute_punishment(antispam['level'], message, reason, btime.FutureTime(antispam['time']))
 
     async def anti_invite(self, message):
         invites = INVITE.findall(message.content)
@@ -231,13 +269,6 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             return
 
         if link:
-            # was unable to figure out how to add links without multiplying.
-            # if link_whitelist:
-            #     for li in link_whitelist:
-            #         if li in link:
-            #             return
-            #         else:
-            #             pass
             content_bucket = self.link_cooldown.get_bucket(message)
             retry = content_bucket.update_rate_limit(current)
             if automod['delete_messages'] and message.channel.permissions_for(message.guild.me).manage_messages:
@@ -257,7 +288,8 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             return
 
         limit = massmention['limit']
-        if len(message.mentions) > limit:
+        mentions = sum(not x.bot and x.id != message.author.id for x in message.mentions)
+        if mentions > limit:
             content_bucket = self.mentions_limit.get_bucket(message)
             retry = content_bucket.update_rate_limit(current)
             if automod['delete_messages'] and message.channel.permissions_for(message.guild.me).manage_messages:
@@ -330,7 +362,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     if muterole and muterole not in message.author.roles and muterole.position < message.guild.me.top_role.position:
                         await message.author.add_roles(muterole, reason=audit_reason)
                         await default.execute_temporary(self, 1, message.author, message.guild.me, message.guild, muterole, None, reason)
-                        await message.channel.send(_("{0} Muted **{1}** for {2}.").format(self.bot.settings['emojis']['logs']['memberedit'], message.author, reason))
+                        self.batch_messages[(message.guild.id, message.channel.id)].append(_("{0} Muted **{1}** for {2}.").format(self.bot.settings['emojis']['logs']['memberedit'], message.author, reason))
                     elif not muterole:
                         if not message.author.permissions_in(message.channel).send_messages:
                             return
@@ -350,15 +382,17 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     if muterole and muterole not in message.author.roles and muterole.position < message.guild.me.top_role.position:
                         await message.author.add_roles(muterole, reason=audit_reason)
                         await default.execute_temporary(self, 1, message.author, message.guild.me, message.guild, muterole, time, reason)
-                        time = btime.human_timedelta(time.dt, suffix=None)
-                        await message.channel.send(_("{0} Muted **{1}** for {2}, reason: {3}.").format(self.bot.settings['emojis']['logs']['memberedit'], message.author, time, reason))
+                        time = btime.human_timedelta(time.dt, source=message.created_at, suffix=None)
+                        self.batch_messages[(message.guild.id, message.channel.id)].append(_("{0} Muted **{1}** for {2}, reason: {3}.").format(self.bot.settings['emojis']['logs']['memberedit'], message.author, time, reason))
                     elif not muterole:
                         if not message.author.permissions_in(message.channel).send_messages:
                             return
+                        time = None
                         await self.update_channel_permissions(message, action)
                     elif muterole and muterole in message.author.roles:
                         return
                     else:
+                        time = None
                         await self.update_channel_permissions(message, action)
                 except Exception as e:
                     await default.background_error(self, '`automod punishment execution (tempmute)`', e, message.guild, message.channel)
@@ -369,7 +403,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                 try:
                     if message.author.top_role.position < message.guild.me.top_role.position:
                         await message.guild.kick(message.author, reason=audit_reason)
-                        await message.channel.send(_("{0} Kicked **{1}** for {2}.").format(self.bot.settings['emojis']['logs']['memberedit'], message.author, reason))
+                        self.batch_messages[(message.guild.id, message.channel.id)].append(_("{0} Kicked **{1}** for {2}.").format(self.bot.settings['emojis']['logs']['memberedit'], message.author, reason))
                     else:
                         await self.update_channel_permissions(message, action)
                     time = None
@@ -383,7 +417,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     if message.author.top_role.position < message.guild.me.top_role.position:
                         await message.guild.ban(message.author, reason=audit_reason)
                         await default.execute_temporary(self, 2, message.author, message.guild.me, message.guild, None, None, reason)
-                        await message.channel.send(_("{0} Banned **{1}** for {2}.").format(self.bot.settings['emojis']['logs']['ban'], message.author, reason))
+                        self.batch_messages[(message.guild.id, message.channel.id)].append(_("{0} Banned **{1}** for {2}.").format(self.bot.settings['emojis']['logs']['ban'], message.author, reason))
                     else:
                         await self.update_channel_permissions(message, action)
                     time = None
@@ -397,9 +431,10 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     if message.author.top_role.position < message.guild.me.top_role.position:
                         await message.guild.ban(message.author, reason=audit_reason)
                         await default.execute_temporary(self, 2, message.author, message.guild.me, message.guild, None, time, reason)
-                        time = btime.human_timedelta(time.dt, suffix=None)
-                        await message.channel.send(_("{0} Banned **{1}** for {2}, reason: {3}.").format(self.bot.settings['emojis']['logs']['ban'], message.author, time, reason))
+                        time = btime.human_timedelta(time.dt, source=message.created_at, suffix=None)
+                        self.batch_messages[(message.guild.id, message.channel.id)].append(_("{0} Banned **{1}** for {2}, reason: {3}.").format(self.bot.settings['emojis']['logs']['ban'], message.author, time, reason))
                     else:
+                        time = None
                         await self.update_channel_permissions(message, action)
                 except Exception as e:
                     await default.background_error(self, '`automod punishment execution (tempban)`', e, message.guild, message.channel)

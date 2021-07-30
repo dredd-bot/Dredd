@@ -145,9 +145,13 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
             for result in reminds:
                 for result_2 in reminds[result]:
                     json = reminds[result][result_2]
-                    now = datetime.utcnow()
                     the_time = json['time']
-                    seconds = (the_time - now).total_seconds()
+                    try:
+                        now = datetime.utcnow()
+                        seconds = (the_time - now).total_seconds()
+                    except Exception:
+                        now = discord.utils.utcnow()
+                        seconds = (the_time - now).total_seconds()
                     if the_time and seconds <= 0:
                         try:
                             channel = self.bot.get_channel(json['channel'])

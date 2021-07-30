@@ -16,13 +16,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import typing
 import inspect
+import sys
 
 from discord.ext import commands
 from discord.utils import escape_markdown
 from importlib import reload as importlib_reload
 
 from prettytable import PrettyTable
-from utils import btime, default
+from utils import *
 from utils.paginator import TextPages
 from db.cache import LoadCache as LC
 from db.cache import CacheManager as CM
@@ -105,6 +106,14 @@ class owner(commands.Cog, name="Owner"):
     async def dev_reload_config(self, ctx):
         importlib_reload(self.bot.config)
         await ctx.send("I've successfully reloaded config!")
+
+    @dev.command(name='reload-util', aliases=['rutil'])
+    async def dev_reload_util(self, ctx, *, util: str):
+        try:
+            importlib_reload(util)
+            await ctx.send(f"I've successfully reloaded {util}!")
+        except KeyError:
+            await ctx.send(f"Failed to reload {util}")
 
     @dev.group(name='category', aliases=['cog'], invoke_without_command=True)
     async def dev_category(self, ctx):
@@ -206,6 +215,7 @@ class owner(commands.Cog, name="Owner"):
         bls = CM.get(self.bot, 'blacklist', user.id)
         bl = "No." if not bls else f"Yes. **Reason:** {bls['reason']}"
         past = await self.bot.db.fetch("SELECT * FROM bot_history WHERE _id = $1", user.id)
+        owned_servers = len([x for x in user.mutual_guilds if x.owner_id == user.id])
 
         e = discord.Embed(color=color, timestamp=datetime.now(timezone.utc))
         e.set_author(name=f"{user}'s Information", icon_url=user.avatar_url)
@@ -213,7 +223,8 @@ class owner(commands.Cog, name="Owner"):
         e.description = f"""
 **Full username:** [{user}](https://discord.com/users/{user.id}) {acks if acks else ''}
 **Avatar URL:** [Click here]({user.avatar_url})
-**Shared servers:** {len([x for x in self.bot.guilds if x.get_member(user.id)])}
+**Shared servers:** {len(user.mutual_guilds)}
+**Owned servers:** {owned_servers}
 **Commands Used:** {commands}
 **Suggestions suggested:** {len(suggestions)} {f'**IDs:** {", ".join(ids)}' if len(suggestions) != 0 else ''}
 **Blacklisted?** {bl}{dm_check}
@@ -224,7 +235,8 @@ class owner(commands.Cog, name="Owner"):
             msg = []
             for num, res in enumerate(past, start=1):
                 dev = self.bot.get_user(res['dev'])
-                msg.append(f"`[{num}]` {escape_markdown(str(user), as_needed=False)} - {'Liftable' if res['liftable'] == 0 else 'Not liftable'}\nIssued by **{dev}** {btime.human_timedelta(res['issued'], source=datetime.now())}\n**Reason:** {res['reason']}\n")
+                msg.append(f"`[{num}]` {escape_markdown(str(user), as_needed=False)} - {'Liftable' if res['liftable'] == 0 else 'Not liftable'}\nIssued by **{dev}** {btime.discord_time_format(res['issued'], 'R')}\n"
+                           f"**Reason:** {res['reason']}\n")
             e.add_field(name='Previous blacklists:', value=''.join(msg))
         await ctx.send(embed=e)
 
@@ -280,8 +292,8 @@ class owner(commands.Cog, name="Owner"):
 **Server Owner:** {guild_owner} ({guild_owner.id})""", inline=False)
         e.add_field(name='Other information:', value=f"""
 **Total channels/roles:** {len(guild.channels)} channels / {len(guild.roles)} roles
-**Server created at:** {default.date(guild.created_at)}
-**Joined server at:** {btime.human_timedelta(guild.get_member(self.bot.user.id).joined_at)} ({default.date(guild.get_member(self.bot.user.id).joined_at)})
+**Server created at:** {btime.discord_time_format(guild.created_at, 'R')}
+**Joined server at:** {btime.discord_time_format(guild.get_member(self.bot.user.id).joined_at, 'R')}
 **Prefix:** {escape_markdown(prefix)}
 **Language:** {language}
 **Mute role:** {f"{muterole.id}" if muterole else 'Not found'}

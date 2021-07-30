@@ -64,7 +64,7 @@ class staff(commands.Cog, name="Staff"):
         liftable values:
         0 - liftable
         1 - not liftable"""
-        if await self.bot.is_admin(user) and not await self.bot.is_owner(user):
+        if await self.bot.is_admin(user) and not await self.bot.is_owner(ctx.author):
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | You cannot blacklist {user} because they're a part of bot staff team.")
         bslash = '\n\n'
         apply = f"{f'{bslash}If you wish to appeal, you can [join the support server]({self.bot.support})' if liftable == 0 else ''}"

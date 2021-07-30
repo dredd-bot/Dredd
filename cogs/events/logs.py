@@ -331,7 +331,7 @@ class Logging(commands.Cog):
             except Exception as e:
                 await default.background_error(self, '`guild name update`', e, before, channels)
                 return
-
+        embed.title = f"{self.bot.settings['emojis']['logs']['guildedit']}"
         if before.region != after.region:
             embed.title += _(" Guild region changed")
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.region, after.region)
@@ -340,7 +340,7 @@ class Logging(commands.Cog):
             except Exception as e:
                 await default.background_error(self, '`guild region update`', e, before, channels)
                 return
-
+        embed.title = f"{self.bot.settings['emojis']['logs']['guildedit']}"
         if before.afk_channel != after.afk_channel:
             embed.title += _(" Guild afk channel changed")
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.afk_channel, after.afk_channel)
@@ -349,7 +349,7 @@ class Logging(commands.Cog):
             except Exception as e:
                 await default.background_error(self, '`guild afk channel update`', e, before, channels)
                 return
-
+        embed.title = f"{self.bot.settings['emojis']['logs']['guildedit']}"
         if before.icon_url != after.icon_url:
             embed.title += _(" Guild icon changed")
             embed.description = _("**Before:** [Click here]({0})\n**After:** [Click here]({1})").format(before.icon_url, after.icon_url)
@@ -359,7 +359,7 @@ class Logging(commands.Cog):
             except Exception as e:
                 await default.background_error(self, '`guild icon update`', e, before, channels)
                 return
-
+        embed.title = f"{self.bot.settings['emojis']['logs']['guildedit']}"
         if before.mfa_level != after.mfa_level:
             embed.title += _(" Guild multifactor authentication (MFA) changed")
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.mfa_level, after.mfa_lever)
@@ -368,7 +368,7 @@ class Logging(commands.Cog):
             except Exception as e:
                 await default.background_error(self, '`guild MFA update`', e, before, channels)
                 return
-
+        embed.title = f"{self.bot.settings['emojis']['logs']['guildedit']}"
         if before.verification_level != after.verification_level:
             embed.title += _(" Guild verification level changed")
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.verification_level, after.verification_level)
@@ -377,7 +377,7 @@ class Logging(commands.Cog):
             except Exception as e:
                 await default.background_error(self, '`guild verification update`', e, before, channels)
                 return
-
+        embed.title = f"{self.bot.settings['emojis']['logs']['guildedit']}"
         if before.default_notifications != after.default_notifications:
             embed.title += _(" Guild default notifications changed")
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.default_notifications, after.default_notifications)

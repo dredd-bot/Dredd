@@ -120,8 +120,8 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 • Members: **{11}**
 • Servers: **{12}**
 • Channels: {13} **{14}** | {15} **{16}**\n
-""").format(version, escape_markdown(str(Moksej), as_needed=False), self.bot.settings['emojis']['misc']['python'], discord.__version__, btime.human_timedelta(self.bot.uptime),
-            default.date(self.bot.user.created_at), default.timeago(discord.utils.utcnow() - self.bot.user.created_at), self.bot.support, self.bot.invite,
+""").format(version, escape_markdown(str(Moksej), as_needed=False), self.bot.settings['emojis']['misc']['python'], discord.__version__, btime.discord_time_format(self.bot.uptime, source='R'),
+            btime.discord_time_format(self.bot.user.created_at), btime.discord_time_format(self.bot.user.created_at, source='R'), self.bot.support, self.bot.invite,
             self.get_last_commits(), f'{totcmd:,}', f'{mems:,}', f'{len(self.bot.guilds):,}', self.bot.settings['emojis']['logs']['unlock'], f'{text:,}',
             self.bot.settings['emojis']['logs']['vcunlock'], f'{voice:,}', website)
         embed.set_image(
@@ -201,33 +201,32 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
 **User ID:** {2}
 **Account created:** {3} ({4})""").format(user, discord_badges,
-                                          user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
-                                          btime.human_timedelta(user.created_at)), inline=False)
+                                          user.id, btime.discord_time_format(user.created_at),
+                                          btime.discord_time_format(user.created_at, source='R')), inline=False)
             e.add_field(name=_("Server Information:"), value=_("""
 **Nickname:** {0}{1}
 **Joined at:** {2} ({3})
 **Roles:** {4}""").format(nick, nicks[:-2],
-                          default.date(member.joined_at),
-                          btime.human_timedelta(member.joined_at),
+                          btime.discord_time_format(member.joined_at),
+                          btime.discord_time_format(member.joined_at, source='R'),
                           ', '.join(uroles) + user_roles))
-
         else:
 
-            guilds = [x for x in self.bot.guilds if x.get_member(user.id)]
-            try:
-                member = guilds[0].get_member(user.id)
-                status = default.member_status(ctx, member)
-                act = default.member_activity(ctx, member)
-            except Exception:
-                status = ''
-                act = ''
+            # guilds = [x for x in self.bot.guilds if x.get_member(user.id)]
+            # try:
+            #     member = guilds[0].get_member(user.id)
+            #     status = default.member_status(ctx, member)
+            #     act = default.member_activity(ctx, member)
+            # except Exception:
+            #     status = ''
+            #     act = ''
             e.add_field(name=_("General Information:"), value=_("""
 {0} {1}
 
 **User ID:** {2}
 **Account created:** {3} ({4})""").format(user, discord_badges,
-                                          user.id, user.created_at.__format__('%A %d %B %Y, %H:%M'),
-                                          btime.human_timedelta(user.created_at)), inline=False)
+                                          user.id, btime.discord_time_format(user.created_at),
+                                          btime.discord_time_format(user.created_at, source='R')), inline=False)
 
         if await self.bot.is_booster(user):
             media = await default.medias(ctx, user)
@@ -287,10 +286,10 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
 
 **Nitro status:**
 {8}
-""").format(ctx.guild.name, ctx.guild.id, default.date(ctx.guild.created_at),
-            btime.human_timedelta(ctx.guild.created_at),
+""").format(ctx.guild.name, ctx.guild.id, btime.discord_time_format(ctx.guild.created_at ),
+            btime.discord_time_format(ctx.guild.created_at, source='R'),
             str(ctx.guild.verification_level).capitalize(),
-            ctx.guild.owner or 'Unknown', ctx.guild.owner.id, ack, nitromsg))
+            ctx.guild.owner or 'Unknown', ctx.guild.owner_id, ack, nitromsg))
 
         e.add_field(name=_('Other Information:'), value=_("""**Members:** (Total: {0})
 **Bots:** {2} | **Humans:** {3}
@@ -553,7 +552,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
                         value=_("**Is Integration:** {0}\n**Hoisted:** {1}\n**Position:** {2}\n"
                                 "**Color:** {3}\n**Created:** {4}\n\n**Members:** {5}").format(
                                     role.managed, role.hoist, len(ctx.guild.roles) - role.position,
-                                    role.color, default.human_timedelta(role.created_at), role_members
+                                    role.color, btime.discord_time_format(role.created_at, source='R'), role_members
                                 ),
                         inline=False)
 
@@ -830,8 +829,8 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         members = sorted(ctx.guild.members, key=lambda m: m.joined_at, reverse=True)[:counts]
         e = discord.Embed(title=_('Newest member(s) in this server:'), colour=self.bot.settings['colors']['embed_color'])
         for num, member in enumerate(members, start=1):
-            data = _('**Joined Server at** {0}\n**Account created at** {1}').format(btime.human_timedelta(member.joined_at),
-                                                                                    btime.human_timedelta(member.created_at))
+            data = _('**Joined Server at** {0}\n**Account created at** {1}').format(btime.discord_time_format(member.joined_at, source='R'),
+                                                                                    btime.discord_time_format(member.created_at, source='R'))
             e.add_field(name=f'`[{num}]` **{member}** ({member.id})', value=data, inline=False)
             if count > 10:
                 e.set_footer(text=_("The limit is set to 10"))

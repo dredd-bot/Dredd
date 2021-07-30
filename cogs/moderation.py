@@ -1504,6 +1504,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         permissions = ctx.guild.default_role.permissions
         if permissions.send_messages:
             permissions.update(send_messages=False)
+            permissions.update(connect=False)
             await ctx.guild.default_role.edit(permissions=permissions, reason=default.responsible(ctx.author, reason))
             try:
                 await ctx.send(_("{0} Server is now frozen!").format(self.bot.settings['emojis']['misc']['white-mark']))
@@ -1525,6 +1526,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
 
         if not permissions.send_messages:
             permissions.update(send_messages=True)
+            permissions.update(connect=True)
             await ctx.guild.default_role.edit(permissions=permissions, reason=default.responsible(ctx.author, reason))
             try:
                 await ctx.send(_("{0} Server is now unfrozen!").format(self.bot.settings['emojis']['misc']['white-mark']))

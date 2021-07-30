@@ -71,7 +71,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         if url is None:
             return await ctx.send("No URL found")
 
-        count = len(url['list'])
+        count = len(url.get('list', []))
         if count == 0:
             return await ctx.send("No results were found.")
         result = url['list'][random.randint(0, count - 1)]
@@ -308,7 +308,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         dots = '...'
         e.description = _("""**Todo:** {0}\n\n**Todo position:** {1}/{2}\n**Todo added:** {3}\n**Jump url:** [click here to jump]({4})""").format(
             f"{todo[pos-1]['todo']}" if len(todo[pos - 1]['todo']) < 1800 else f"{escape_markdown(todo[pos - 1]['todo'][:1800] + dots, as_needed=False)}",
-            pos, len(todo), btime.human_timedelta(todo[pos - 1]['time'], source=datetime.now()), todo[pos - 1]['jump_url']
+            pos, len(todo), btime.discord_time_format(todo[pos - 1]['time'], 'R'), todo[pos - 1]['jump_url']
         )
         await ctx.send(embed=e)
 
@@ -689,11 +689,11 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @locale_doc
     async def remind(self, ctx, *, remind: btime.UserFriendlyTime(commands.context, default="\u2026")):
-        _(""" Create a reminder for yourself. Example usage: `remind 1h do homework`""")
+        _(""" Create a reminder for yourself. Example usage: `remind 1h do homework` """)
 
         try:
             await self.create_reminder(ctx, remind.arg, remind.dt)
-            time = btime.human_timedelta(remind.dt, source=ctx.message.created_at.replace(tzinfo=None))
+            time = btime.human_timedelta(remind.dt, source=ctx.message.created_at)
             await ctx.send(_("Alright, reminding you in {0}: {1}").format(time, remind.arg))
         except AttributeError:
             return
@@ -710,9 +710,9 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
 
         reminders = []
         for result in check_reminders:
-            when = btime.human_timedelta(check_reminders[result]['time'], source=ctx.message.created_at.replace(tzinfo=None))
+            when = btime.discord_time_format(check_reminders[result]['time'], source='R')
             content = check_reminders[result]['content']
-            reminders.append(_("`[{0}]` Reminding in **{1}**\n{2}\n").format(result, when, content[:150] + '...' if len(content) > 150 else content))
+            reminders.append(_("`[{0}]` Reminding **{1}**\n{2}\n").format(result, when, content[:150] + '...' if len(content) > 150 else content))
 
         paginator = Pages(ctx,
                           entries=reminders,

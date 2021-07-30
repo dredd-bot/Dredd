@@ -62,7 +62,7 @@ class Player(wavelink.Player):
         self.queue = asyncio.Queue()
         self.controller = None
         self.loop = 0
-        self.volume = 75
+        self.volume = 25
 
         self.waiting = False
         self.updating = False
@@ -111,7 +111,7 @@ class Player(wavelink.Player):
             try:
                 self.waiting = True
                 with async_timeout.timeout(300):
-                    track = self.queue.get_nowait()
+                    track = await self.queue.get()
                     if track.id == "spotify":
                         spotify_track = await self.bot.wavelink.get_tracks(f"ytsearch:{track.title} {track.author} audio")
                         track = Track(spotify_track[0].id, spotify_track[0].info, requester=track.requester)
@@ -297,20 +297,24 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
                     humans = [x for x in before.channel.members if not x.bot]
                     if member.guild.me in before.channel.members and len(humans) == 0:
                         player = self.bot.wavelink.get_player(member.guild.id, cls=Player)
-                        with suppress(Exception):
-                            channel = member.guild.get_channel(self._last_command_channel[member.guild.id])
-                            await channel.send(_("Everyone left the voice channel, I will pause the current track"), delete_after=5)
                         self.bot.mode247[member.guild.id]['last_connection'] = datetime.datetime.utcnow()
-                        await player.set_pause(True)
+                        if not player.current.is_stream:
+                            await player.set_pause(True)
+                            with suppress(Exception):
+                                channel = member.guild.get_channel(self._last_command_channel[member.guild.id])
+                                await channel.send(_("Everyone left the voice channel, I will pause the current track"), delete_after=5)
 
-            elif mode247 and not before.channel and after.channel.id == mode247['channel'] and not member.bot:
+            elif mode247 and after.channel.id == mode247['channel'] and not member.bot:
                 player = self.bot.wavelink.get_player(member.guild.id, cls=Player)
                 if player.is_paused:
                     await player.set_pause(False)
+                elif not player.is_paused and player.is_playing:
+                    pass
                 else:
                     with suppress(Exception):
                         channel = member.guild.get_channel(self._last_command_channel[member.guild.id])
                         await channel.send(_("The queue is empty, please add songs to the queue so I could play them."))
+                self.bot.mode247[member.guild.id]['last_connection'] = datetime.datetime.utcnow()
 
             if member.id == self.bot.user.id and not after.channel:
                 player = self.bot.wavelink.get_player(member.guild.id, cls=Player)
@@ -348,6 +352,9 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         if not player.is_connected:
             channel = getattr(ctx.author.voice, 'channel')
             await player.connect(channel.id)
+            await asyncio.sleep(0.5)
+            if channel.permissions_for(ctx.guild.me).deafen_members and not ctx.guild.me.voice.deaf:
+                await ctx.guild.me.edit(deafen=True)
         elif player.is_connected:
             return await ctx.send(_("{0} Already connected to the voice channel.").format(self.bot.settings['emojis']['misc']['warn']))
 
@@ -366,6 +373,9 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         if not player.is_connected:
             channel = getattr(ctx.author.voice, 'channel')
             await player.connect(channel.id)
+            await asyncio.sleep(0.5)
+            if channel.permissions_for(ctx.guild.me).deafen_members and not ctx.guild.me.voice.deaf:
+                await ctx.guild.me.edit(deafen=True)
 
         query = query.strip('<>')
         if not RURL.match(query) and not SPOTIFY_RURL.match(query):
@@ -419,6 +429,9 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         if not player.is_connected:
             channel = getattr(ctx.author.voice, 'channel')
             await player.connect(channel.id)
+            await asyncio.sleep(0.5)
+            if channel.permissions_for(ctx.guild.me).deafen_members and not ctx.guild.me.voice.deaf:
+                await ctx.guild.me.edit(deafen=True)
 
         query = query.strip('<>')
         if RURL.match(query):
@@ -480,7 +493,6 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     @locale_doc
-    @test_command()
     async def radio(self, ctx, *, radio: str = None):
         _(""" Plays the selected radio station, if you have suggestions for radio stations, feel free to suggest them in the support server""")
 
@@ -489,6 +501,9 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         if not player.is_connected:
             channel = getattr(ctx.author.voice, 'channel')
             await player.connect(channel.id)
+            await asyncio.sleep(0.5)
+            if channel.permissions_for(ctx.guild.me).deafen_members and not ctx.guild.me.voice.deaf:
+                await ctx.guild.me.edit(deafen=True)
 
         if not radio or radio.title() not in self.bot.radio_stations:
             return await ctx.send(_("You may choose from one of these radio stations:\n• {0}").format('\n• '.join([name for name in self.bot.radio_stations])))
@@ -513,7 +528,6 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     @locale_doc
-    @test_command()
     async def mode247(self, ctx):
         _(""" Enable or disable the player's 24/7 mode """)
 

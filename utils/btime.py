@@ -124,7 +124,7 @@ class UserFriendlyTime(commands.Converter):
         self.default = default
 
     async def check_constraints(self, ctx, now, remaining):
-        if self.dt < now.replace(tzinfo=None):
+        if self.dt < now:
             raise commands.BadArgument(_('This time is in the past.'))
 
         if not remaining:
@@ -138,15 +138,14 @@ class UserFriendlyTime(commands.Converter):
     async def convert(self, ctx, argument):
         try:
             calendar = HumanTime.calendar
-            # regex = ShortTime.compiled
+            regex = ShortTime.compiled
             now = ctx.message.created_at
 
-            match = None  # regex.match(argument)
+            match = regex.match(argument)
             if match is not None and match.group(0):
                 data = {k: int(v) for k, v in match.groupdict(default=0).items()}
                 remaining = argument[match.end():].strip()
                 self.dt = now + relativedelta(**data)
-                print(f"L152 - {self.dt}")
                 return await self.check_constraints(ctx, now, remaining)
 
             if argument.endswith('from now'):
@@ -250,3 +249,10 @@ def human_timedelta(dt, *, source=None, accuracy=3, brief=False, suffix=True):
             return human_join(output, final='and') + suffix
         else:
             return ' '.join(output) + suffix
+
+
+def discord_time_format(time, source=None):
+    if source:
+        return f"<t:{int(time.timestamp())}:{source}>"
+    return f"<t:{int(time.timestamp())}>"
+
