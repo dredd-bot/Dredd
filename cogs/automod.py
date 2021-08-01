@@ -560,19 +560,23 @@ class Automod(commands.Cog, name='Automoderation'):
         if what == 'channels':
             channels_list = cm.get(self.bot, 'channels_whitelist', ctx.guild.id)
             if not channels_list:
-                return await ctx.send(_("{0} There are no whitelisted channels in the server."))
+                return await ctx.send(_("{0} There are no whitelisted channels in the server.").format(self.bot.settings['emojis']['misc']['warn']))
 
             embed_title = _("List of whitelisted channels")
             for num, channel in enumerate(channels_list, start=1):
                 whitelist_list.append(f"`[{num}]` {self.bot.get_channel(channel)} ({channel})")
         elif what == 'roles':
-            roles_list = cm.get(self.bot, 'channels_whitelist', ctx.guild.id)
+            roles_list = cm.get(self.bot, 'roles_whitelist', ctx.guild.id)
             if not roles_list:
-                return await ctx.send(_("{0} There are no whitelisted roles in the server."))
+                return await ctx.send(_("{0} There are no whitelisted roles in the server.").format(self.bot.settings['emojis']['misc']['warn']))
 
             embed_title = _("List of whitelisted roles")
             for num, role in enumerate(roles_list, start=1):
                 whitelist_list.append(f"`[{num}]` {ctx.guild.get_role(role)} ({role})")
+        else:
+            return await ctx.send(_("{0} The value you've provided is invalid, please choose either `channels` or `roles`").format(
+                self.bot.settings['emojis']['misc']['warn']
+            ))
 
         paginator = Pages(ctx,
                           title=embed_title,
