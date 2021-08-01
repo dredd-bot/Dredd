@@ -665,7 +665,7 @@ class Automod(commands.Cog, name='Automoderation'):
             if role.id not in check:
                 raise commands.BadArgument(_("Role **{0}** is not in the whitelist.").format(role))
 
-            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1, type = $2, _id = $3", ctx.guild.id, 2, role.id)
+            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 2, role.id)
             self.bot.roles_whitelist[ctx.guild.id].pop(role.id)
             await ctx.send(_("{0} Removed {1} from the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
@@ -692,7 +692,7 @@ class Automod(commands.Cog, name='Automoderation'):
             if channel.id not in check:
                 raise commands.BadArgument(_("Channel {0} is not in the whitelist.").format(channel.mention))
 
-            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1, type = $2, _id = $3", ctx.guild.id, 1, channel.id)
+            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 1, channel.id)
             self.bot.channels_whitelist[ctx.guild.id].append(channel.id)
             await ctx.send(_("{0} Removed {1} from the channels whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], channel.mention))
 
