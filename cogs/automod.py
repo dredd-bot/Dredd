@@ -564,7 +564,7 @@ class Automod(commands.Cog, name='Automoderation'):
 
             embed_title = _("List of whitelisted channels")
             for num, channel in enumerate(channels_list, start=1):
-                whitelist_list.append(f"`[{num}]` {self.bot.get_channel(channel)} ({channel})")
+                whitelist_list.append(f"`[{num}]` {self.bot.get_channel(channel)} ({channel})\n")
         elif what == 'roles':
             roles_list = cm.get(self.bot, 'roles_whitelist', ctx.guild.id)
             if not roles_list:
@@ -572,7 +572,7 @@ class Automod(commands.Cog, name='Automoderation'):
 
             embed_title = _("List of whitelisted roles")
             for num, role in enumerate(roles_list, start=1):
-                whitelist_list.append(f"`[{num}]` {ctx.guild.get_role(role)} ({role})")
+                whitelist_list.append(f"`[{num}]` {ctx.guild.get_role(role)} ({role})\n")
         else:
             return await ctx.send(_("{0} The value you've provided is invalid, please choose either `channels` or `roles`").format(
                 self.bot.settings['emojis']['misc']['warn']
