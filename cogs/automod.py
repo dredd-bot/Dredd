@@ -666,7 +666,7 @@ class Automod(commands.Cog, name='Automoderation'):
                 raise commands.BadArgument(_("Role **{0}** is not in the whitelist.").format(role))
 
             await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 2, role.id)
-            self.bot.roles_whitelist[ctx.guild.id].pop(role.id)
+            self.bot.roles_whitelist[ctx.guild.id].remove(role.id)
             await ctx.send(_("{0} Removed {1} from the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @whitelist.command(name='remove-channel', aliases=['removechannel', 'rchannel', 'channelremove'],
@@ -675,7 +675,7 @@ class Automod(commands.Cog, name='Automoderation'):
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
     @locale_doc
-    async def whitelist_add_channel(self, ctx, *, channel: discord.TextChannel):
+    async def whitelist_remove_channel(self, ctx, *, channel: discord.TextChannel):
         _(""" Remove a channel from automod's whitelist """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
@@ -693,7 +693,7 @@ class Automod(commands.Cog, name='Automoderation'):
                 raise commands.BadArgument(_("Channel {0} is not in the whitelist.").format(channel.mention))
 
             await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 1, channel.id)
-            self.bot.channels_whitelist[ctx.guild.id].append(channel.id)
+            self.bot.channels_whitelist[ctx.guild.id].remove(channel.id)
             await ctx.send(_("{0} Removed {1} from the channels whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], channel.mention))
 
 
