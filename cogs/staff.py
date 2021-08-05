@@ -624,7 +624,7 @@ class staff(commands.Cog, name="Staff"):
             try:
                 user = self.bot.dm[id]
             except Exception as e:
-                num = num + 1
+                id = num + 1
                 user = self.bot.dm[num] = id
             user = self.bot.get_user(user)
             if not user:
@@ -635,7 +635,7 @@ class staff(commands.Cog, name="Staff"):
                 try:
                     message = await dm_channel.fetch_message(msg_id)
                 except Exception:
-                    await user.send(msg)
+                    return await user.send(msg)
                 await message.reply(msg)
                 msg = f"**Reply to:** {message.content}\n\n{msg}"
             else:
@@ -644,7 +644,7 @@ class staff(commands.Cog, name="Staff"):
             logembed = discord.Embed(description=msg,
                                      color=0x81C969,
                                      timestamp=datetime.now(timezone.utc))
-            logembed.set_author(name=f"I've sent a DM to {user} | #{num}", icon_url=user.avatar_url)
+            logembed.set_author(name=f"I've sent a DM to {user} | #{id}", icon_url=user.avatar_url)
             logembed.set_footer(text=f"User ID: {user.id}")
             await logchannel.send(embed=logembed)
         except discord.errors.Forbidden:
