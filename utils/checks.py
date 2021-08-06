@@ -149,7 +149,7 @@ def moderator(**perms):
     async def predicate(ctx):
         role = ctx.bot.cache.get(ctx.bot, 'mod_role', ctx.guild.id)
         admin_role = ctx.bot.cache.get(ctx.bot, 'admin_role', ctx.guild.id)
-        if admin_role and admin_role in ctx.author.roles:
+        if admin_role and ctx.author._roles.has(admin_role):
             return True
         if role:
             mod_role = ctx.guild.get_role(role)
