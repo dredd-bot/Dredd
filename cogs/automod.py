@@ -267,7 +267,7 @@ class Automod(commands.Cog, name='Automoderation'):
     @admin(manage_guild=True)
     @commands.guild_only()
     @locale_doc
-    async def automod_mass_mention(self, ctx, value: AutomodValues, count: int = None):
+    async def automod_mass_mention(self, ctx, value: AutomodValues, count: int = 5):
         _(""" Toggle anti mass mention on or off and set the mentions limit to whatever number you want """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
@@ -306,7 +306,7 @@ class Automod(commands.Cog, name='Automoderation'):
     @admin(manage_guild=True)
     @commands.guild_only()
     @locale_doc
-    async def automod_mass_caps(self, ctx, value: AutomodValues, percentage: int = None):
+    async def automod_mass_caps(self, ctx, value: AutomodValues, percentage: int = 75):
         _(""" Toggle anti mass caps and set the caps percentege limit to whatever number you prefer """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
@@ -314,8 +314,8 @@ class Automod(commands.Cog, name='Automoderation'):
         if not automod:
             raise commands.BadArgument(_("Automod is disabled in this server, enable it by using `{0}automod toggle` command").format(ctx.prefix))
 
-        if value['action'] != 0:
-            raise commands.MissingRequiredArgument(self.automod_mass_caps.params['percentage'])
+        # if value['action'] != 0:
+        #    raise commands.MissingRequiredArgument(self.automod_mass_caps.params['percentage'])
 
         if percentage and not 25 < percentage < 100:
             raise commands.BadArgument(_("Percentage limit must be between 25 and 100"))
