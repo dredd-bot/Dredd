@@ -329,9 +329,9 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             action = _("Member Banned") if action == 4 else _("Member Temp-Banned")
         elif action in [6, 7, 8, 9]:
             color = self.bot.settings['colors']
-            color = color['ban_color'] if action == 7 else color['kick_color']
-            emoji = emoji['memberedit'] if action == 6 else emoji['ban']
-            action = _("Member Kicked") if action == 6 else _("Member Banned")
+            color = color['ban_color'] if action in [7, 9] else color['kick_color']
+            emoji = emoji['memberedit'] if action in [6, 8] else emoji['ban']
+            action = _("Member Kicked") if action in [6, 8] else _("Member Banned")
 
         embed = discord.Embed(color=color, timestamp=datetime.now(timezone.utc))
 
