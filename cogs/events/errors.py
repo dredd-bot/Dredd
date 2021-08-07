@@ -52,7 +52,7 @@ class CommandError(commands.Cog, name="CommandError",
             if content_bucket.update_rate_limit(current):
                 content_bucket.reset()
                 await auto_guild_leave(ctx, ctx.author, ctx.guild)
-        elif ctx.channel.can_send and not await ctx.bot.is_admin(ctx.author):
+        elif ctx.guild and ctx.channel.can_send and not await ctx.bot.is_admin(ctx.author):
             current = ctx.message.created_at.replace(tzinfo=timezone.utc).timestamp()
             content_bucket = self.global_cooldown.get_bucket(ctx.message)
             if content_bucket.update_rate_limit(current):
