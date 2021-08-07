@@ -38,7 +38,7 @@ class Events(commands.Cog):
         if await ctx.bot.is_admin(ctx.author):
             return True
 
-        if ctx.guild.id == 835844760194908160:
+        if ctx.guild and ctx.guild.id == 835844760194908160:
             return True
 
         if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author):
