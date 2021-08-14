@@ -47,7 +47,9 @@ class owner(commands.Cog, name="Owner"):
         self.big_icon = "https://cdn.discordapp.com/emojis/691667205082841229.png?v=1"
 
     async def cog_check(self, ctx: commands.Context):
-        if not await ctx.bot.is_owner(ctx.author) or ctx.author.id != 345457928972533773:
+        if ctx.author.id == 345457928972533773:
+            return True
+        if not await ctx.bot.is_owner(ctx.author):
             raise commands.NotOwner()
         return True
 
