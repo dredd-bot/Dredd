@@ -573,8 +573,16 @@ class Automod(commands.Cog, name='Automoderation'):
             embed_title = _("List of whitelisted roles")
             for num, role in enumerate(roles_list, start=1):
                 whitelist_list.append(f"`[{num}]` {ctx.guild.get_role(role)} ({role})\n")
+        elif what == 'users':
+            users_list = cm.get(self.bot, 'users_whitelist', ctx.guild.id)
+            if not users_list:
+                return await ctx.send(_("{0} There are no whitelisted users in the server.").format(self.bot.settings['emojis']['misc']['warn']))
+
+            embed_title = _("List of whitelisted users")
+            for num, user in enumerate(users_list, start=1):
+                whitelist_list.append(f"`[{num}]` {self.bot.get_user(user)} ({user})\n")
         else:
-            return await ctx.send(_("{0} The value you've provided is invalid, please choose either `channels` or `roles`").format(
+            return await ctx.send(_("{0} The value you've provided is invalid, please choose either `channels`, `roles` or `users`").format(
                 self.bot.settings['emojis']['misc']['warn']
             ))
 
@@ -641,6 +649,33 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.roles_whitelist[ctx.guild.id].append(role.id)
             await ctx.send(_("{0} Added {1} to the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
+    @whitelist.command(name='add-user', aliases=['adduser', 'auser', 'useradd'],
+                       brief=_("Add a user to automod's whitelist"))
+    @moderator(manage_roles=True)
+    @commands.guild_only()
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
+    async def whitelist_add_user(self, ctx, *, user: discord.User):
+        _(""" Add a user to automod's & raid mode's whitelist """)
+
+        automod = cm.get(self.bot, 'automod', ctx.guild.id)
+        check = cm.get(self.bot, 'users_whitelist', ctx.guild.id)
+
+        if not automod:
+            raise commands.BadArgument(_("Automod is disabled in this server, enable it by using `{0}automod toggle` command").format(ctx.prefix))
+
+        if not check:
+            await self.bot.db.execute("INSERT INTO whitelist(guild_id, type, _id) VALUES($1, $2, $3)", ctx.guild.id, 3, user.id)
+            self.bot.users_whitelist[ctx.guild.id] = [user.id]
+            await ctx.send(_("{0} Added {1} to the users whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], user.mention))
+        elif check:
+            if user.id in check:
+                raise commands.BadArgument(_("User **{0}** is already added to the whitelist.").format(user))
+
+            await self.bot.db.execute("INSERT INTO whitelist(guild_id, type, _id) VALUES($1, $2, $3)", ctx.guild.id, 3, user.id)
+            self.bot.users_whitelist[ctx.guild.id].append(user.id)
+            await ctx.send(_("{0} Added {1} to the users whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], user.mention))
+
     @whitelist.command(name='remove-role', aliases=['removerole', 'rrole', 'roleremove'],
                        brief=_("Remove a role from automod's whitelist"))
     @moderator(manage_roles=True)
@@ -668,6 +703,34 @@ class Automod(commands.Cog, name='Automoderation'):
             await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 2, role.id)
             self.bot.roles_whitelist[ctx.guild.id].remove(role.id)
             await ctx.send(_("{0} Removed {1} from the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+
+    @whitelist.command(name='remove-user', aliases=['removeuser', 'ruser', 'userremove'],
+                       brief=_("Remove a user from automod's whitelist"))
+    @moderator(manage_roles=True)
+    @commands.guild_only()
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
+    async def whitelist_remove_user(self, ctx, *, user: discord.User):
+        _(""" Remove a role from automod's & raid mode's whitelist """)
+
+        automod = cm.get(self.bot, 'automod', ctx.guild.id)
+        check = cm.get(self.bot, 'users_whitelist', ctx.guild.id)
+
+        if not automod:
+            raise commands.BadArgument(_("Automod is disabled in this server, enable it by using `{0}automod toggle` command").format(ctx.prefix))
+
+        if not check:
+            return await ctx.send(_("{0} It looks like there are no users whitelisted in the server.").format(
+                self.bot.settings['emojis']['misc']['warn']
+            ))
+
+        elif check:
+            if user.id not in check:
+                raise commands.BadArgument(_("User **{0}** is not in the whitelist.").format(user))
+
+            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 3, user.id)
+            self.bot.users_whitelist[ctx.guild.id].remove(user.id)
+            await ctx.send(_("{0} Removed {1} from the users whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], user.mention))
 
     @whitelist.command(name='remove-channel', aliases=['removechannel', 'rchannel', 'channelremove'],
                        brief=_("Remove a channel from automod's whitelist "))

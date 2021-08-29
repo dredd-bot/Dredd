@@ -560,7 +560,17 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     @locale_doc
     async def welcoming_message(self, ctx, *, message: str = None):
         _(""" Set the welcoming messages in the server
-        Passing no message will reset your welcoming message to the default one """)
+        Passing no message will reset your welcoming message to the default one.
+         
+         Formatting values:
+         • `{{member.mention}}` for mention
+         • `{{member.tag}}` for name and # 
+         • `{{member.id}}` for id
+         • `{{member.name}}` for name (markdown escaped)
+         • `{{server.name}}` for server name
+         • `{{server.members}}` for member count in server
+         • `{0}` for member name
+         • `{1}` for member count """)
 
         joinmessage = self.bot.cache.get(self.bot, 'joinmessage', ctx.guild.id)
 
@@ -712,7 +722,17 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     @locale_doc
     async def leaving_message(self, ctx, *, message: str = None):
         _(""" Set the leaving messages in the server
-        Passing no message will reset your leaving message to the default one """)
+        Passing no message will reset your leaving message to the default one
+                 
+         Formatting values:
+         • `{{member.mention}}` for mention
+         • `{{member.tag}}` for name and # 
+         • `{{member.id}}` for id
+         • `{{member.name}}` for name (markdown escaped)
+         • `{{server.name}}` for server name
+         • `{{server.members}}` for member count in server
+         • `{0}` for member name
+         • `{1}` for member count """)
 
         leavemessage = self.bot.cache.get(self.bot, 'leavemessage', ctx.guild.id)
 
@@ -855,7 +875,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         admin_role = self.bot.cache.get(self.bot, 'admin_role', ctx.guild.id)
 
         if not joinrole:
-            return await ctx.send(_("{0} Role on is not enabled in this server, please use "
+            return await ctx.send(_("{0} Role on join is not enabled in this server, please use "
                                     "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
         elif joinrole:
             if role and role.id in (mod_role, admin_role):

@@ -41,6 +41,8 @@ class Logging(commands.Cog):
                 emb_dict[thing] = emb_dict[thing].replace("{{member.mention}}", member.mention)
                 emb_dict[thing] = emb_dict[thing].replace("{{server.name}}", member.guild.name)
                 emb_dict[thing] = emb_dict[thing].replace("{{server.members}}", str(member.guild.member_count))
+                emb_dict[thing] = emb_dict[thing].replace("{0}", member.display_name)
+                emb_dict[thing] = emb_dict[thing].replace("{1}", str(member.guild.member_count))
         return emb_dict
 
     async def insert_new_case(self, mod_id, channel, case_num, user_id, guild_id, action, reason):
@@ -443,7 +445,8 @@ class Logging(commands.Cog):
                 if not role_for_bots:
                     continue
                 try:
-                    await member.add_roles(role_for_bots, reason='Join role')
+                    if member:
+                        await member.add_roles(role_for_bots, reason='Join role')
                 except Exception as e:
                     await default.background_error(self, '`join role (bots)`', e, member.guild, None)
         elif not member.bot and joinrole['people']:
@@ -452,7 +455,8 @@ class Logging(commands.Cog):
                 if not role_for_people:
                     continue
                 try:
-                    await member.add_roles(role_for_people, reason='Join role')
+                    if member:
+                        await member.add_roles(role_for_people, reason='Join role')
                 except Exception as e:
                     await default.background_error(self, '`join role (people)`', e, member.guild, None)
 

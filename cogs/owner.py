@@ -29,6 +29,8 @@ from db.cache import LoadCache as LC
 from db.cache import CacheManager as CM
 from datetime import datetime, timezone
 
+from cogs.events.automod import AutomodEvents as automod
+
 # THIS COG IS NOT MADE WELL
 # AS I DIDN'T WANT TO SPEND
 # MUCH TIME ON MAKING COGS
@@ -162,6 +164,18 @@ class owner(commands.Cog, name="Owner"):
     async def dev_reboot(self, ctx):
         await ctx.send("Logging out now\N{HORIZONTAL ELLIPSIS}")
         await self.bot.close()
+
+    @dev.command(name="automod")
+    async def dev_automod(self, ctx, guild_id: int = None):
+        if len(self.bot.automod_counter) > 0:
+            batches = len(automod(self.bot).batch_messages)
+            huge_servers = len(self.bot.automod_counter) if not guild_id else self.bot.get_guild(guild_id)
+            huge_raids = sum(self.bot.automod_counter.values()) if not guild_id else self.bot.automod_counter.get(guild_id)
+            return await ctx.send(f"{batches} messages globally are currently awaiting to be sent.\n"
+                                  f"{huge_servers} server(s) currently experiencing raids, "
+                                  f"{huge_raids} user(s) automoderated.")
+        else:
+            return await ctx.send("No servers are currently experiencing raids!")
 
     @commands.group(brief='Change bot\'s theme', invoke_without_command=True)
     async def theme(self, ctx):

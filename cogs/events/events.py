@@ -34,6 +34,9 @@ class Events(commands.Cog):
         self.bot = bot
         self.help_icon = ''
 
+        self.cooldown_bot_mentions = commands.CooldownMapping.from_cooldown(1, 10.0, commands.BucketType.channel)
+        self.cooldown_afk_mentions = commands.CooldownMapping.from_cooldown(5, 10.0, commands.BucketType.channel)
+
     async def bot_check(self, ctx):
         if await ctx.bot.is_admin(ctx.author):
             return True
@@ -90,7 +93,11 @@ class Events(commands.Cog):
         ctx = await self.bot.get_context(message)
 
         if ctx.guild and not ctx.valid:
-            if ctx.guild.me.mentioned_in(message):
+            if message.content.lower() in [f"<@{self.bot.user.id}>", f"<@!{self.bot.user.id}>"]:
+                current = message.created_at.timestamp()
+                content_bucket = self.cooldown_bot_mentions.get_bucket(message)
+                if content_bucket.update_rate_limit(current):
+                    return
                 if message.mention_everyone or message.reference or message.role_mentions:
                     return
                 prefix = CM.get(self.bot, 'prefix', message.guild.id)
@@ -104,7 +111,7 @@ class Events(commands.Cog):
                 return
             check = CM.get(self.bot, 'dms', message.author.id)
             blacklist = CM.get(self.bot, 'blacklist', message.author.id)
-            if blacklist:
+            if blacklist or not self.bot.log_dm:
                 return
             if check is None:
                 e = discord.Embed(color=self.bot.settings['colors']['embed_color'], title=f'Hey {message.author.name}!')
@@ -488,6 +495,12 @@ class Events(commands.Cog):
                                 member.display_name, btime.human_timedelta(check['time'], source=datetime.utcnow(), suffix=None),
                                 afkmsg
                             ))
+
+                current = message.created_at.timestamp()
+                content_bucket = self.cooldown_afk_mentions.get_bucket(message)
+                if content_bucket.update_rate_limit(current):
+                    return
+
                 try:
                     await message.reply(f"{to_send}", allowed_mentions=discord.AllowedMentions(replied_user=True))
                 except Exception:

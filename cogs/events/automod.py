@@ -56,6 +56,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
     @tasks.loop(seconds=10)
     async def send_messages(self):
         for ((guild_id, channel_id), messages) in self.batch_messages.items():
+            print(self.batch_messages.items())
             guild = self.bot.get_guild(guild_id)
             channel = guild and guild.get_channel(channel_id)
             if not channel:
@@ -114,6 +115,11 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                 if role.id in role_whitelist:
                     return
 
+        users_whitelist = cm.get(self.bot, 'users_whitelist', message.guild.id)
+        if users_whitelist:
+            if message.author.id in users_whitelist:
+                return
+
         for coro in self.automodactions.copy():
             if await coro(self, message):
                 break
@@ -157,6 +163,11 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                 if role.id in role_whitelist:
                     return
 
+        users_whitelist = cm.get(self.bot, 'users_whitelist', message.guild.id)
+        if users_whitelist:
+            if message.author.id in users_whitelist:
+                return
+
         for coro in self.automodactions.copy():
             if await coro(self, message):
                 break
@@ -178,6 +189,11 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
 
         if not self.new_member(member) and raidmode['action'] in [1, 2]:
             return
+
+        users_whitelist = cm.get(self.bot, 'users_whitelist', member.guild.id)
+        if users_whitelist:
+            if member.id in users_whitelist:
+                return
 
         for coro in self.raidmode.copy():
             if await coro(self, member):
@@ -495,7 +511,14 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     time = None
                 except Exception as e:
                     return await default.background_error(self, '`automod punishment execution (raidmode ban all)`', e, message.guild, message.channel if hasattr(message, 'channel') else log_channel)
-            await logchannel.send(embed=self.embed(member=message if not hasattr(message, 'author') else message.author, reason=reason, action=action, time=time))
+            self.automod_counter.update({message.guild.id})
+            count = self.automod_counter.get(message.guild.id, None)
+            if count and count < 50:
+                await asyncio.sleep(1)  # hopefully that's gonna wait between each log
+                await logchannel.send(embed=self.embed(member=message if not hasattr(message, 'author') else message.author, reason=reason, action=action, time=time))
+            elif count and 49 < count < 51:
+                await logchannel.send(_("It seems like your server is experiencing a *huge* raid, to prevent us from getting api banned "
+                                        "we'll be banning raiders in the background and will not be sending any logs in this channel."))
             if action in [6, 8]:
                 await asyncio.sleep(60)  # delete them from the counter after 60 seconds
                 if self.bot.join_counter[message.id] <= 2:

@@ -44,6 +44,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         self.backups.start()
         self.del_member_count.start()
         self.clear_mode247.start()
+        self.clear_automod_counter.start()
         self.client = gmailpy.Client(mail=bot.config.BACKUP_USER, password=bot.config.BACKUP_PASSWORD)
 
     def cog_unload(self):
@@ -57,6 +58,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         self.backups.cancel()
         self.del_member_count.cancel()
         self.clear_mode247.cancel()
+        self.clear_automod_counter.cancel()
 
     @tasks.loop(seconds=1)
     async def guild_data(self):
@@ -113,10 +115,11 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                             self.bot.to_unmute[guild.id] = {'users': [], 'mod': mod}
                         await default.execute_untemporary(self, 1, user, guild)
                         role = guild.get_role(int(check['role']))
+                        member = guild.get_member(user.id)
                         if role:
-                            member = guild.get_member(user.id)
                             await member.remove_roles(role, reason='Auto Unmute')
-                        self.bot.to_unmute[guild.id]['users'].append(member)
+                        if member:
+                            self.bot.to_unmute[guild.id]['users'].append(member)
         except Exception as e:
             pass
 
@@ -221,6 +224,10 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                 await player.destroy()
                 self.bot.mode247.pop(guild)
 
+    @tasks.loop(minutes=15)
+    async def clear_automod_counter(self):
+        self.bot.automod_counter.clear()
+
     @guild_data.before_loop
     async def before_guild_delete(self):
         await self.bot.wait_until_ready()
@@ -270,6 +277,11 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
     async def before_dispatch_unban(self):
         await self.bot.wait_until_ready()
         print("[BACKGROUND] Started dispatching bans.")
+
+    @clear_automod_counter.before_loop
+    async def before_automod_clear(self):
+        await self.bot.wait_until_ready()
+        print("[BACKGROUND] Started resetting raid counters.")
 
 
 def setup(bot):

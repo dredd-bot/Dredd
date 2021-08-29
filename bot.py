@@ -49,6 +49,19 @@ handler = RotatingFileHandler(
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
 
+logger = logging.getLogger('del.py')  # cause music keeps crashing randomly
+logger.setLevel(logging.DEBUG)
+handler = RotatingFileHandler(
+    filename='logs/del.log',
+    encoding='utf-8',
+    mode='w',
+    maxBytes=10 * 1024 * 1024,
+    backupCount=5,
+    delay=0
+)
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+logger.addHandler(handler)
+
 
 async def run():
     description = "A bot written in Python that uses asyncpg to connect to a postgreSQL database."
@@ -173,10 +186,12 @@ class Bot(commands.AutoShardedBot):
         self.cleverbot = ac.Cleverbot(config.CB_TOKEN)
         self.join_counter = Counter()  # counter for anti raid so the bot would ban the user if they try to join more than 5 times in short time span
         self.counter = Counter()  # Counter for global commands cooldown
+        self.automod_counter = Counter()  # Counter for automod logs
 
         self.cache = CacheManager
         self.cmd_edits = {}
         self.dm = {}
+        self.log_dm = True
         self.dms = {}  # cache for checks if user was already informed about dm logging
         self.updates = {}
         self.snipes = {}
@@ -233,6 +248,7 @@ class Bot(commands.AutoShardedBot):
         self.admin_role = {}
         self.channels_whitelist = {}
         self.roles_whitelist = {}
+        self.users_whitelist = {}
         self.guild_disabled = {}
         self.cog_disabled = {}
         self.case_num = {}
@@ -282,7 +298,6 @@ class Bot(commands.AutoShardedBot):
             if ctx.valid:
                 await self.invoke(ctx)
         except Exception as e:
-            print(e)
             return
 
     async def on_message_edit(self, before, after):
