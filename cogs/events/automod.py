@@ -511,9 +511,9 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     time = None
                 except Exception as e:
                     return await default.background_error(self, '`automod punishment execution (raidmode ban all)`', e, message.guild, message.channel if hasattr(message, 'channel') else log_channel)
-            self.automod_counter.update({message.guild.id})
-            count = self.automod_counter.get(message.guild.id, None)
-            if count and count < 50:
+            self.bot.automod_counter.update({message.guild.id})
+            count = self.bot.automod_counter.get(message.guild.id, 0)
+            if count < 50:
                 await asyncio.sleep(1)  # hopefully that's gonna wait between each log
                 await logchannel.send(embed=self.embed(member=message if not hasattr(message, 'author') else message.author, reason=reason, action=action, time=time))
             elif count and 49 < count < 51:
@@ -528,7 +528,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             await default.background_error(self, '`automod punishment execution`', e, message.guild, message.channel if hasattr(message, 'channel') else log_channel)
             if action not in [6, 7, 8, 9]:
                 return await message.channel.send(_("{0} I'm not sure what happened, but something broke. Please make sure that my role is above everyone's else, "
-                                                    "otherwise you'll see these errors more often. I've also sent this error to my developers."))
+                                                    "otherwise you'll see these errors more often. I've also sent this error to my developers.").format(self.bot.settings['emojis']['misc']['warn'])
 
     async def update_channel_permissions(self, message, action):
         overwrite = message.channel.overwrites_for(message.author)
