@@ -528,7 +528,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             await default.background_error(self, '`automod punishment execution`', e, message.guild, message.channel if hasattr(message, 'channel') else log_channel)
             if action not in [6, 7, 8, 9]:
                 return await message.channel.send(_("{0} I'm not sure what happened, but something broke. Please make sure that my role is above everyone's else, "
-                                                    "otherwise you'll see these errors more often. I've also sent this error to my developers.").format(self.bot.settings['emojis']['misc']['warn'])
+                                                    "otherwise you'll see these errors more often. I've also sent this error to my developers.").format(self.bot.settings['emojis']['misc']['warn']))
 
     async def update_channel_permissions(self, message, action):
         overwrite = message.channel.overwrites_for(message.author)
