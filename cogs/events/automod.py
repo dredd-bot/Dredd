@@ -464,7 +464,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                         del self.bot.join_counter[message.id]
                         return await self.execute_punishment(9, message, audit_reason)
                     await message.guild.kick(message, reason=audit_reason)
-                    log_channel = message.guild.get_channel(anti_raid['channel'])
+                    logchannel = message.guild.get_channel(anti_raid['channel'])
                     if anti_raid['dm']:
                         with suppress(Exception):
                             await message.send(_("{0} {1} has anti raid mode activated, please try joining again later.").format(self.bot.settings['emojis']['misc']['warn'], message.guild))
@@ -476,7 +476,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     return
                 try:
                     await message.guild.ban(message, reason=audit_reason)
-                    log_channel = message.guild.get_channel(anti_raid['channel'])
+                    logchannel = message.guild.get_channel(anti_raid['channel'])
                     if anti_raid['dm']:
                         with suppress(Exception):
                             await message.send(_("{0} {1} has anti raid mode activated, you're not allowed to join that server.").format(self.bot.settings['emojis']['misc']['warn'], message.guild))
@@ -492,7 +492,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                         del self.bot.join_counter[message.id]
                         return await self.execute_punishment(9, message, audit_reason)
                     await message.guild.kick(message, reason=audit_reason)
-                    log_channel = message.guild.get_channel(anti_raid['channel'])
+                    logchannel = message.guild.get_channel(anti_raid['channel'])
                     if anti_raid['dm']:
                         with suppress(Exception):
                             await message.send(_("{0} {1} has strict anti raid mode activated, please try joining again later.").format(self.bot.settings['emojis']['misc']['warn'], message.guild))
@@ -504,7 +504,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     return
                 try:
                     await message.guild.ban(message, reason=audit_reason)
-                    log_channel = message.guild.get_channel(anti_raid['channel'])
+                    logchannel = message.guild.get_channel(anti_raid['channel'])
                     if anti_raid['dm']:
                         with suppress(Exception):
                             await message.send(_("{0} {1} has anti raid mode activated, you're not allowed to join that server.").format(self.bot.settings['emojis']['misc']['warn'], message.guild))
