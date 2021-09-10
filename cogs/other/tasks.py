@@ -21,6 +21,7 @@ import os
 
 from discord.ext import commands, tasks
 from discord.utils import escape_markdown
+from discord.errors import NotFound
 from io import BytesIO
 
 from utils import btime, default
@@ -91,8 +92,9 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                         if not to_disp:
                             self.bot.to_unban[guild.id] = {'users': [], 'mod': mod}
                         await default.execute_untemporary(self, 2, user, guild)
-                        await guild.unban(user, reason='Auto Unban')
-                        self.bot.to_unban[guild.id]['users'].append(user)
+                        with suppress(NotFound):
+                            await guild.unban(user, reason='Auto Unban')
+                            self.bot.to_unban[guild.id]['users'].append(user)
         except Exception as e:
             print(e)
             pass
@@ -127,7 +129,8 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
     async def dispatch_unmute(self):
         try:
             for guild in self.bot.to_unmute:
-                self.bot.dispatch('unmute', self.bot.get_guild(guild), self.bot.to_unmute[guild]['mod'], self.bot.to_unmute[guild]['users'], 'Auto Unmute')
+                if len(self.bot.to_unmute[guild]['users']) >= 1:
+                    self.bot.dispatch('unmute', self.bot.get_guild(guild), self.bot.to_unmute[guild]['mod'], self.bot.to_unmute[guild]['users'], 'Auto Unmute')
                 self.bot.to_unmute.pop(guild, None)
         except Exception:
             pass
@@ -136,7 +139,8 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
     async def dispatch_unban(self):
         try:
             for guild in self.bot.to_unban:
-                self.bot.dispatch('unban', self.bot.get_guild(guild), self.bot.to_unban[guild]['mod'], self.bot.to_unban[guild]['users'], 'Auto Unban')
+                if len(self.bot.to_unban[guild]['users']) >= 1:
+                    self.bot.dispatch('unban', self.bot.get_guild(guild), self.bot.to_unban[guild]['mod'], self.bot.to_unban[guild]['users'], 'Auto Unban')
                 self.bot.to_unban.pop(guild, None)
         except Exception as e:
             pass
