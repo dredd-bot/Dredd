@@ -13,7 +13,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import delpy
+import topgg
 import statcord
 import dbl
 import discordlists
@@ -82,7 +82,10 @@ class ShitGG(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.token = bot.config.DBL_TOKEN
-        self.bot.dblpy = dbl.DBLClient(self.bot, self.token, webhook_path='/dblwebhook', webhook_auth=bot.config.DBL_password, webhook_port=5435, autopost=True)
+        self.bot.dblpy = topgg.DBLClient(self.bot, self.token, autopost=True, post_shard_count=True, autopost_interval=1800.0)
+        self.bot.dblpy_hook = topgg.WebhookManager(self.bot).dbl_webhook("/dblwebhook", bot.config.DBL_password)
+        self.bot.dblpy_hook.run(5435)
+        # self.bot.dblpy = dbl.DBLClient(self.bot, self.token, webhook_path='/dblwebhook', webhook_auth=bot.config.DBL_password, webhook_port=5435, autopost=True)
 
         self.help_icon = ""
         self.big_icon = ""
@@ -102,6 +105,8 @@ class ShitGG(commands.Cog):
 
     @commands.Cog.listener()
     async def on_dbl_vote(self, data):
+        if data["type"] == "test":
+            return bot.dispatch("dbl_test", data)
         channel = self.bot.get_channel(780066719645040651)
         user = await self.bot.fetch_user(int(data['user']))
         e = discord.Embed(title='Upvote received',
