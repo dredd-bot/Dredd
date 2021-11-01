@@ -20,7 +20,7 @@ from utils.checks import is_booster
 from utils.i18n import locale_doc
 
 
-class Boosters(commands.Cog, aliases=['Donators']):
+class Boosters(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.help_icon = '<:n_:747399776231882812>'

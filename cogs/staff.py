@@ -152,6 +152,68 @@ class staff(commands.Cog, name="Staff", command_attrs={"slash_command": False}):
                                            cls=self, reason=reason, thing=thing)
         return await ctx.send(f"You're managing **{thing}**", view=dropdown)
 
+    @admin.command(name='disable-command', aliases=['discmd', 'disablecmd'])
+    async def admin_disable_command(self, ctx, command: str, *, reason: str):
+
+        command = self.bot.get_command(command)
+        cant_disable = ['jsk', 'dev', 'admin', 'theme', 'help']
+
+        if not command:
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` doesn\'t exist.")
+
+        elif command in cant_disable or command.parent in cant_disable:
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` can't be disabled.")
+
+        else:
+            if command.parent:
+                if await checks.is_disabled(ctx, command):
+                    return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` is already disabled.")
+                else:
+                    if not command.name:
+                        self.bot.disabled_commands[str(command.parent)] = {'reason': reason, 'dev': ctx.author.id}
+                        await self.bot.db.execute("INSERT INTO discmds(command, reason, dev) VALUES($1, $2, $3)", str(command.parent), reason, ctx.author.id)
+                        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent}` and its corresponding subcommands were successfully disabled for {reason}")
+                    elif command.name:
+                        self.bot.disabled_commands[str(f"{command.parent} {command.name}")] = {'reason': reason, 'dev': ctx.author.id}
+                        await self.bot.db.execute("INSERT INTO discmds(command, reason, dev) VALUES($1, $2, $3)", str(f"{command.parent} {command.name}"), reason, ctx.author.id)
+                        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent} {command.name}` and its corresponding subcommands were successfully disabled for {reason}")
+            elif not command.parent:
+                if await checks.is_disabled(ctx, command):
+                    return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` is already disabled.")
+                else:
+                    self.bot.disabled_commands[str(command)] = {'reason': reason, 'dev': ctx.author.id}
+                    await self.bot.db.execute("INSERT INTO discmds(command, reason, dev) VALUES($1, $2, $3)", str(command), reason, ctx.author.id)
+                    await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command}` was successfully disabled for {reason}")
+
+    @admin.command(name='enable-command', aliases=['enbcmd', 'enablecmd'])
+    async def enable_command(self, ctx, *, cmd: str):
+
+        command = self.bot.get_command(cmd)
+
+        if not command:
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{cmd}` doesn\'t exist.")
+
+        else:
+            if command.parent:
+                if not await checks.is_disabled(ctx, command):
+                    return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` is not disabled.")
+                else:
+                    if not command.name:
+                        self.bot.disabled_commands.pop(str(command.parent))
+                        await self.bot.db.execute("DELETE FROM discmds WHERE command = $1", str(command.parent))
+                        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent}` and its corresponding subcommands were successfully re-enabled")
+                    elif command.name:
+                        self.bot.disabled_commands.pop(str(f"{command.parent} {command.name}"))
+                        await self.bot.db.execute("DELETE FROM discmds WHERE command = $1", str(f"{command.parent} {command.name}"))
+                        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent} {command.name}` and its corresponding subcommands were successfully re-enabled")
+            elif not command.parent:
+                if not await checks.is_disabled(ctx, command):
+                    return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` is not disabled.")
+                else:
+                    self.bot.disabled_commands.pop(str(command))
+                    await self.bot.db.execute("DELETE FROM discmds WHERE command = $1", str(command))
+                    await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command}` was successfully re-enabled")
+
     @commands.command(brief='Approve the suggestion', aliases=['approve'])
     @checks.is_guild(709521003759403063)
     async def suggestapprove(self, ctx, suggestion_id: str, *, reason: commands.clean_content):
