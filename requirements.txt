@@ -11,7 +11,7 @@ sr_api
 git+https://github.com/TheMoksej/wavelink@1.0
 youtube_dl
 git+https://github.com/TheMoksej/del.py
-betterstatcord.py
+betterstatcord.py --no-deps
 demjson
 async_cleverbot
 gmailpy
