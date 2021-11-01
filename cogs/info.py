@@ -264,7 +264,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         nitromsg += f"\n{default.next_level(ctx)}"
 
         e = discord.Embed(color=self.bot.settings['colors']['embed_color'])
-        e.set_author(name=_("{0} Information").format(ctx.guild.name), icon_url=ctx.guild.icon.url)
+        e.set_author(name=_("{0} Information").format(ctx.guild.name), icon_url=ctx.guild.icon.url if ctx.guild.icon else self.bot.user.display_avatar.url)
         if ctx.guild.description:
             e.description = ctx.guild.description
         e.add_field(name=_('General Information:'), value=_("""
