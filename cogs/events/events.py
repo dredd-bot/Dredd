@@ -243,6 +243,7 @@ class Events(commands.Cog):
     # noinspection PyDunderSlots
     @commands.Cog.listener()
     async def on_guild_join(self, guild):  # sourcery no-metrics
+        print("new guild")  # debug purposes
         check = CM.get(self.bot, 'blacklist', guild.id)
         check_delete_data = CM.get(self.bot, 'guilds_data', guild.id)
 
@@ -352,6 +353,7 @@ class Events(commands.Cog):
     # noinspection PyDunderSlots
     @commands.Cog.listener()
     async def on_guild_remove(self, guild):  # sourcery no-metrics
+        print("left guild")  # debug purposes
         # I'm using asyncio.sleep() here just to
         # make sure the events don't bug out and
         # acidentally delete the data from the db.
