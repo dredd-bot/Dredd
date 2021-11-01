@@ -542,7 +542,7 @@ class owner(commands.Cog, name="Owner", command_attrs={"slash_command": False}):
 
         elif guild:
             e = discord.Embed(color=self.bot.settings['colors']['deny_color'], timestamp=datetime.now(timezone.utc))
-            e.set_author(name="Left guild forcefully", icon_url=guild.icon.url)
+            e.set_author(name="Left guild forcefully", icon_url=guild.icon.url if guild.icon else self.bot.user.display_avatar.url)
             e.description = f"""
 Hey {guild.owner}!
 Just wanted to let you know that **{ctx.author}** made me forcefully leave your server: {guild.name} ({guild.id}) with a reason: **{reason}**
