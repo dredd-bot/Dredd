@@ -17,50 +17,28 @@ import discord
 import asyncio
 import asyncpg
 import config
-import datetime
 import aiohttp
-import logging
 import sys
 import psutil
 import sr_api
+import traceback
+import logging
 import async_cleverbot as ac
 
 from discord.ext import commands
-from db.cache import LoadCache, CacheManager
+
+from db.cache import LoadCache, CacheManager, DreddUser, DreddGuild
 from utils import i18n
-from cogs.music import Player
 from collections import Counter
-from logging.handlers import RotatingFileHandler
+from typing import Optional, Union, Any
+from utils.checks import is_disabled
+from colorama import Fore as print_color
+from utils.context import EditingContext
 
-if sys.version_info < (3, 5, 3):
-    raise Exception('Your python is outdated. Please update to at least 3.5.3')
+dredd_logger = logging.getLogger("dredd")
 
-
-logger = logging.getLogger('wavelink.player')  # cause music keeps crashing randomly
-logger.setLevel(logging.DEBUG)
-handler = RotatingFileHandler(
-    filename='logs/discord_voice.log',
-    encoding='utf-8',
-    mode='w',
-    maxBytes=10 * 1024 * 1024,
-    backupCount=5,
-    delay=0
-)
-handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logger.addHandler(handler)
-
-logger = logging.getLogger('del.py')  # cause music keeps crashing randomly
-logger.setLevel(logging.DEBUG)
-handler = RotatingFileHandler(
-    filename='logs/del.log',
-    encoding='utf-8',
-    mode='w',
-    maxBytes=10 * 1024 * 1024,
-    backupCount=5,
-    delay=0
-)
-handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
-logger.addHandler(handler)
+if sys.version_info < (3, 8, 0) or sys.version_info >= (3, 10, 0):
+    raise Exception('Your python version is incompatible, please make sure you have Python 3.8 < 3.10 installed.')
 
 
 async def run():
@@ -73,26 +51,26 @@ async def run():
     if not hasattr(bot, 'uptime'):
         bot.uptime = discord.utils.utcnow()
     try:
-        await LoadCache.start(bot)
+        dredd_logger.info("[CACHE] Loading cache.")
+        await LoadCache.start(bot)  # type: ignore
         bot.session = aiohttp.ClientSession(loop=bot.loop)
+        dredd_logger.info("[BOT] Starting bot.")
         # await bot.start(config.DISCORD_TOKEN)
         await bot.start(config.MAIN_TOKEN)
-    except KeyboardInterrupt:
+    except KeyboardInterrupt as e:
+        dredd_logger.error(f"[Shutting Down] Occured while booting up: {e}.")
         await db.close()
-        await bot.logout()
+        await bot.close()
 
 
 async def get_prefix(bot, message):
     if bot.user.id == 663122720044875796:  # for beta, so I don't accidentally kill both bots
         custom_prefix = ['rw ', 'db ']
         return commands.when_mentioned_or(*custom_prefix)(bot, message)
-    if message.guild:
-        prefix = bot.prefix[message.guild.id]
-    elif not message.guild:
-        prefix = '!'
+    prefix = message.guild.data.prefix if message.guild else '!'
     custom_prefix = [prefix]
     if await bot.is_booster(message.author):
-        boosters_prefix = CacheManager.get(bot, 'boosters', message.author.id) or 'dredd '
+        boosters_prefix = message.author.data.prefix if message.author.data.prefix is not None else 'dredd '
         custom_prefix.append(boosters_prefix)
     if await bot.is_admin(message.author):
         custom_prefix.append('d ')
@@ -100,32 +78,7 @@ async def get_prefix(bot, message):
     return commands.when_mentioned_or(*custom_prefix)(bot, message)
 
 
-class EditingContext(commands.Context):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=discord.AllowedMentions(users=False, roles=False, everyone=False, replied_user=True)):
-        if file or files:
-            return await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
-        reply = None
-        try:
-            reply = self.bot.cmd_edits[self.message.id]
-        except KeyError:
-            pass
-        if reply:
-            try:
-                return await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions)
-            except discord.errors.NotFound:  # Message was deleted
-                pass
-        reference = self.message.reference
-        if reference and isinstance(reference.resolved, discord.Message):
-            msg = await reference.resolved.reply(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
-        else:
-            msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions)
-        self.bot.cmd_edits[self.message.id] = msg
-        return msg
-
-
+# noinspection PyArgumentEqualDefault
 class Bot(commands.AutoShardedBot):
     def __init__(self, **kwargs):
         super().__init__(
@@ -137,6 +90,7 @@ class Bot(commands.AutoShardedBot):
             owner_id=345457928972533773,
             reconnect=True,
             allowed_mentions=discord.AllowedMentions(users=False, roles=False, everyone=False, replied_user=True),
+            slash_commands=False,  # Fuck slash commands
             max_messages=10000,
             chunk_guilds_at_startup=True,  # this is here for easy access. In case I need to switch it fast to False I won't need to look at docs.
             intents=discord.Intents(
@@ -163,26 +117,31 @@ class Bot(commands.AutoShardedBot):
         for extension in config.EXTENSIONS:
             try:
                 self.load_extension(extension)
-                print(f'[EXTENSION] {extension} was loaded successfully!')
+                print(print_color.GREEN, f'[EXTENSION] {extension} was loaded successfully!')
             except Exception as e:
-                print(f'[WARNING] Could not load extension {extension}: {e}')
+                print(print_color.RED, f'[WARNING] Could not load extension {extension}: {e}')
 
-        self.db = kwargs.pop("db")
+        self.db: asyncpg.pool.Pool = kwargs.pop("db")
         self.cmdUsage = {}
         self.cmdUsers = {}
         self.guildUsage = {}
         self.process = psutil.Process()
+        self.ctx = EditingContext
 
+        self.website = 'https://dredd-bot.xyz'
         self.support = 'https://discord.gg/f3MaASW'
         self.invite = 'https://dredd-bot.xyz/invite'
         self.privacy = 'https://dredd-bot.xyz/privacy-policy'
         self.license = '<https://github.com/TheMoksej/Dredd/blob/master/LICENSE>'
         self.gif_pfp = 'https://cdn.discordapp.com/attachments/667077166789558288/747132112099868773/normal_3.gif'
         self.vote = '<https://discord.boats/bot/667117267405766696/vote>'
-        self.source = '<https://github.com/TheMoksej/Dredd/>'
+        self.source = '<https://github.com/dredd-bot/Dredd/>'
         self.statuspage = '<https://status.dredd-bot.xyz>'
+        self.require_vote: bool = True
         self.bot_lists = {'dbots': "[Discord Bot Labs](https://dbots.cc/dredd 'bots.discordlabs.org')", 'dboats': "[Discord Boats](https://discord.boats/bot/667117267405766696/vote 'discord.boats')",
-                          'dbl': "[Discord Bot list](https://discord.ly/dredd/upvote 'discordbotlist.com')", 'shitgg': "[Top.GG](https://top.gg/bot/667117267405766696/vote 'top.gg')"}
+                          'dbl': "[Discord Bot list](https://discord.ly/dredd/upvote 'discordbotlist.com')", 'shitgg': "[Top.GG](https://top.gg/bot/667117267405766696/vote 'top.gg')",
+                          'dservices': "[Discord Services](https://discordservices.net/bot/dredd 'discordservices.net')", 'void': "[Void Bots](https://voidbots.net/bot/667117267405766696/vote 'voidbots.net')",
+                          'discords': "[Discords](https://discords.com/bots/bot/667117267405766696/vote 'discords.com')", 'topcord': "[Topcord](https://topcord.xyz/bot/667117267405766696 'topcord.xyz')"}
         self.cleverbot = ac.Cleverbot(config.CB_TOKEN)
         self.join_counter = Counter()  # counter for anti raid so the bot would ban the user if they try to join more than 5 times in short time span
         self.counter = Counter()  # Counter for global commands cooldown
@@ -199,7 +158,7 @@ class Bot(commands.AutoShardedBot):
         self.voted = {}
 
         self.guilds_data = {}
-        self.loop = asyncio.get_event_loop()
+        self.loop = asyncio.get_event_loop_policy().get_event_loop()
         self.guild_loop = {}
         self.to_unmute = {}
         self.to_unban = {}
@@ -264,32 +223,70 @@ class Bot(commands.AutoShardedBot):
         self.translations = {}
         self.reminders = {}
         self.mode247 = {}
+        self.catched_errors = Counter()
+
+        # custom stuff
+        setattr(discord.TextChannel, "can_send", property(self.send_check))
+        setattr(discord.Thread, "can_send", property(self.send_check))
+        setattr(discord.Guild, "data", property(self.guild_cache))
+        setattr(discord.User, "data", property(self.user_cache))
+        setattr(discord.Member, "data", property(self.user_cache))
+
+    @staticmethod
+    def send_check(b) -> bool:
+        return b.permissions_for(b.guild.me).send_messages
+
+    def guild_cache(self, g) -> DreddGuild:
+        return self.cache.get_guild(self, g.id)  # type: ignore
+
+    def user_cache(self, u) -> DreddUser:
+        return self.cache.get_user(self, u)  # type: ignore
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)
 
-    async def close(self):
-        await self.session.close()
+    async def close(self) -> None:
+        dredd_logger.info("[BOT] Shutting down.")
+        await self.session.close()  # type: ignore
         await super().close()
 
-    async def is_owner(self, user):
-        return CacheManager.get(self, 'devs', user.id)
+    async def is_owner(self, user) -> Optional[str]:
+        return CacheManager.get(self, 'devs', user.id)  # type: ignore
 
-    async def is_admin(self, user):
-        if CacheManager.get(self, 'devs', user.id):
+    async def is_admin(self, user) -> Optional[Union[bool, str]]:
+        if CacheManager.get(self, 'devs', user.id):  # type: ignore
             return True
-        return CacheManager.get(self, 'admins', user.id)
+        return CacheManager.get(self, 'admins', user.id)  # type: ignore
 
-    async def is_booster(self, user):
-        if CacheManager.get(self, 'devs', user.id):
+    async def is_booster(self, user) -> Optional[Union[bool, str]]:
+        if CacheManager.get(self, 'devs', user.id):  # type: ignore
             return True
-        return CacheManager.get(self, 'boosters', user.id)
+        return CacheManager.get(self, 'boosters', user.id) is not None  # type: ignore
 
-    async def is_blacklisted(self, user):
-        return CacheManager.get(self, 'blacklist', user.id)
+    async def is_blacklisted(self, user) -> Optional[str]:
+        return CacheManager.get(self, 'blacklist', user.id)  # type: ignore
+
+    @staticmethod
+    async def is_disabled(ctx, command):
+        return await is_disabled(ctx, command=command)
+
+    async def on_error(self, event_method: str, *args: Any, **kwargs: Any) -> None:
+        if not self.catched_errors.get(event_method):  # so it wouldn't spam the errors
+            err, err2, err3 = sys.exc_info()
+            error = '```py\n{1}{0}: {2}\n```'.format(err.__name__, ''.join(traceback.format_tb(err3)), err2)
+            log_channel = self.get_channel(self.settings['channels']['event-errors'])
+            embed = discord.Embed(color=self.settings['colors']['error_color'], timestamp=discord.utils.utcnow())
+            embed.description = error
+            await log_channel.send(embed=embed, content=f"{self.settings['emojis']['misc']['error']} Error occured on - **{event_method}**")
+        return self.catched_errors.update({event_method})
+
+    async def on_interaction(self, interaction: discord.Interaction):
+        if interaction.guild:
+            i18n.current_locale.set(self.translations.get(interaction.guild.id, 'en_US'))
+        await self.process_slash_commands(interaction)
 
     async def on_message(self, message):
-        if message.author.bot:
+        if message.author.bot or not self.is_ready():
             return
         try:
             ctx = await self.get_context(message, cls=EditingContext)
@@ -297,12 +294,11 @@ class Bot(commands.AutoShardedBot):
                 i18n.current_locale.set(self.translations.get(message.guild.id, 'en_US'))
             if ctx.valid:
                 await self.invoke(ctx)
-        except Exception as e:
+        except Exception:
             return
 
     async def on_message_edit(self, before, after):
-
-        if before.author.bot:
+        if before.author.bot or not self.is_ready():
             return
 
         if after.content != before.content:
@@ -315,10 +311,7 @@ class Bot(commands.AutoShardedBot):
             except discord.NotFound:
                 return
 
-    def music_player(self, **kwargs):
-        ctx = kwargs.get('ctx')
-        return self.wavelink.get_player(guild_id=ctx.guild.id, cls=Player)
 
-
-loop = asyncio.get_event_loop()
-loop.run_until_complete(run())
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop_policy().get_event_loop()
+    loop.run_until_complete(run())

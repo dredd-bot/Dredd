@@ -39,8 +39,8 @@ class Arguments(argparse.ArgumentParser):
         raise RuntimeError(message)
 
 
-# noinspection PyProtectedMember
-class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
+# noinspection PyProtectedMember,PyUnboundLocalVariable,PyArgumentEqualDefault,PyTypeChecker
+class moderation(commands.Cog, name='Moderation'):
     def __init__(self, bot):
         self.bot = bot
         self.help_icon = '<:bann:747192603640070237>'
@@ -51,7 +51,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     #         return False
     #     return True
 
-    async def _basic_cleanup_strategy(self, ctx, search):
+    @staticmethod
+    async def _basic_cleanup_strategy(ctx, search):
         count = 0
         async for msg in ctx.history(limit=search, before=ctx.message):
             if msg.author == ctx.me:
@@ -90,7 +91,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
 
         try:
             deleted = await ctx.channel.purge(limit=limit, before=before, after=after, check=predicate)
-        except discord.Forbidden as e:
+        except discord.Forbidden:
             return await ctx.send(_("{0} Looks like I'm missing permissions!").format(self.bot.settings['emojis']['misc']['warn']))
         except discord.HTTPException as e:
             return await ctx.send(_("{0} Error occured!\n`{1}`").format(self.bot.settings['emojis']['misc']['warn'], e))
@@ -128,7 +129,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         If the bot has Manage Messages permissions then it will try to delete messages that look like they invoked the bot as well. """)
 
         strategy = self._basic_cleanup_strategy
-        if ctx.me.permissions_in(ctx.channel).manage_messages:
+        if ctx.channel.permissions_for(ctx.guild.me).manage_messages:
             strategy = self._complex_cleanup_strategy
 
         spammers = await strategy(ctx, search)
@@ -147,7 +148,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
     @locale_doc
-    async def setnickname(self, ctx, members: commands.Greedy[discord.Member], *, new_nick: commands.clean_content = None):
+    async def setnickname(self, ctx, members: commands.Greedy[discord.Member], *, new_nick: commands.clean_content = None):  # sourcery no-metrics
         _(""" Changes member's nickname in the server.
         If multiple members are provided, they all get their nicknames changed in the server. """)
 
@@ -222,12 +223,12 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_permissions(manage_nicknames=True)
     @commands.guild_only()
     @locale_doc
-    async def dehoist(self, ctx, *, nickname: str = None):
+    async def dehoist(self, ctx, *, nickname: str = None):  # sourcery no-metrics
         _(""" Dehoists members who have non-alphabetic characters at the start of their name """)
 
         if nickname and len(nickname) > 32:
             return await ctx.send(_("{0} Nicknames can only be 32 characters long."
-                                    " You're {1} characters over.").format(self.bot.settings['emojis']['misc']['warn'], len(new_nick) - 32))
+                                    " You're {1} characters over.").format(self.bot.settings['emojis']['misc']['warn'], len(nickname) - 32))
         nickname = nickname or 'z (hoister)'
 
         dehoisted, failed, success_list, success, fail = [], [], [], 0, 0
@@ -297,7 +298,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def kick(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
+    async def kick(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Kick a member from the server. If multiple members are provided, they all get kicked from the server. """)
 
         if len(members) == 0:
@@ -390,7 +391,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def ban(self, ctx, members: commands.Greedy[discord.Member], duration: typing.Optional[btime.FutureTime], *, reason: commands.clean_content = None):
+    async def ban(self, ctx, members: commands.Greedy[discord.Member], duration: typing.Optional[btime.FutureTime], *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Ban a member from the server. If multiple members are provided, they all get banned from the server. """)
 
         if len(members) == 0:
@@ -482,7 +483,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_permissions(ban_members=True, manage_messages=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def softban(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
+    async def softban(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Soft-ban a member from the server. If multiple members are provided, they all get soft-banned from the server. """)
 
         if len(members) == 0:
@@ -575,7 +576,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.max_concurrency(1, commands.BucketType.guild)
     @locale_doc
-    async def hackban(self, ctx, users: commands.Greedy[MemberID], *, reason: commands.clean_content = None):
+    async def hackban(self, ctx, users: commands.Greedy[MemberID], *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Hack-ban a user who's not in the server from the server. Users must be IDs else it won't work. """)
 
         if len(set(users)) == 0:
@@ -586,7 +587,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 400
+                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
         failed, success, fail_count, suc_count, banned = [], [], 0, 0, []
@@ -670,16 +671,16 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 400
+                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
                                     ))
 
         try:
-            await ctx.guild.unban(banned_user.user, reason=default.responsible(ctx.author, reason))
+            await ctx.guild.unban(banned_user.user, reason=default.responsible(ctx.author, reason))  # type: ignore
             await ctx.send(_("I've successfully unbanned **{0}** for **{1}**").format(
-                banned_user.user, _('No reason provided.') if reason is None else reason
+                banned_user.user, _('No reason provided.') if reason is None else reason  # type: ignore
             ))
-            await default.execute_untemporary(ctx, 1, banned_user.user, ctx.guild)
-            self.bot.dispatch('unban', ctx.guild, ctx.author, [banned_user.user], reason)
+            await default.execute_untemporary(ctx, 1, banned_user.user, ctx.guild)  # type: ignore
+            self.bot.dispatch('unban', ctx.guild, ctx.author, [banned_user.user], reason)  # type: ignore
         except Exception as e:
             self.bot.dispatch('silent_error', ctx, e)
             return await ctx.send(_("{0} Something failed with sending the message, "
@@ -734,7 +735,6 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                             await ctx.guild.unban(member.user, reason=default.responsible(ctx.author, reason))
                             await default.execute_untemporary(ctx, 1, member.user, ctx.guild)
                             total_unbanned.append(member.user)
-                            count = bans - len(await ctx.guild.bans())
                         except discord.HTTPException:
                             fail += 1
                             pass
@@ -770,7 +770,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def mute(self, ctx, members: commands.Greedy[discord.Member], duration: typing.Optional[btime.FutureTime], *, reason: commands.clean_content = None):
+    async def mute(self, ctx, members: commands.Greedy[discord.Member], duration: typing.Optional[btime.FutureTime], *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Mute members in the server
         If duration is provided, they'll get unmuted after the duration ends.
         If multiple members are provided, all of them will get muted. """)
@@ -845,9 +845,9 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                     fail += 1
                     continue
                 except discord.HTTPException:
-                    notmuted.append(f"{0} ({1}) - **Failed to add the mute role.**").format(
+                    notmuted.append(f"{0} ({1}) - **Failed to add the mute role.**".format(
                         member.mention, member.id
-                    )
+                    ))
                     fail += 1
                     continue
 
@@ -886,7 +886,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.user)
     @locale_doc
-    async def unmute(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
+    async def unmute(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Unmute member in the server
         If multiple members are provided, all of them will get unmuted. """)
 
@@ -995,7 +995,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def voicemute(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
+    async def voicemute(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Voice mute an annoying member in voice channel.
         If multiple members are passed, all of them will get voice muted.
         They need to be in voice channel in order to voice mute them. """)
@@ -1086,7 +1086,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_guild_permissions(mute_members=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def voiceunmute(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
+    async def voiceunmute(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Voice unmute an annoying member in voice channel.
         If multiple members are passed, all of them will get voice unmuted.
         They need to be in voice channel in order to voice unmute them. """)
@@ -1172,7 +1172,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def warn(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):
+    async def warn(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Warn a member in the server
         If multiple members are provided they all will get warned.
         Member will get a DM when he'll get warned, you can use silent feature to send warning into DMs annonymously.
@@ -1199,7 +1199,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             if reason and reason.lower().startswith('--s'):
                 reason = reason[3:] or "No reason"
             elif reason and not reason.lower().startswith('--s') or reason is None:
-                embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+                embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
             reason = reason or "No reason"
             for member in set(members):
                 if member == ctx.author:
@@ -1217,18 +1217,16 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                 if member.bot:
                     failed.append(_("{0} ({1}) - **Member is a bot.**").format(member.mention, member.id))
                     fail += 1
-                    continue
                 else:
                     try:
                         embed.description = _("You were warned in **{0}** for:\n{1}").format(ctx.guild.name, reason)
                         await member.send(embed=embed)
-                    except Exception as e:
+                    except Exception:
                         pass
                     warned.append(f"{member.mention} ({member.id})")
                     success_warn.append(member)
                     success += 1
-                    continue
-
+                continue
             try:
                 warn = ""
                 not_warned = ""
@@ -1475,10 +1473,13 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
     async def nuke(self, ctx, channel: discord.TextChannel = None, *, reason: commands.clean_content = None):
-        _(""" Nuke any server in the channel. This command will clone the selected channel and create another one with exact permissions """)
+        _(""" Nuke any channel in the server. This command will clone the selected channel and create another one with exact permissions """)
 
         channel = channel or ctx.channel
         reason = reason or None
+
+        if isinstance(channel, discord.Thread):
+            return await ctx.send(_("{0} Unfortunately, this command does not work with thread channels.").format(self.bot.settings['emojis']['misc']['warn']))
 
         try:
             new_channel = await channel.clone(reason=default.responsible(ctx.author, reason))
@@ -1510,7 +1511,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                 await ctx.send(_("{0} Server is now frozen!").format(self.bot.settings['emojis']['misc']['white-mark']))
             except Exception:
                 await ctx.message.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
-        elif not permissions.send_messages:
+        else:
             await ctx.send(_("{0} Server is already frozen!").format(self.bot.settings['emojis']['misc']['warn']))
 
     @commands.command(brief=_("Unfreeze the server"), aliases=['unfreeze-server'])
@@ -1532,7 +1533,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                 await ctx.send(_("{0} Server is now unfrozen!").format(self.bot.settings['emojis']['misc']['white-mark']))
             except Exception:
                 await ctx.message.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
-        elif permissions.send_messages:
+        else:
             await ctx.send(_("{0} Server is not frozen!").format(self.bot.settings['emojis']['misc']['warn']))
 
     @commands.command(brief=_("Create a role"), aliases=['rolecreate'])
@@ -1546,9 +1547,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
 
         if len(name) > 100:
             raise commands.BadArgument(_("Role name can't be longer than 100 characters"))
-        else:
-            await ctx.guild.create_role(name=name, permissions=ctx.guild.default_role.permissions, color=discord.Color.dark_grey())
-            await ctx.send(_("{0} Created role named **{1}**").format(self.bot.settings['emojis']['misc']['white-mark'], name))
+        await ctx.guild.create_role(name=name, permissions=ctx.guild.default_role.permissions, color=discord.Color.dark_grey())
+        await ctx.send(_("{0} Created role named **{1}**").format(self.bot.settings['emojis']['misc']['white-mark'], name))
 
     @commands.command(brief=_("Delete a role"), aliases=['delrole', 'roledel', 'roledelete'])
     @moderator(manage_roles=True)
@@ -1586,7 +1586,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def add_role(self, ctx, members: commands.Greedy[discord.Member], role: discord.Role, *, reason: commands.clean_content = None):
+    async def add_role(self, ctx, members: commands.Greedy[discord.Member], role: discord.Role, *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Add a role to a member. Mentioning multiple members will add a role to multiple members. """)
         reason = reason or None
 
@@ -1685,7 +1685,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.bot_has_permissions(manage_roles=True)
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def remove_role(self, ctx, members: commands.Greedy[discord.Member], role: discord.Role, *, reason: commands.clean_content = None):
+    async def remove_role(self, ctx, members: commands.Greedy[discord.Member], role: discord.Role, *, reason: commands.clean_content = None):  # sourcery no-metrics
         _(""" Remove a role to a member. Mentioning multiple members will remove a role from multiple members. """)
         reason = reason or None
 
@@ -1779,7 +1779,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
     @commands.max_concurrency(1, commands.BucketType.guild)
-    async def reason(self, ctx, case_id: str, *, new_reason: str):
+    async def reason(self, ctx, case_id: str, *, new_reason: str):  # sourcery no-metrics
         _(""" Edit the reason of a case. You can also edit multiple cases by adding `~` before a number """)
 
         last_cases = None
@@ -1840,7 +1840,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
                             edited_cases.append(str(case_id))
                             await asyncio.sleep(2)  # to make sure we don't get ratelimited
                 if edited_cases:
-                    return await ctx.send(_("{0} Successfully edited cases - {1}").format(self.bot.settings['emojis']['misc']['white-mark'], '`' + '`, `'.join(edited_cases) + '`'))
+                    return await ctx.send(_("{0} Successfully edited cases - {1}").format(self.bot.settings['emojis']['misc']['white-mark'], '`' + '`, `'.join(edited_cases[:50]) + '`'))
                 else:
                     return await ctx.send(_("{0} Failed to edit last {1} case(s), this might be because the log message was deleted").format(self.bot.settings['emojis']['misc']['warn'], last_cases))
 
@@ -1896,7 +1896,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
         embed = discord.Embed(color=self.bot.settings['colors']['approve_color'],
                               title=_("{0} Case was deleted").format(self.bot.settings['emojis']['logs']['guildedit']),
                               timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url, url=f'https://discord.com/users/{ctx.author.id}')
+        embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url, url=f'https://discord.com/users/{ctx.author.id}')
         embed.description = _("**Case ID:** {0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format(
             case_id, ctx.author, ctx.author.id, reason
         )
@@ -1912,9 +1912,8 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             )
             try:
                 await channel.send(embed=embed)
-            except Exception as e:
+            except Exception:
                 message += _(" I was unable to send a message to your logging channel.")
-                pass
             await ctx.send(message)
 
     @commands.command(brief=_("Get case information"), aliases=['case'])
@@ -1949,13 +1948,11 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.guild_only()
     @commands.cooldown(1, 10, commands.BucketType.member)
     @locale_doc
-    async def history(self, ctx, user: discord.User):
+    async def history(self, ctx, user: discord.User):  # sourcery no-metrics
         _(""" Get a history of user's punishments """)
 
         case_check = await self.bot.db.fetch("SELECT * FROM modlog WHERE guild_id = $1 AND user_id = $2 ORDER BY case_num", ctx.guild.id, user.id)
         no_msg = _("{0} {1} doesn't have any punishments history.").format(self.bot.settings['emojis']['misc']['warn'], user)
-        temp_mutes = cm.get(self.bot, 'temp_mutes', f'{user.id}, {ctx.guild.id}')
-        temp_bans = cm.get(self.bot, 'temp_bans', f'{user.id}, {ctx.guild.id}')
 
         if not case_check:
             return await ctx.send(no_msg)
@@ -2012,7 +2009,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
     @commands.group(brief=_("Shows the duration of tempmute left."), name='temp-duration', invoke_without_command=True, aliases=['temp-dur'])
     @commands.cooldown(1, 5, commands.BucketType.user)
     @locale_doc
-    async def temp_duration(self, ctx, user: discord.Member, guild_id: int = None):
+    async def temp_duration(self, ctx, user: discord.Member, guild_id: int = None):  # sourcery skip
         _(""" Check the duration of member's tempmute.
         If you're the user, you can run this command in DMs with srver id provided as well """)
 
@@ -2023,7 +2020,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             if not temp_mute or temp_mute and not temp_mute['time']:
                 raise commands.BadArgument(_("User is not temp muted."))
 
-            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at.replace(tzinfo=None), suffix=None)
+            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at, suffix=None)
             await ctx.send(_("**{0}** will be unmuted in: `{1}`").format(user, time))
 
         elif ctx.guild and not ctx.author.guild_permissions.manage_messages:
@@ -2039,7 +2036,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             if not temp_mute or temp_mute and not temp_mute['time']:
                 raise commands.BadArgument(_("You're not temp muted?"))
 
-            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at.replace(tzinfo=None), suffix=None)
+            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at, suffix=None)
             await ctx.send(_("You will be unmuted in: `{0}`").format(time))
 
         elif not ctx.guild and not guild_id:
@@ -2050,7 +2047,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             if not temp_mute or temp_mute and not temp_mute['time']:
                 raise commands.BadArgument(_("User is not temp muted in that server."))
 
-            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at.replace(tzinfo=None), suffix=None)
+            time = btime.human_timedelta(temp_mute['time'], source=ctx.message.created_at, suffix=None)
 
             guild = self.bot.get_guild(guild_id)
             await ctx.send(f"**{user}** will be unmuted in {guild} in: `{time}`")
@@ -2068,7 +2065,7 @@ class moderation(commands.Cog, name='Moderation', aliases=['Mod']):
             await self.bot.db.execute("INSERT INTO temp_duration(guild_id, check_dur) VALUES($1, $2)", ctx.guild.id, True)
             self.bot.check_duration[ctx.guild.id] = True
             await ctx.send(_("{0} Users will now be able to check their temp-mute duration in their DMs").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif check_duration:
+        else:
             await self.bot.db.execute("DELETE FROM temp_duration WHERE guild_id = $1", ctx.guild.id)
             self.bot.check_duration.pop(ctx.guild.id)
             await ctx.send(_("{0} Users won't be able to check their temp-mute duration in their DMs anymore.").format(self.bot.settings['emojis']['misc']['white-mark']))

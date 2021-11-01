@@ -21,13 +21,14 @@ import sys
 from discord.ext import commands
 from discord.utils import escape_markdown
 from importlib import reload as importlib_reload
+from typing import Union
 
 from prettytable import PrettyTable
-from utils import *
+from utils import default, btime, checks, i18n, enums
 from utils.paginator import TextPages
-from db.cache import LoadCache as LC
-from db.cache import CacheManager as CM
+from db.cache import LoadCache as LC, CacheManager as CM, DreddGuild, Blacklist, DreddUser
 from datetime import datetime, timezone
+from contextlib import suppress
 
 from cogs.events.automod import AutomodEvents as automod
 
@@ -40,8 +41,109 @@ from cogs.events.automod import AutomodEvents as automod
 # THIS IS WHERE WE AT RIGHT NOW
 
 
-# noinspection PySimplifyBooleanCheck
-class owner(commands.Cog, name="Owner"):
+class Buttons(discord.ui.View):
+    def __init__(self, cls, ctx, **kwargs):
+        self.cls = cls
+        self.ctx = ctx
+        self.bot = ctx.bot
+        self.user = kwargs.get("user", None)
+        self.guild = kwargs.get("guild", None)
+        self.author = ctx.author
+
+        super().__init__(timeout=300)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        i18n.current_locale.set(self.bot.translations.get(interaction.guild.id, 'en_US'))
+        if interaction.user and interaction.user.id == self.author.id or await self.bot.is_owner(interaction.user):
+            return True
+        await interaction.response.send_message('This pagination menu cannot be controlled by you, sorry!', ephemeral=True)
+        return False
+
+    async def on_error(self, error: Exception, item: discord.ui.Item, interaction: discord.Interaction) -> None:
+        i18n.current_locale.set(self.bot.translations.get(interaction.guild.id, 'en_US'))
+        print(default.traceback_maker(error))
+        await interaction.message.edit(view=None)
+        if interaction.response.is_done():
+            await interaction.followup.send('An unknown error occurred, sorry', ephemeral=True)
+        else:
+            await interaction.response.send_message('An unknown error occurred, sorry', ephemeral=True)
+
+    @discord.ui.button(label="Blacklists", style=discord.ButtonStyle.red)
+    async def blacklists(self, button: discord.ui.Button, interaction: discord.Interaction):
+        instance: Union[discord.Guild, discord.User] = self.user or self.guild
+        data: Union[DreddGuild, DreddUser] = instance.data  # type: ignore
+        bl: Blacklist = data.blacklist
+        sug_check = '\n\n*Blocked from suggesting suggestions*' if bl and int(bl.type) == 0 else ''
+        past = await self.bot.db.fetch("SELECT * FROM bot_history WHERE _id = $1", instance.id)
+
+        if not past:
+            return await interaction.response.send_message("User or guild hasn't been blacklisted.", ephemeral=True)
+
+        msg = []
+        for num, res in enumerate(past, start=1):
+            dev = self.bot.get_user(res['dev'])
+            msg.append(f"`[{num}]` {escape_markdown(str(instance))} - {'Liftable' if res['liftable'] == 0 else 'Not liftable'}\nIssued by **{dev}**"
+                       f" {btime.human_timedelta(res['issued'], source=datetime.now())}\n**Reason:** {res['reason']}\n**Type:** {enums.BlacklistEnum(int(res['type']))}\n")
+
+        blank = '\n'
+        return await interaction.response.send_message(f"{f'{blank}'.join(msg)}", ephemeral=True)
+
+    @discord.ui.button(label="Mutual Servers", style=discord.ButtonStyle.blurple)
+    async def mutual(self, button: discord.ui.Button, interaction: discord.Interaction):
+        instance: discord.User = self.user or self.guild.owner
+        guilds = []
+        for guild in instance.mutual_guilds:
+            owned = self.bot.settings['emojis']['ranks']['bot_owner'] if guild.owner_id == instance.id else None  # crown
+            guilds.append(f"{guild.name} ({guild.id}) {owned or ''}\n")
+
+        return await interaction.response.send_message(f"{''.join(guilds)}", ephemeral=True)
+
+    @discord.ui.button(label="Commands Used", style=discord.ButtonStyle.green)
+    async def commands(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await interaction.response.defer()
+        instance: Union[discord.Guild, discord.User] = self.user or self.guild
+
+        if isinstance(instance, discord.Guild):
+            query = 'select command, sum(usage) from command_logs where guild_id = $1 and user_id != $2 group by command order by sum(usage) desc limit 10'
+            cmd = await self.bot.db.fetch(query, instance.id, 345457928972533773 if instance.id != 345457928972533773 else 1)
+            total = await self.bot.db.fetchval('select sum(usage) from command_logs where guild_id = $1 and user_id != $2', instance.id, 345457928972533773 if instance.id != 345457928972533773 else 1)
+        else:
+            query = 'select command, sum(usage) from command_logs where user_id = $1 group by command order by sum(usage) desc limit 10'
+            cmd = await self.bot.db.fetch(query, instance.id)
+            total = await self.bot.db.fetchval('select sum(usage) from command_logs where user_id = $1', instance.id)
+        index = '**Top 10 most used commands in this server:**'
+        if not total:
+            return await interaction.response.send_message("No commands used.", ephemeral=True)
+
+        index2 = f"In total {instance} has/have used {total:,} commands!"
+        countmsg = "```ml\n"
+        countmsg += "Command                   | Used\n"
+        countmsg += "——————————————————————————————————"
+        for res in cmd:
+            countmsg += f"\n{res['command']}{' ' * int(26 - len(str(res['command'])))}| {int(res['sum']):,}"
+        countmsg += '\n```'
+        countmsg += index2
+        if isinstance(instance, discord.Guild):
+            top_users = await self.bot.db.fetch("SELECT user_id, sum(usage) FROM command_logs WHERE guild_id = $1 AND user_id != $2 GROUP BY user_id ORDER BY sum(usage) DESC LIMIT 10", instance.id, 345457928972533773)
+            countmsg += "\n\n**Top users:**\n"
+            countmsg += "```ml\n"
+            countmsg += "User                      | Used\n"
+            countmsg += "——————————————————————————————————"
+            for user in top_users:
+                the_user = self.bot.get_user(user["user_id"])
+                if not the_user:
+                    try:
+                        the_user = await self.bot.fetch_user(user["user_id"])
+                    except Exception:
+                        continue
+                countmsg += f"\n{the_user}{' ' * int(26 - len(str(the_user)))}| {user['sum']}"
+            countmsg += '\n```'
+
+        return await interaction.followup.send(countmsg, ephemeral=True)
+
+
+# noinspection PySimplifyBooleanCheck,PyDunderSlots
+class owner(commands.Cog, name="Owner", command_attrs={"slash_command": False}):
 
     def __init__(self, bot):
         self.bot = bot
@@ -80,15 +182,10 @@ class owner(commands.Cog, name="Owner"):
             data = await self.bot.db.fetch(query)
             if not data:
                 return await ctx.send("Table seems to be empty!")
-            columns = []
             values = []
-            for k in data[0].keys():
-                columns.append(k)
-
+            columns = [k for k in data[0].keys()]
             for y in data:
-                rows = []
-                for v in y.values():
-                    rows.append(v)
+                rows = [v for v in y.values()]
                 values.append(rows)
 
             x = PrettyTable(columns)
@@ -103,7 +200,7 @@ class owner(commands.Cog, name="Owner"):
 
     @dev.command(name='reload-cache', aliases=['rcache'])
     async def dev_reload_cache(self, ctx):
-        cache = await LC.reloadall(self.bot)
+        await LC.reloadall(self.bot)
         await ctx.send("I've successfully reloaded cache!")
 
     @dev.command(name='reload-config', aliases=['rconfig', 'rconf'])
@@ -113,9 +210,13 @@ class owner(commands.Cog, name="Owner"):
 
     @dev.command(name='reload-util', aliases=['rutil'])
     async def dev_reload_util(self, ctx, *, util: str):
+        utils = sys.modules.get(util)
         try:
-            importlib_reload(util)
-            await ctx.send(f"I've successfully reloaded {util}!")
+            if utils:
+                importlib_reload(utils)
+                await ctx.send(f"I've successfully reloaded {util}!")
+            else:
+                await ctx.send("Util not found")
         except KeyError:
             await ctx.send(f"Failed to reload {util}")
 
@@ -158,7 +259,7 @@ class owner(commands.Cog, name="Owner"):
     async def dev_update(self, ctx, *, update: str):
         await self.bot.db.execute("UPDATE updates SET update = $1, time = $2", update, datetime.now())
         self.bot.updates = {'update': update, 'announced': datetime.now()}
-        await ctx.send(f"{self.bot.settings['emojis']['misc']['announce']} | **Changed bot latest news to:**\n{escape_markdown(update, as_needed=False)}")
+        await ctx.send(f"{self.bot.settings['emojis']['misc']['announce']} | **Changed bot latest news to:**\n{escape_markdown(update)}")
 
     @dev.command(name='reboot', aliases=['logout', 'die', 'shut'])
     async def dev_reboot(self, ctx):
@@ -167,15 +268,14 @@ class owner(commands.Cog, name="Owner"):
 
     @dev.command(name="automod")
     async def dev_automod(self, ctx, guild_id: int = None):
-        if len(self.bot.automod_counter) > 0:
-            batches = len(automod(self.bot).batch_messages)
-            huge_servers = len(self.bot.automod_counter) if not guild_id else self.bot.get_guild(guild_id)
-            huge_raids = sum(self.bot.automod_counter.values()) if not guild_id else self.bot.automod_counter.get(guild_id)
-            return await ctx.send(f"{batches} messages globally are currently awaiting to be sent.\n"
-                                  f"{huge_servers} server(s) currently experiencing raids, "
-                                  f"{huge_raids} user(s) automoderated.")
-        else:
+        if len(self.bot.automod_counter) <= 0:
             return await ctx.send("No servers are currently experiencing raids!")
+        batches = len(automod(self.bot).batch_messages)
+        huge_servers = len(self.bot.automod_counter) if not guild_id else self.bot.get_guild(guild_id)
+        huge_raids = sum(self.bot.automod_counter.values()) if not guild_id else self.bot.automod_counter.get(guild_id)
+        return await ctx.send(f"{batches} messages globally are currently awaiting to be sent.\n"
+                              f"{huge_servers} server(s) currently experiencing raids, "
+                              f"{huge_raids} user(s) automoderated.")
 
     @commands.group(brief='Change bot\'s theme', invoke_without_command=True)
     async def theme(self, ctx):
@@ -224,45 +324,39 @@ class owner(commands.Cog, name="Owner"):
 
         acks = default.bot_acknowledgements(ctx, user, True)
         suggestions = await self.bot.db.fetch("SELECT suggestion_id FROM suggestions WHERE user_id = $1", user.id)
-        commands = await self.bot.db.fetchval("SELECT sum(usage) FROM command_logs WHERE user_id = $1", user.id)
+        commands = await self.bot.db.fetchval("SELECT sum(usage) FROM command_logs WHERE user_id = $1", user.id) or 0
         ids = []
         for id in suggestions:
             ids.append(f"{id['suggestion_id']}")
-        bls = CM.get(self.bot, 'blacklist', user.id)
-        bl = "No." if not bls else f"Yes. **Reason:** {bls['reason']}"
+        bls: Blacklist = user.data.blacklist
+        bl = "No." if not bls else f"Yes. **Reason:** {bls.reason}"
         past = await self.bot.db.fetch("SELECT * FROM bot_history WHERE _id = $1", user.id)
         owned_servers = len([x for x in user.mutual_guilds if x.owner_id == user.id])
 
         e = discord.Embed(color=color, timestamp=datetime.now(timezone.utc))
-        e.set_author(name=f"{user}'s Information", icon_url=user.avatar_url)
-        dm_check = '\n*Blocked from communicating in DMs*' if bls and bls['type'] == 1 else ''
+        e.set_author(name=f"{user}'s Information", icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
+        dm_check = '\n*Blocked from communicating in DMs*' if bls and int(bls.type) == 1 else ''
         e.description = f"""
 **Full username:** [{user}](https://discord.com/users/{user.id}) {acks if acks else ''}
-**Avatar URL:** [Click here]({user.avatar_url})
+**Avatar URL:** [Click here]({user.avatar.url if user.avatar else user.display_avatar.url})
 **Shared servers:** {len(user.mutual_guilds)}
 **Owned servers:** {owned_servers}
-**Commands Used:** {commands}
+**Commands Used:** {commands:,}
 **Suggestions suggested:** {len(suggestions)} {f'**IDs:** {", ".join(ids)}' if len(suggestions) != 0 else ''}
 **Blacklisted?** {bl}{dm_check}
 **Been blacklisted?** {f"Yes. {len(past)} time(s)" if past != [] else "No"}
 """
-        e.set_thumbnail(url=user.avatar_url)
-        if past:
-            msg = []
-            for num, res in enumerate(past, start=1):
-                dev = self.bot.get_user(res['dev'])
-                msg.append(f"`[{num}]` {escape_markdown(str(user), as_needed=False)} - {'Liftable' if res['liftable'] == 0 else 'Not liftable'}\nIssued by **{dev}** {btime.discord_time_format(res['issued'], 'R')}\n"
-                           f"**Reason:** {res['reason']}\n")
-            e.add_field(name='Previous blacklists:', value=''.join(msg))
-        await ctx.send(embed=e)
+        e.set_thumbnail(url=user.avatar.url if user.avatar else user.display_avatar.url)
+        buttons = Buttons(self, ctx, user=user, author=ctx.author)
+        await ctx.send(embed=e, view=buttons)
 
     @dev_inspect.command(name='server', aliases=['s'])
-    async def dev_inspect_server(self, ctx, server: int):
-        guild = self.bot.get_guild(server)
+    async def dev_inspect_server(self, ctx, *, server: discord.Guild):
+        guild = server
         if guild is None:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | That server doesn't seem to exist. Are you sure the server ID is correct?")
         if not guild.chunked:
-            await guild.chunk(cache=True)
+            await guild.chunk()
 
         acks = default.server_badges(ctx, guild)
         logging = default.server_logs(ctx, guild)
@@ -270,15 +364,16 @@ class owner(commands.Cog, name="Owner"):
         bots = len([x for x in guild.members if x.bot])
         botfarm = int(100 / len(guild.members) * bots)
         sperms = dict(guild.me.guild_permissions)
-        bl = CM.get(self.bot, 'blacklist', guild.id)
-        sug_check = '\n\n*Blocked from suggesting suggestions*' if bl and bl['type'] == 0 else ''
-        past = await self.bot.db.fetch("SELECT * FROM bot_history WHERE _id = $1", guild.id)
-        prefix = CM.get(self.bot, 'prefix', guild.id)
+        guild_data: DreddGuild = guild.data  # type: ignore
+        prefix = guild_data.prefix
         muterole = await default.get_muterole(ctx, guild)
-        language = self.bot.cache.get(self.bot, 'translations', guild.id)
-        mod_role = self.bot.cache.get(self.bot, 'mod_role', guild.id)
-        admin_role = self.bot.cache.get(self.bot, 'admin_role', guild.id)
+        language = guild_data.language
+        mod_role = guild_data.modrole
+        admin_role = guild_data.adminrole
         guild_owner = await self.bot.fetch_user(guild.owner_id)
+        beta_guild = guild_data.beta
+        bl: Blacklist = guild_data.blacklist
+        sug_check = '\n\n*Blocked from suggesting suggestions*' if bl and int(bl.type) == 0 else ''
         perm = []
         invites = ''
         try:
@@ -297,10 +392,10 @@ class owner(commands.Cog, name="Owner"):
 
         e = discord.Embed()
         if botfarm > 75 and guild.member_count > 100:
-            e.color = self.bot.settings['colors']['deny_color']
+            e.color = self.bot.settings['colors']['deny_color']  # type: ignore
             e.title = f"{self.bot.settings['emojis']['misc']['warn']} This server is a possible bot farm. Make sure they aren't abusing the bot."
         else:
-            e.color = self.bot.settings['colors']['embed_color']
+            e.color = self.bot.settings['colors']['embed_color']  # type: ignore
         e.add_field(name='Important information:', value=f"""
 **Server name:** {name} {acks if acks else ''}
 **Server ID:** {guild.id}
@@ -313,24 +408,23 @@ class owner(commands.Cog, name="Owner"):
 **Prefix:** {escape_markdown(prefix)}
 **Language:** {language}
 **Mute role:** {f"{muterole.id}" if muterole else 'Not found'}
-**Mod & Admin Roles:** {mod_role}; {admin_role}""", inline=False)
+**Mod & Admin Roles:** {mod_role}; {admin_role}{sug_check}""", inline=False)
         e.add_field(name="My permissions:", value=", ".join(perm))
         e.add_field(name='Logging:', value=logging)
-        if past:
-            msg = []
-            for num, res in enumerate(past, start=1):
-                dev = self.bot.get_user(res['dev'])
-                msg.append(f"`[{num}]` {escape_markdown(str(guild), as_needed=False)} - {'Liftable' if res['liftable'] == 0 else 'Not liftable'}\nIssued by **{dev}** {btime.human_timedelta(res['issued'], source=datetime.now())}\n**Reason:** {res['reason']}\n")
-            e.add_field(name='Previous blacklists:', value=f"{sug_check}\n" + ''.join(msg), inline=False)
-        e.set_thumbnail(url=guild.icon_url)
-        await ctx.send(embed=e)
+
+        if guild.icon:
+            e.set_thumbnail(url=guild.icon.url)
+        if beta_guild:
+            e.set_footer(text="This guild has access to beta features.")
+
+        buttons = Buttons(self, ctx, guild=guild, author=ctx.author)
+        await ctx.send(embed=e, view=buttons)
 
     @dev_inspect.command(name='command', aliases=['c', 'cmd'])
     async def dev_inspect_command(self, ctx, *, command: str):
         cmd = self.bot.get_command(command)
         if cmd is None:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} {command} not found.")
-        source = inspect.getsource(cmd.callback)
         obj = self.bot.get_command(command.replace('.', ' '))
 
         src = obj.callback.__code__
@@ -388,25 +482,23 @@ class owner(commands.Cog, name="Owner"):
 
         if check:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Looks like user is already a {rank}")
+        await self.bot.db.execute(f"INSERT INTO {ranks[rank]} VALUES($1, $2)", user.id, '-')
+        attr = getattr(self.bot, ranks[rank])
+        attr[user.id] = '-'
+        rank = 'donator' if ranks[rank] == 'boosters' else 'bot_admin'
+        badge = ctx.bot.settings['emojis']['ranks'][rank]
+        if CM.get(self.bot, 'badges', user.id):
+            await self.bot.db.execute("UPDATE badges SET flags = flags + $1 WHERE _id = $2", ranks[rank], user.id)
         else:
-            await self.bot.db.execute(f"INSERT INTO {ranks[rank]} VALUES($1, $2)", user.id, '-')
-            attr = getattr(self.bot, ranks[rank])
-            attr[user.id] = '-'
-            rank = 'donator' if ranks[rank] == 'boosters' else 'bot_admin'
-            badge = ctx.bot.settings['emojis']['ranks'][rank]
-            if CM.get(self.bot, 'badges', user.id):
-                await self.bot.db.execute("UPDATE badges SET flags = flags + $1 WHERE _id = $2", ranks[rank], user.id)
-            else:
-                await self.bot.db.execute("INSERT INTO badges VALUES($1, $2)", user.id, ranks[rank])
-            await LC.reloadall(self.bot)
-            try:
-                dm_message = f"Hey {user}! Just letting you know your rank was updated and you're now a **{rank}**!"
-                await user.send(dm_message)
-                conf_msg = ' Sent them a DM as well.'
-            except Exception:
-                conf_msg = ' Was unable to send them a DM.'
-                pass
-            await ctx.send(f"{badge} **{user}**'s rank was updated and is now a {rank}.{conf_msg} *Also add them a role*")
+            await self.bot.db.execute("INSERT INTO badges VALUES($1, $2)", user.id, ranks[rank])
+        await LC.reloadall(self.bot)
+        try:
+            dm_message = f"Hey {user}! Just letting you know your rank was updated and you're now a **{rank}**!"
+            await user.send(dm_message)
+            conf_msg = ' Sent them a DM as well.'
+        except Exception:
+            conf_msg = ' Was unable to send them a DM.'
+        await ctx.send(f"{badge} **{user}**'s rank was updated and is now a {rank}.{conf_msg} *Also add them a role*")
 
     @dev_rank.command(brief='Remove rank from an user', name='remove')
     async def dev_rank_remove(self, ctx, user: discord.User, rank: str):
@@ -426,34 +518,31 @@ class owner(commands.Cog, name="Owner"):
 
         if not check:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Looks like user is not a {rank}")
-        else:
-            await self.bot.db.execute(f"DELETE FROM {ranks[rank]} WHERE user_id = $1", user.id)
-            attr = getattr(self.bot, ranks[rank])
-            attr.pop(user.id)
-            rank = 'donator' if ranks[rank] == 'boosters' else 'bot_admin'
-            badge = ctx.bot.settings['emojis']['ranks'][rank]
-            badges = CM.get(self.bot, 'badges', user.id)
-            await self.bot.db.execute("UPDATE badges SET flags = flags - $1 WHERE _id = $2", ranks[rank], user.id)
-            self.bot.badges[user.id] -= ranks[rank]
-            try:
-                dm_message = f"Hey {user}! Just letting you know your rank was updated and you're not a **{rank}** anymore!"
-                await user.send(dm_message)
-                conf_msg = ' Sent them a DM as well.'
-            except Exception:
-                conf_msg = ' Was unable to send them a DM.'
-                pass
-            await ctx.send(f"{badge} **{user}**'s rank was updated and is not a {rank} anymore.{conf_msg} *Also remove their role*")
+        await self.bot.db.execute(f"DELETE FROM {ranks[rank]} WHERE user_id = $1", user.id)
+        attr = getattr(self.bot, ranks[rank])
+        attr.pop(user.id)
+        rank = 'donator' if ranks[rank] == 'boosters' else 'bot_admin'
+        badge = ctx.bot.settings['emojis']['ranks'][rank]
+        await self.bot.db.execute("UPDATE badges SET flags = flags - $1 WHERE _id = $2", ranks[rank], user.id)
+        self.bot.badges[user.id] -= ranks[rank]
+        try:
+            dm_message = f"Hey {user}! Just letting you know your rank was updated and you're not a **{rank}** anymore!"
+            await user.send(dm_message)
+            conf_msg = ' Sent them a DM as well.'
+        except Exception:
+            conf_msg = ' Was unable to send them a DM.'
+        await ctx.send(f"{badge} **{user}**'s rank was updated and is not a {rank} anymore.{conf_msg} *Also remove their role*")
 
     @dev.command(brief='Force leave the server', aliases=['fl', 'force', 'fleave'], name='forceleave')
-    async def dev_force_leave(self, ctx, server: int, reason: str):
-        guild = self.bot.get_guild(server)
+    async def dev_force_leave(self, ctx, server: discord.Guild, *, reason: str):
+        guild = server
 
         if guild is None:
             return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} I can't leave that server as I'm not in it.")
 
         elif guild:
             e = discord.Embed(color=self.bot.settings['colors']['deny_color'], timestamp=datetime.now(timezone.utc))
-            e.set_author(name="Left guild forcefully", icon_url=guild.icon_url)
+            e.set_author(name="Left guild forcefully", icon_url=guild.icon.url)
             e.description = f"""
 Hey {guild.owner}!
 Just wanted to let you know that **{ctx.author}** made me forcefully leave your server: {guild.name} ({guild.id}) with a reason: **{reason}**
@@ -518,7 +607,7 @@ If this will get out of control blacklist will be issued."""
             e.title = f"Error ID {error_id}"
             e.description = f"```py\n{errors[error_id-1]['error_msg']}```"
             e.add_field(name='Error information:', value=(f"**Error status:** {f'Resolved' if errors[error_id-1]['error_status'] == 1 else 'Unresolved'}\n"
-                                                          f"**Error occured:** {default.human_timedelta(errors[error_id-1]['error_occured'], source=datetime.now())}\n"
+                                                          f"**Error occured:** {btime.human_timedelta(errors[error_id-1]['error_occured'], source=datetime.now())}\n"
                                                           f"**Error command:** {errors[error_id-1]['error_command']}"))
             await ctx.send(embed=e)
 
@@ -531,13 +620,8 @@ If this will get out of control blacklist will be issued."""
         e = discord.Embed(color=self.bot.settings['colors']['embed_color'],
                           title='List of all the errors')
 
-        list1 = []
-        for err in resolved[0]['array_agg']:
-            list1.append(f"{err}")
-        list2 = []
-        if unresolved[0]['array_agg']:
-            for errs in unresolved[0]['array_agg']:
-                list2.append(f"{errs}")
+        list1 = [f"{err}" for err in resolved[0]['array_agg']]
+        list2 = [f"{err}" for err in unresolved[0]['array_agg']]
         e.add_field(name='Resolved errors:', value=", ".join(list1))
         if list2 != []:
             e.add_field(name='Unresolved errors:', value=", ".join(list2), inline=False)

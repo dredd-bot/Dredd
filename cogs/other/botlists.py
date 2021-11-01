@@ -14,50 +14,55 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import delpy
-import statcord
 import topgg
 import discordlists
 import asyncio
 import discord
 import json
 
+from statcord import StatcordClient  # type: ignore
 from discord.ext import commands, tasks
 from utils.default import botlist_exception
 from datetime import datetime, timedelta
 from utils import default
 
 
+class Statcord(StatcordClient):  # subclass so it'd ignore certain users
+
+    async def _command_ran(self, ctx: commands.Context) -> None:
+
+        if await ctx.bot.is_admin(ctx.author) or ctx.command_failed or await ctx.bot.is_blacklisted(ctx.author):
+            return
+
+        self._command_count += 1
+        self._active_users.add(ctx.author.id)
+        self._popular_commands[ctx.command.name] += 1
+
+
 class DiscordExtremeList(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.delapi = delpy.Client(bot, bot.config.DEL_TOKEN)
-        self.delapi.start_loop(wait_for=1800)
+        self.delapi.start_loop(wait_for=1800)  # type: ignore
 
         self.help_icon = ''
         self.big_icon = ''
 
     def cog_unload(self):
-        self.delapi.cancel_loop()
+        self.delapi.cancel_loop()  # type: ignore
 
 
 class DiscordLabs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.key = bot.config.STAT_TOKEN
-        self.api = statcord.Client(self.bot, self.key, custom1=self.music)
-        self.api.start_loop()
+        self.api = Statcord(bot, bot.config.STAT_TOKEN, self.music)
 
         self.help_icon = ''
         self.big_icon = ''
 
-    @commands.Cog.listener()
-    async def on_command(self, ctx):
-        if await self.bot.is_owner(ctx.author) or await self.bot.is_admin(ctx.author):
-            return
-        try:
-            self.api.command_run(ctx)
-        except Exception as e:
-            await botlist_exception(self, 'Statcord', e)
+    def cog_unload(self):
+        self.api.close()
 
     async def music(self):
         amount = []
@@ -73,9 +78,6 @@ class DiscordLabs(commands.Cog):
             self.bot.music_guilds[res] = now
 
         return f"{len(amount)}"
-
-    async def latency(self):
-        return self.bot.latency * 1000
 
 
 class ShitGG(commands.Cog):
@@ -97,7 +99,7 @@ class ShitGG(commands.Cog):
         e = discord.Embed(title='Upvote received',
                           url="https://top.gg/bot/667117267405766696/vote",
                           color=0x5E82AC)
-        e.set_author(name=user, icon_url=user.avatar_url)
+        e.set_author(name=user, icon_url=user.avatar.url)
         e.description = f"**{user}** has test voted for me on {datetime.now().__format__('%c')}"
         e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
         e.set_footer(text=f'User ID: {user.id}')
@@ -106,13 +108,13 @@ class ShitGG(commands.Cog):
     @commands.Cog.listener()
     async def on_dbl_vote(self, data):
         if data["type"] == "test":
-            return bot.dispatch("dbl_test", data)
+            return self.bot.dispatch("dbl_test", data)
         channel = self.bot.get_channel(780066719645040651)
         user = await self.bot.fetch_user(int(data['user']))
         e = discord.Embed(title='Upvote received',
                           url="https://top.gg/bot/667117267405766696/vote",
                           color=0x5E82AC)
-        e.set_author(name=user, icon_url=user.avatar_url)
+        e.set_author(name=user, icon_url=user.avatar.url)
         e.description = f"**{user}** has voted for me on {datetime.now().__format__('%c')}"
         e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
         e.set_footer(text=f'User ID: {user.id}')
@@ -183,7 +185,7 @@ class Others(commands.Cog):
     async def discordbotlist(self):
         try:
             headers = {"Authorization": self.bot.config.DBLIST_TOKEN}
-            data = {"guilds": len(self.bot.guilds), "users": sum([x.member_count for x in self.bot.guilds])}
+            data = {"guilds": len(self.bot.guilds), "users": sum(x.member_count for x in self.bot.guilds)}
             r = await self.bot.session.post('https://discordbotlist.com/api/v1/bots/667117267405766696/stats', headers=headers, data=data)
             if 500 % (r.status + 1) == 500:
                 raise Exception("The API is having issues")
@@ -192,7 +194,7 @@ class Others(commands.Cog):
 
             if response['success']:
                 return
-            elif not response['success']:
+            else:
                 raise Exception(response)
         except Exception as e:
             await botlist_exception(self, 'Discord Bot List', e)

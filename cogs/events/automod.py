@@ -23,14 +23,17 @@ from db.cache import CacheManager as cm
 from contextlib import suppress
 from collections import defaultdict
 
+from time import time as unix_time
 from utils.checks import CooldownByContent
-from utils import default, btime
+from utils import default, btime, logger as logging
 
 INVITE = re.compile(r'discord(?:\.com/invite|app\.com/invite|\.gg)/?([a-zA-Z0-9\-]{2,32})')
 CAPS = re.compile(r"[ABCDEFGHIJKLMNOPQRSTUVWXYZ]")
 LINKS = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|%[0-9a-fA-F][0-9a-fA-F])+")
+PHISHING = re.compile(r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]")
 
 
+# noinspection PyUnboundLocalVariable
 class AutomodEvents(commands.Cog, name='AutomodEvents'):
     def __init__(self, bot):
         self.bot = bot
@@ -55,10 +58,13 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
 
     @tasks.loop(seconds=10)
     async def send_messages(self):
+        if not self.bot.is_ready():
+            return
+
         for ((guild_id, channel_id), messages) in self.batch_messages.items():
             print(self.batch_messages.items())
             guild = self.bot.get_guild(guild_id)
-            channel = guild and guild.get_channel(channel_id)
+            channel = guild and guild.get_channel(channel_id) or self.bot.get_channel(channel_id)
             if not channel:
                 continue
 
@@ -74,7 +80,8 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
 
             self.batch_messages.clear()
 
-    def new_member(self, member):
+    @staticmethod
+    def new_member(member):
         now = datetime.utcnow()
         seven_days = now - timedelta(days=7)
         month = now - timedelta(days=30)
@@ -83,7 +90,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
     # if they send a message
     @commands.Cog.listener('on_message')
     async def on_automod(self, message):
-        if not message.guild:
+        if not message.guild or not self.bot.is_ready():
             return
 
         automod = cm.get(self.bot, 'automod', message.guild.id)
@@ -116,19 +123,18 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     return
 
         users_whitelist = cm.get(self.bot, 'users_whitelist', message.guild.id)
-        if users_whitelist:
-            if message.author.id in users_whitelist:
-                return
+        if users_whitelist and message.author.id in users_whitelist:
+            return
 
         for coro in self.automodactions.copy():
-            if await coro(self, message):
+            if await coro(self, message):  # type: ignore
                 break
 
     # if they edit existing message
     @commands.Cog.listener('on_message_edit')
     async def on_automod_edit(self, before, after):
         message = after
-        if not message.guild:
+        if not message.guild or not self.bot.is_ready():
             return
 
         automod = cm.get(self.bot, 'automod', message.guild.id)
@@ -164,12 +170,11 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     return
 
         users_whitelist = cm.get(self.bot, 'users_whitelist', message.guild.id)
-        if users_whitelist:
-            if message.author.id in users_whitelist:
-                return
+        if users_whitelist and message.author.id in users_whitelist:
+            return
 
         for coro in self.automodactions.copy():
-            if await coro(self, message):
+            if await coro(self, message):  # type: ignore
                 break
 
     @commands.Cog.listener('on_member_join')
@@ -191,18 +196,16 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             return
 
         users_whitelist = cm.get(self.bot, 'users_whitelist', member.guild.id)
-        if users_whitelist:
-            if member.id in users_whitelist:
-                return
+        if users_whitelist and member.id in users_whitelist:
+            return
 
         for coro in self.raidmode.copy():
-            if await coro(self, member):
+            if await coro(self, member):  # type: ignore
                 break
 
     async def anti_spam(self, message):
         current = message.created_at.timestamp()
         reason = _("Spam (sending multiple messages in a short time span)")
-        automod = cm.get(self.bot, 'automod', message.guild.id)
         antispam = cm.get(self.bot, 'spam', message.guild.id)
 
         if not antispam:
@@ -240,7 +243,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     return
                 if automod['delete_messages'] and message.channel.permissions_for(message.guild.me).manage_messages:
                     await message.delete()
-            except Exception as e:
+            except Exception:
                 return
 
             retry = content_bucket.update_rate_limit(current)
@@ -321,17 +324,34 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
         if not raidmode:
             return
 
-        else:
-            reason = _("anti raid: user account is younger than 30 days.") if raidmode['action'] in [1, 2] else _("Strict Anti Raid: No one is allowed to join the server")
-            if raidmode['action'] == 1:
-                action = 6
-            elif raidmode['action'] == 2:
-                action = 7
-            elif raidmode['action'] == 3:
-                action = 8
-            elif raidmode['action'] == 4:
-                action = 9
-            await self.execute_punishment(action, member, reason)
+        reason = _("anti raid: user account is younger than 30 days.") if raidmode['action'] in [1, 2] else _("Strict Anti Raid: No one is allowed to join the server")
+        if raidmode['action'] == 1:
+            action = 6
+        elif raidmode['action'] == 2:
+            action = 7
+        elif raidmode['action'] == 3:
+            action = 8
+        elif raidmode['action'] == 4:
+            action = 9
+        await self.execute_punishment(action, member, reason)
+
+    async def anti_phishing(self, message):  # this cannot be toggled off if automod is enabled in the server (it is not grouped under anti link or anti invites)
+        current = message.created_at.timestamp()
+        reason = _("Sending malicious links")
+        phishing_links = PHISHING.search(message.content)
+
+        if phishing_links:
+            agent = {"User-Agent": f"Dredd ({self.bot.website})"}
+            body = {"message": f"{phishing_links}"}
+            validation = await self.bot.session.post(self.bot.config.PHISHING, headers=agent, json=body)  # The API is private. Credits: Fish Project
+            if 500 % (validation.status + 1) == 500:  # service is down
+                return
+            result = await validation.json()
+            if result.get("match") is False:
+                return
+
+            await message.delete()  # delete the message
+            await self.execute_punishment(4, message, reason)  # ban
 
     def embed(self, member, reason, action, time=None) -> discord.Embed:
         emoji = self.bot.settings['emojis']['logs']
@@ -351,17 +371,14 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
 
         embed = discord.Embed(color=color, timestamp=datetime.now(timezone.utc))
 
-        embed.set_author(name=_("Automod Action"), icon_url=member.avatar_url, url=f'https://discord.com/users/{member.id}')
+        embed.set_author(name=_("Automod Action"), icon_url=member.avatar.url if member.avatar else member.display_avatar.url, url=f'https://discord.com/users/{member.id}')
         embed.title = f"{emoji} {action}"
-        if time:
-            msg = _("\n**Duration:** {0}").format(time)
-        else:
-            msg = ''
+        msg = _("\n**Duration:** {0}").format(time) if time else ''
         embed.description = _("**Member:** {0}{1}\n**Reason:** {2}").format(member, msg, reason)
         embed.set_footer(text=f'Member ID: {member.id}')
         return embed
 
-    async def execute_punishment(self, action, message, reason, time=None):
+    async def execute_punishment(self, action, message, reason, time=None):  # sourcery no-metrics
         automod = cm.get(self.bot, 'automod', message.guild.id)
         logchannel = message.guild.get_channel(automod['channel'])
         muterole = await default.get_muterole(self, message.guild)
@@ -369,6 +386,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
         anti_raid = cm.get(self.bot, 'raidmode', message.guild.id)
         error_msg = _("{0} Something failed while punishing the member, sent the error to my developers. "
                       "This is most likely due to me either missing permissions or not being able to access the person and/or role").format(self.bot.settings['emojis']['misc']['warn'])
+        await logging.new_log(self.bot, unix_time(), 8, 1)
 
         try:
             if action == 1:
@@ -383,7 +401,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                         if not message.author.permissions_in(message.channel).send_messages:
                             return
                         await self.update_channel_permissions(message, action)
-                    elif muterole and muterole in message.author.roles:
+                    elif muterole in message.author.roles:
                         return
                     else:
                         await self.update_channel_permissions(message, action)
@@ -405,7 +423,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                             return
                         time = None
                         await self.update_channel_permissions(message, action)
-                    elif muterole and muterole in message.author.roles:
+                    elif muterole in message.author.roles:
                         return
                     else:
                         time = None
@@ -470,7 +488,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                             await message.send(_("{0} {1} has anti raid mode activated, please try joining again later.").format(self.bot.settings['emojis']['misc']['warn'], message.guild))
                     time = None
                 except Exception as e:
-                    return await default.background_error(self, '`automod punishment execution (raidmode kick)`', e, message.guild, message.channel if hasattr(message, 'channel') else log_channel)
+                    return await default.background_error(self, '`automod punishment execution (raidmode kick)`', e, message.guild, message.channel if hasattr(message, 'channel') else logchannel)
             elif action == 7:
                 if not message.guild.me.guild_permissions.ban_members:
                     return
@@ -482,7 +500,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                             await message.send(_("{0} {1} has anti raid mode activated, you're not allowed to join that server.").format(self.bot.settings['emojis']['misc']['warn'], message.guild))
                     time = None
                 except Exception as e:
-                    return await default.background_error(self, '`automod punishment execution (raidmode ban)`', e, message.guild, message.channel if hasattr(message, 'channel') else log_channel)
+                    return await default.background_error(self, '`automod punishment execution (raidmode ban)`', e, message.guild, message.channel if hasattr(message, 'channel') else logchannel)
             elif action == 8:
                 if not message.guild.me.guild_permissions.kick_members:
                     return
@@ -498,7 +516,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                             await message.send(_("{0} {1} has strict anti raid mode activated, please try joining again later.").format(self.bot.settings['emojis']['misc']['warn'], message.guild))
                     time = None
                 except Exception as e:
-                    return await default.background_error(self, '`automod punishment execution (raidmode kick all)`', e, message.guild, message.channel if hasattr(message, 'channel') else log_channel)
+                    return await default.background_error(self, '`automod punishment execution (raidmode kick all)`', e, message.guild, message.channel if hasattr(message, 'channel') else logchannel)
             elif action == 9:
                 if not message.guild.me.guild_permissions.ban_members:
                     return
@@ -510,7 +528,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                             await message.send(_("{0} {1} has anti raid mode activated, you're not allowed to join that server.").format(self.bot.settings['emojis']['misc']['warn'], message.guild))
                     time = None
                 except Exception as e:
-                    return await default.background_error(self, '`automod punishment execution (raidmode ban all)`', e, message.guild, message.channel if hasattr(message, 'channel') else log_channel)
+                    return await default.background_error(self, '`automod punishment execution (raidmode ban all)`', e, message.guild, message.channel if hasattr(message, 'channel') else logchannel)
             self.bot.automod_counter.update({message.guild.id})
             count = self.bot.automod_counter.get(message.guild.id, 0)
             if count < 50:
@@ -525,7 +543,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                     del self.bot.join_counter[message.id]
 
         except Exception as e:
-            await default.background_error(self, '`automod punishment execution`', e, message.guild, message.channel if hasattr(message, 'channel') else log_channel)
+            await default.background_error(self, '`automod punishment execution`', e, message.guild, message.channel if hasattr(message, 'channel') else logchannel)
             if action not in [6, 7, 8, 9]:
                 return await message.channel.send(_("{0} I'm not sure what happened, but something broke. Please make sure that my role is above everyone's else, "
                                                     "otherwise you'll see these errors more often. I've also sent this error to my developers.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -546,7 +564,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                                              self.bot.settings['emojis']['misc']['warn']
                                          ))
 
-    automodactions = [anti_links, anti_invite, anti_caps, anti_spam, anti_mentions]
+    automodactions = [anti_links, anti_invite, anti_caps, anti_spam, anti_mentions, anti_phishing]
     raidmode = [anti_raid]
 
 

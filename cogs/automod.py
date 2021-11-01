@@ -14,23 +14,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import difflib
 
 from discord.ext import commands
-from db.cache import CacheManager as cm
+from db.cache import CacheManager as cm, DreddGuild
 from utils.checks import moderator, admin, AutomodGlobalStates, AutomodValues
 from utils.default import automod_values
 from utils.paginator import Pages
 from utils.i18n import locale_doc
 
 
+# noinspection PyUnresolvedReferences
 class Automod(commands.Cog, name='Automoderation'):
     def __init__(self, bot):
         self.bot = bot
         self.help_icon = '<:channeldelete:687008899517513766>'
         self.big_icon = 'https://media.discordapp.net/attachments/679643465407266817/701055848788787300/channeldeletee.png?width=115&height=115'
 
-    def automod_settings(self, guild):
+    def automod_settings(self, guild):  # sourcery no-metrics skip: inline-immediately-returned-variable, or-if-exp-identity
         automod = cm.get(self.bot, 'automod', guild.id)
 
         if not automod:
@@ -115,7 +115,7 @@ class Automod(commands.Cog, name='Automoderation'):
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
 
         if not automod and channel:
-            if not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links:
+            if not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
                 return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
             await self.bot.db.execute("INSERT INTO automod(guild_id, channel_id) VALUES($1, $2)", ctx.guild.id, channel.id)
@@ -131,10 +131,10 @@ class Automod(commands.Cog, name='Automoderation'):
             self.bot.links.pop(ctx.guild.id, None)
             self.bot.massmention.pop(ctx.guild.id, None)
             await ctx.send(_("{0} Automod was successfully disabled in this server.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif not automod and not channel:
+        elif not automod:
             raise commands.MissingRequiredArgument(self.automod_toggle.params['channel'])
-        elif automod and channel:
-            if not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links:
+        else:
+            if not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
                 return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
             await self.bot.db.execute("UPDATE automod SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
@@ -153,48 +153,39 @@ class Automod(commands.Cog, name='Automoderation'):
         if not automod:
             raise commands.BadArgument(_("Automod is disabled in this server, enable it by using `{0}automod toggle` command").format(ctx.prefix))
 
-        antispam = cm.get(self.bot, 'spam', ctx.guild.id)
-        anticaps = cm.get(self.bot, 'masscaps', ctx.guild.id)
-        antiinvite = cm.get(self.bot, 'invites', ctx.guild.id)
-        antimentions = cm.get(self.bot, 'massmention', ctx.guild.id)
-        antilinks = cm.get(self.bot, 'links', ctx.guild.id)
+        guild: DreddGuild = ctx.guild.data
+        antispam = guild.automod.spam
+        anticaps = guild.automod.masscaps
+        antiinvite = guild.automod.invites
+        antimentions = guild.automod.mentions
+        antilinks = guild.automod.links
         value = _('chill') if state['time'] == '12h' else _('strict')
 
         if not antispam:
             await self.bot.db.execute("INSERT INTO antispam(guild_id, level, time) VALUES($1, $2, $3)", ctx.guild.id, state['spam'], state['time'])
-            self.bot.spam[ctx.guild.id] = {'level': state['spam'], 'time': state['time']}
-        elif antispam:
+        else:
             await self.bot.db.execute("UPDATE antispam SET level = $1, time = $2 WHERE guild_id = $3", state['spam'], state['time'], ctx.guild.id)
-            self.bot.spam[ctx.guild.id] = {'level': state['spam'], 'time': state['time']}
-
+        self.bot.spam[ctx.guild.id] = {'level': state['spam'], 'time': state['time']}
         if not anticaps:
             await self.bot.db.execute("INSERT INTO masscaps(guild_id, level, percentage, time) VALUES($1, $2, $3, $4)", ctx.guild.id, state['masscaps'], 75, state['time'])
-            self.bot.masscaps[ctx.guild.id] = {'level': state['masscaps'], 'percentage': 75, 'time': state['time']}
-        elif anticaps:
+        else:
             await self.bot.db.execute("UPDATE masscaps SET level = $1, time = $2 WHERE guild_id = $3", state['masscaps'], state['time'], ctx.guild.id)
-            self.bot.masscaps[ctx.guild.id] = {'level': state['masscaps'], 'percentage': 75, 'time': state['time']}
-
+        self.bot.masscaps[ctx.guild.id] = {'level': state['masscaps'], 'percentage': 75, 'time': state['time']}
         if not antiinvite:
             await self.bot.db.execute("INSERT INTO invites(guild_id, level, time) VALUES($1, $2, $3)", ctx.guild.id, state['invites'], state['time'])
-            self.bot.invites[ctx.guild.id] = {'level': state['invites'], 'time': state['time']}
-        elif antiinvite:
+        else:
             await self.bot.db.execute("UPDATE invites SET level = $1, time = $2 WHERE guild_id = $3", state['invites'], state['time'], ctx.guild.id)
-            self.bot.invites[ctx.guild.id] = {'level': state['invites'], 'time': state['time']}
-
+        self.bot.invites[ctx.guild.id] = {'level': state['invites'], 'time': state['time']}
         if not antimentions:
             await self.bot.db.execute("INSERT INTO massmention(guild_id, level, mentions_limit, time) VALUES($1, $2, $3, $4)", ctx.guild.id, state['massmention'], 5, state['time'])
-            self.bot.massmention[ctx.guild.id] = {'level': state['massmention'], 'limit': 5, 'time': state['time']}
-        elif antimentions:
+        else:
             await self.bot.db.execute("UPDATE massmention SET level = $1, time = $2 WHERE guild_id = $3", state['massmention'], state['time'], ctx.guild.id)
-            self.bot.massmention[ctx.guild.id] = {'level': state['massmention'], 'limit': 5, 'time': state['time']}
-
+        self.bot.massmention[ctx.guild.id] = {'level': state['massmention'], 'limit': 5, 'time': state['time']}
         if not antilinks:
             await self.bot.db.execute("INSERT INTO links(guild_id, level, time) VALUES($1, $2, $3)", ctx.guild.id, state['links'], state['time'])
-            self.bot.links[ctx.guild.id] = {'level': state['links'], 'time': state['time']}
-        elif antilinks:
+        else:
             await self.bot.db.execute("UPDATE links SET level = $1, time = $2 WHERE guild_id = $3", state['links'], state['time'], ctx.guild.id)
-            self.bot.links[ctx.guild.id] = {'level': state['links'], 'time': state['time']}
-
+        self.bot.links[ctx.guild.id] = {'level': state['links'], 'time': state['time']}
         await ctx.send(_("{0} Successfully set the automod value to **{1}**").format(self.bot.settings['emojis']['misc']['white-mark'], value))
 
     @automod.command(name='anti-links', aliases=['antilinks', 'links', 'al'], brief=_("Toggle anti links on or off"))
@@ -203,6 +194,7 @@ class Automod(commands.Cog, name='Automoderation'):
     @commands.guild_only()
     @locale_doc
     async def automod_anti_links(self, ctx, value: AutomodValues):
+        # sourcery skip: use-assigned-variable
         _(""" Toggle anti links on or off """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
@@ -217,16 +209,16 @@ class Automod(commands.Cog, name='Automoderation'):
         elif antilinks and value['action'] != 0:
             await self.bot.db.execute("UPDATE links SET level = $1, time = $2 WHERE guild_id = $3", value['action'], value['time'], ctx.guild.id)
             self.bot.links[ctx.guild.id] = {'level': value['action'], 'time': value['time']}
-        elif antilinks and value['action'] == 0:
+        elif antilinks:
             await self.bot.db.execute("DELETE FROM links WHERE guild_id = $1", ctx.guild.id)
             self.bot.links.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfuly disabled anti link in this server").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif not antilinks and value['action'] == 0:
+        else:
             raise commands.BadArgument(_("Anti link is already disabled in this server."))
 
         the_value = value['action']
         await ctx.send(_("{0} Successfully set anti links punishment type to **{1}** members.{2}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
         ))
 
     @automod.command(name='anti-invites', aliases=['antiinvites', 'invites', 'ai'], brief=_("Toggle anti invites on or off"))
@@ -235,6 +227,7 @@ class Automod(commands.Cog, name='Automoderation'):
     @commands.guild_only()
     @locale_doc
     async def automod_anti_invites(self, ctx, value: AutomodValues):
+        # sourcery skip: use-assigned-variable
         _(""" Toggle anti invites on or off """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
@@ -249,16 +242,16 @@ class Automod(commands.Cog, name='Automoderation'):
         elif antilinks and value['action'] != 0:
             await self.bot.db.execute("UPDATE invites SET level = $1, time = $2 WHERE guild_id = $3", value['action'], value['time'], ctx.guild.id)
             self.bot.invites[ctx.guild.id] = {'level': value['action'], 'time': value['time']}
-        elif antilinks and value['action'] == 0:
+        elif antilinks:
             await self.bot.db.execute("DELETE FROM invites WHERE guild_id = $1", ctx.guild.id)
             self.bot.invites.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfuly disabled anti invites in this server").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif not antilinks and value['action'] == 0:
+        else:
             raise commands.BadArgument(_("Anti invite is already disabled in this server."))
 
         the_value = value['action']
         await ctx.send(_("{0} Successfully set anti invites punishment type to **{1}** members.{2}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
         ))
 
     @automod.command(name='anti-mass-mention', aliases=['antimentions', 'massmentions', 'amm'],
@@ -268,6 +261,7 @@ class Automod(commands.Cog, name='Automoderation'):
     @commands.guild_only()
     @locale_doc
     async def automod_mass_mention(self, ctx, value: AutomodValues, count: int = 5):
+        # sourcery skip: use-assigned-variable
         _(""" Toggle anti mass mention on or off and set the mentions limit to whatever number you want """)
 
         automod = cm.get(self.bot, 'automod', ctx.guild.id)
@@ -288,16 +282,16 @@ class Automod(commands.Cog, name='Automoderation'):
         elif antimentions and value['action'] != 0:
             await self.bot.db.execute("UPDATE massmention SET level = $1, time = $2, mentions_limit = $3 WHERE guild_id = $4", value['action'], value['time'], count, ctx.guild.id)
             self.bot.massmention[ctx.guild.id] = {'level': value['action'], 'time': value['time'], 'limit': count}
-        elif antimentions and value['action'] == 0:
+        elif antimentions:
             await self.bot.db.execute("DELETE FROM massmention WHERE guild_id = $1", ctx.guild.id)
             self.bot.massmention.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfuly disabled anti mass mention in this server").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif not antimentions and value['action'] == 0:
+        else:
             raise commands.BadArgument(_("Anti mass mentions are already disabled in this server."))
 
-        the_value = value['action']
+        the_value = value['action']  # type: ignore
         await ctx.send(_("{0} Successfully set anti mass mentions punishment type to **{1}** members. Mentions limit - `{2}`.{3}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), count, _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), count, _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
         ))
 
     @automod.command(name='anti-mass-caps', aliases=['anticaps', 'masscaps', 'amc'],
@@ -327,16 +321,16 @@ class Automod(commands.Cog, name='Automoderation'):
         elif anticaps and value['action'] != 0:
             await self.bot.db.execute("UPDATE masscaps SET level = $1, time = $2, percentage = $3 WHERE guild_id = $4", value['action'], value['time'], percentage, ctx.guild.id)
             self.bot.masscaps[ctx.guild.id] = {'level': value['action'], 'time': value['time'], 'percentage': percentage}
-        elif anticaps and value['action'] == 0:
+        elif anticaps:
             await self.bot.db.execute("DELETE FROM masscaps WHERE guild_id = $1", ctx.guild.id)
             self.bot.masscaps.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfuly disabled anti mass caps in this server").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif not anticaps and value['action'] == 0:
+        else:
             raise commands.BadArgument(_("Anti caps are already disabled in this server."))
 
         the_value = value['action']
         await ctx.send(_("{0} Successfully set anti mass caps punishment type to **{1}** members. Percentage set to - `{2}`.{3}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), percentage, _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), percentage, _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
         ))
 
     @automod.command(name='anti-spam', aliases=['antispam', 'spam', 'as'],
@@ -360,16 +354,16 @@ class Automod(commands.Cog, name='Automoderation'):
         elif antispam and value['action'] != 0:
             await self.bot.db.execute("UPDATE antispam SET level = $1, time = $2 WHERE guild_id = $3", value['action'], value['time'], ctx.guild.id)
             self.bot.spam[ctx.guild.id] = {'level': value['action'], 'time': value['time']}
-        elif antispam and value['action'] == 0:
+        elif antispam:
             await self.bot.db.execute("DELETE FROM antispam WHERE guild_id = $1", ctx.guild.id)
             self.bot.spam.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfuly disabled anti spam in this server").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif not antispam and value['action'] == 0:
+        else:
             raise commands.BadArgument(_("Anti spam is already disabled in this server."))
 
         the_value = value['action']
         await ctx.send(_("{0} Successfully set anti spam punishment type to **{1}** members.{2}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
         ))
 
     @automod.command(name='ignore-moderators', aliases=['ignoremoderators', 'ignoremods'],
@@ -423,7 +417,7 @@ class Automod(commands.Cog, name='Automoderation'):
     @commands.cooldown(1, 5, commands.BucketType.member)
     @locale_doc
     async def raid_mode(self, ctx):
-        _(""" Manage anti raid mode in the server """ )
+        _(""" Manage anti raid mode in the server """)
         await ctx.send_help(ctx.command)
 
     @raid_mode.command(name='toggle', brief=_("Toggle raid mode on or off"))
@@ -431,7 +425,7 @@ class Automod(commands.Cog, name='Automoderation'):
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.member)
     @locale_doc
-    async def raid_mode_toggle(self, ctx, value: str = None, channel: discord.TextChannel = None):
+    async def raid_mode_toggle(self, ctx, value: str = None, channel: discord.TextChannel = None):  # sourcery no-metrics skip: collection-into-set, remove-redundant-if
         _(""" Toggle raid mode status
     
         **Values:**
@@ -589,7 +583,6 @@ class Automod(commands.Cog, name='Automoderation'):
         paginator = Pages(ctx,
                           title=embed_title,
                           entries=whitelist_list,
-                          thumbnail=None,
                           per_page=10,
                           embed_color=self.bot.settings['colors']['embed_color'],
                           author=ctx.author)
@@ -613,14 +606,13 @@ class Automod(commands.Cog, name='Automoderation'):
         if not check:
             await self.bot.db.execute("INSERT INTO whitelist(guild_id, type, _id) VALUES($1, $2, $3)", ctx.guild.id, 1, channel.id)
             self.bot.channels_whitelist[ctx.guild.id] = [channel.id]
-            await ctx.send(_("{0} Added {1} to the channels whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], channel.mention))
-        elif check:
+        else:
             if channel.id in check:
                 raise commands.BadArgument(_("Channel {0} is already added to the whitelist.").format(channel.mention))
 
             await self.bot.db.execute("INSERT INTO whitelist(guild_id, type, _id) VALUES($1, $2, $3)", ctx.guild.id, 1, channel.id)
             self.bot.channels_whitelist[ctx.guild.id].append(channel.id)
-            await ctx.send(_("{0} Added {1} to the channels whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], channel.mention))
+        await ctx.send(_("{0} Added {1} to the channels whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], channel.mention))
 
     @whitelist.command(name='add-role', aliases=['addrole', 'arole', 'roleadd'],
                        brief=_("Add a role to automod's whitelist"))
@@ -640,14 +632,13 @@ class Automod(commands.Cog, name='Automoderation'):
         if not check:
             await self.bot.db.execute("INSERT INTO whitelist(guild_id, type, _id) VALUES($1, $2, $3)", ctx.guild.id, 2, role.id)
             self.bot.roles_whitelist[ctx.guild.id] = [role.id]
-            await ctx.send(_("{0} Added {1} to the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
-        elif check:
+        else:
             if role.id in check:
                 raise commands.BadArgument(_("Role **{0}** is already added to the whitelist.").format(role))
 
             await self.bot.db.execute("INSERT INTO whitelist(guild_id, type, _id) VALUES($1, $2, $3)", ctx.guild.id, 2, role.id)
             self.bot.roles_whitelist[ctx.guild.id].append(role.id)
-            await ctx.send(_("{0} Added {1} to the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+        await ctx.send(_("{0} Added {1} to the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @whitelist.command(name='add-user', aliases=['adduser', 'auser', 'useradd'],
                        brief=_("Add a user to automod's whitelist"))
@@ -667,14 +658,13 @@ class Automod(commands.Cog, name='Automoderation'):
         if not check:
             await self.bot.db.execute("INSERT INTO whitelist(guild_id, type, _id) VALUES($1, $2, $3)", ctx.guild.id, 3, user.id)
             self.bot.users_whitelist[ctx.guild.id] = [user.id]
-            await ctx.send(_("{0} Added {1} to the users whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], user.mention))
-        elif check:
+        else:
             if user.id in check:
                 raise commands.BadArgument(_("User **{0}** is already added to the whitelist.").format(user))
 
             await self.bot.db.execute("INSERT INTO whitelist(guild_id, type, _id) VALUES($1, $2, $3)", ctx.guild.id, 3, user.id)
             self.bot.users_whitelist[ctx.guild.id].append(user.id)
-            await ctx.send(_("{0} Added {1} to the users whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], user.mention))
+        await ctx.send(_("{0} Added {1} to the users whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], user.mention))
 
     @whitelist.command(name='remove-role', aliases=['removerole', 'rrole', 'roleremove'],
                        brief=_("Remove a role from automod's whitelist"))
@@ -696,13 +686,12 @@ class Automod(commands.Cog, name='Automoderation'):
                 self.bot.settings['emojis']['misc']['warn']
             ))
 
-        elif check:
-            if role.id not in check:
-                raise commands.BadArgument(_("Role **{0}** is not in the whitelist.").format(role))
+        if role.id not in check:
+            raise commands.BadArgument(_("Role **{0}** is not in the whitelist.").format(role))
 
-            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 2, role.id)
-            self.bot.roles_whitelist[ctx.guild.id].remove(role.id)
-            await ctx.send(_("{0} Removed {1} from the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+        await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 2, role.id)
+        self.bot.roles_whitelist[ctx.guild.id].remove(role.id)
+        await ctx.send(_("{0} Removed {1} from the roles whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @whitelist.command(name='remove-user', aliases=['removeuser', 'ruser', 'userremove'],
                        brief=_("Remove a user from automod's whitelist"))
@@ -724,13 +713,12 @@ class Automod(commands.Cog, name='Automoderation'):
                 self.bot.settings['emojis']['misc']['warn']
             ))
 
-        elif check:
-            if user.id not in check:
-                raise commands.BadArgument(_("User **{0}** is not in the whitelist.").format(user))
+        if user.id not in check:
+            raise commands.BadArgument(_("User **{0}** is not in the whitelist.").format(user))
 
-            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 3, user.id)
-            self.bot.users_whitelist[ctx.guild.id].remove(user.id)
-            await ctx.send(_("{0} Removed {1} from the users whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], user.mention))
+        await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 3, user.id)
+        self.bot.users_whitelist[ctx.guild.id].remove(user.id)
+        await ctx.send(_("{0} Removed {1} from the users whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], user.mention))
 
     @whitelist.command(name='remove-channel', aliases=['removechannel', 'rchannel', 'channelremove'],
                        brief=_("Remove a channel from automod's whitelist "))
@@ -751,13 +739,12 @@ class Automod(commands.Cog, name='Automoderation'):
             return await ctx.send(_("{0} It looks like there are no channels whitelisted in the server.").format(
                 self.bot.settings['emojis']['misc']['warn']
             ))
-        elif check:
-            if channel.id not in check:
-                raise commands.BadArgument(_("Channel {0} is not in the whitelist.").format(channel.mention))
+        if channel.id not in check:
+            raise commands.BadArgument(_("Channel {0} is not in the whitelist.").format(channel.mention))
 
-            await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 1, channel.id)
-            self.bot.channels_whitelist[ctx.guild.id].remove(channel.id)
-            await ctx.send(_("{0} Removed {1} from the channels whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], channel.mention))
+        await self.bot.db.execute("DELETE FROM whitelist WHERE guild_id = $1 AND type = $2 AND _id = $3", ctx.guild.id, 1, channel.id)
+        self.bot.channels_whitelist[ctx.guild.id].remove(channel.id)
+        await ctx.send(_("{0} Removed {1} from the channels whitelist.").format(self.bot.settings['emojis']['misc']['white-mark'], channel.mention))
 
 
 def setup(bot):

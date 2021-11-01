@@ -15,71 +15,77 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 # Bot token
 DISCORD_TOKEN = ""
-MAIN_TOKEN = ''
+MAIN_TOKEN = ""
 
 # DBL token
-DBL_TOKEN = ''
-DBL_password = ''
+DBL_TOKEN = ""
+DBL_password = ""
 
 # discord.bots.gg
-DBGG_TOKEN = ''
+DBGG_TOKEN = ""
 
 # Discord Extreme list
-DEL_TOKEN = ''
+DEL_TOKEN = ""
 
 # Discord boats
-DBOATS_TOKEN = ''
+DBOATS_TOKEN = ""
 
 # Wonderlist
-WONDER_TOKEN = ''
+WONDER_TOKEN = ""
 
 # Glenn
-GLENN_TOKEN = ''
+GLENN_TOKEN = ""
 
 # Mythical
-MYTH_TOKEN = ''
+MYTH_TOKEN = ""
 
 # botlist.space
-BOTSPACE_TOKEN = ''
+BOTSPACE_TOKEN = ""
 
 # botsfordiscord.com
-BFD_TOKEN = ''
-BBL_TOKEN = ''
-BLIST_TOKEN = ''
-SBL_TOKEN = ''
-DISCORD_BOTS_TOKEN = ''
-DBLIST_TOKEN = ''
-DSERVICES_TOKEN = ''
-INFINITY_TOKEN = ''
+BFD_TOKEN = '"'
+BBL_TOKEN = ""
+BLIST_TOKEN = ""
+SBL_TOKEN = ""
+DISCORD_BOTS_TOKEN = ""
+DBLIST_TOKEN = ""
+DSERVICES_TOKEN = ""
+INFINITY_TOKEN = ""
 
 # Statcord
-STAT_TOKEN = ''
+STAT_TOKEN = ""
 
-WEBHOOK_URL = ''
+# Spotify
+SPOTIFY_CLIENT = ""
+SPOTIFY_SECRET = ""
 
-CB_TOKEN = """"""
+CB_TOKEN = ""
 
 # Dredd API
 DREDD_API_TOKEN = ""
 DREDD_API_CLIENT = ""
 
+SENTRY = ""
+
+PHISHING = ""
+
 # PSQL
 DB_CONN_INFO = {
     "user": "",
     "password": "",
-    "host": "127.0.0.1",
+    "host": "",
     "database": ""
 }
 
-BACKUP_USER = ''
-BACKUP_PASSWORD = ''
-BACKUP_RECEIVER = ''
+BACKUP_USER = ""
+BACKUP_PASSWORD = ""
+BACKUP_RECEIVER = ""
 
-MUSIC_PASSWORD = ''
-MUSIC_PORT = 2333
-MUSIC_ID = ''
+MUSIC_PASSWORD = ""
+MUSIC_PORT = 80
+MUSIC_IP = "127.0.0.1"
 
 # Extensions
 EXTENSIONS = [
-    'cogs.cog'  # replace this with the actual cogs you want to load
+    ""
 ]

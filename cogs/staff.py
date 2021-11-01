@@ -14,18 +14,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import typing
 import json
 
 from discord.ext import commands
 
-from utils import checks, default, publicflags
-from db.cache import CacheManager as CM
+from utils import checks, default, components
+from db.cache import CacheManager as CM, DreddUser, DreddGuild, Blacklist, BlacklistEnum
 from datetime import datetime, timezone
 from utils.checks import admin_only
+from typing import Union, Optional, Literal
 
 
-class staff(commands.Cog, name="Staff"):
+class staff(commands.Cog, name="Staff", command_attrs={"slash_command": False}):
 
     def __init__(self, bot):
         self.bot = bot
@@ -38,6 +38,100 @@ class staff(commands.Cog, name="Staff"):
             raise admin_only()
         return True
 
+    async def verify_type(self, ctx, thing: Union[discord.User, int]) -> Union[discord.User, discord.Guild, int]:
+        if isinstance(thing, discord.User):
+            return thing
+        elif isinstance(thing, int):
+            try:
+                return await ctx.bot.fetch_user(thing)
+            except Exception:
+                g = self.bot.get_guild(thing)
+                return g or thing
+
+    def embed(self, color: int, blacklist: bool, type: int, liftable: int, reason: str, user: discord.User, guild: Optional[Union[discord.Guild, str]] = None) -> Optional[discord.Embed]:
+        if type in {0, 1}:
+            return None
+        e = discord.Embed(color=color, title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
+        if not user:  # server doesn't have an owner
+            return
+        e.set_author(name=user, icon_url=user.avatar.url)
+
+        if blacklist:
+            bslash = '\n\n'
+            apply = f"{f'{bslash}If you wish to appeal, you can [join the support server]({self.bot.support})' if liftable == 0 else ''}"
+            if type == 2:
+                e.description = f"Hey!\nI'm sorry, but your blacklist state was updated and you won't be able to use my commands anymore!\n**Reason:** {reason}{apply}"
+            elif type == 3:
+                e.description = f"I'm sorry, but your server's ({guild.name}) blacklist state was updated and you won't be able to invite me to that server\n**Reason:** {reason}{apply}"
+        elif type == 2:
+            e.description = f"Hey!\nJust wanted to let you know that your blacklist state was updated and you'll be able to use my commands again!\n**Reason:** {reason}"
+        elif type == 3:
+            e.description = f"Hey!\nJust wanted to let you know that your server ({guild}) is now unblacklisted and you'll be able to invite me there!\n**Reason:** {reason}"
+
+        return e
+
+    async def blacklist_(self, ctx, thing: Union[discord.User, discord.Guild], type: Literal[0, 1, 2, 3], liftable: Literal[0, 1], reason: str):
+        # sourcery no-metrics
+        data: Union[DreddGuild, DreddUser] = thing.data  # type: ignore
+        blacklist: Blacklist = data.blacklist
+        owner_id = guild_name = guild = msg = None
+        if isinstance(thing, discord.Guild):
+            owner_id = thing.owner, thing.owner.id
+            guild, guild_name = thing, thing.name
+        if blacklist and int(blacklist.type) in [type, 2, 3]:
+            return await ctx.send(f"Seems like **{thing}** is already blacklisted. Type: {BlacklistEnum(int(blacklist.type))}")
+        if await self.bot.is_admin(thing) and not await self.bot.is_owner(ctx.author) or thing.id == 345457928972533773:
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | You cannot blacklist {thing} because they're a part of bot staff team.")
+        query = """INSERT INTO blacklist(_id, type, reason, dev, issued, liftable, owner_id, server_name) VALUES($1, $2, $3, $4, $5, $6, $7, $8)
+                   ON CONFLICT (_id) DO UPDATE SET type = $2, reason = $3 WHERE blacklist._id = $1"""
+        await self.bot.db.execute(query, thing.id, type, reason, ctx.author.id, datetime.now(), liftable, owner_id, guild_name)
+        self.bot.blacklist[thing.id] = {'type': type, 'reason': reason, 'dev': ctx.author.id, 'issued': datetime.now(), 'liftable': liftable, 'owner_id': owner_id, 'server_name': guild_name}
+        await self.bot.db.execute("INSERT INTO badges(_id, flags) VALUES($1, $2)", thing.id, 2048)
+        self.bot.badges[thing.id] = 2048
+        await self.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)", thing.id, 1, ctx.author.id, reason, datetime.now(), type, liftable)
+        user = thing if isinstance(thing, discord.User) else thing.owner
+        embed_to_send = self.embed(self.bot.settings['colors']['deny_color'], True, type, liftable, reason, user, thing if isinstance(thing, discord.Guild) else None)
+        if embed_to_send is not None:
+            try:
+                await user.send(embed=embed_to_send)
+                msg = ' and DMed the user'
+            except Exception as e:
+                print(e)
+                msg = ', however, I was unable to DM the user.'
+        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | I've successfully added **{thing}** to the blacklist{msg or ''}")
+        if guild and type == 3:
+            await guild.leave()
+        return await default.blacklist_log(ctx, 0, 0 if type in [2, 3] else 1 if type == 0 else 2, thing, reason)
+
+    async def unblacklist_(self, ctx, thing: Union[discord.User, discord.Guild, int], reason: str):
+        msg = None
+        data: Union[DreddGuild, DreddUser] = thing.data if isinstance(thing, (discord.User, discord.Guild)) else CM.get_guild(self.bot, thing)  # type: ignore
+        blacklist: Blacklist = data.blacklist
+        liftable = int(blacklist.liftable) if blacklist else None
+        type = int(blacklist.type) if blacklist else None
+        owner = thing.owner if isinstance(thing, discord.Guild) else thing if isinstance(thing, discord.User) else self.bot.get_user(blacklist.owner_id)
+        guild_name = blacklist.server if blacklist else None
+
+        if not blacklist:
+            return await ctx.send(f"{thing} doesn't seem to be blacklisted.")
+        if not liftable and not await ctx.bot.is_owner(ctx.author):
+            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | This user cannot be unblacklisted!")
+
+        await self.bot.db.execute("DELETE FROM blacklist WHERE _id = $1", data.id)
+        self.bot.blacklist.pop(data.id)
+        await self.bot.db.execute("DELETE FROM badges WHERE _id = $1", data.id)
+        self.bot.badges.pop(data.id, None)
+        embed_to_send = self.embed(self.bot.settings['colors']['approve_color'], False, type, 0, reason, owner, guild_name if isinstance(thing, int) else None)
+        if embed_to_send:
+            try:
+                await owner.send(embed=embed_to_send)
+                msg = ' and DMed the user'
+            except Exception as e:
+                print(e)
+                msg = ', however, I was unable to DM the user.'
+        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | I've successfully removed **{guild_name or thing}** from the blacklist{msg or ''}")
+        return await default.blacklist_log(ctx, 1, 0 if type in [2, 3] else 1 if type == 0 else 2, thing, reason)
+
     @commands.group(brief="Main staff commands", invoke_without_command=True)
     async def admin(self, ctx):
         """ Bot staff commands.
@@ -45,405 +139,18 @@ class staff(commands.Cog, name="Staff"):
 
         await ctx.send_help(ctx.command)
 
-    @commands.group(name='blacklist', invoke_without_command=True, aliases=['bl'])
-    async def blacklist(self, ctx):
-        """ Manage bot's blacklist """
-        await ctx.send_help(ctx.command)
+    @admin.command()
+    async def manage(self, ctx, thing: Union[discord.User, int], *, reason: str = None):
+        thing: Union[discord.User, discord.Guild, int] = await self.verify_type(ctx, thing)
 
-    @blacklist.group(name='add', invoke_without_command=True, aliases=['a'])
-    async def blacklist_add(self, ctx):
-        await ctx.send_help(ctx.command)
-
-    @blacklist.group(name='remove', invoke_without_command=True, aliases=['r'])
-    async def blacklist_remove(self, ctx):
-        await ctx.send_help(ctx.command)
-
-    @blacklist_add.command(name='user', aliases=['u', 'users', 'member'])
-    async def blacklist_add_user(self, ctx, user: discord.User, liftable: int = 0, *, reason: str):
-        """ Add user to bot's blacklist
-        liftable values:
-        0 - liftable
-        1 - not liftable"""
-        if await self.bot.is_admin(user) and not await self.bot.is_owner(ctx.author):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | You cannot blacklist {user} because they're a part of bot staff team.")
-        bslash = '\n\n'
-        apply = f"{f'{bslash}If you wish to appeal, you can [join the support server]({self.bot.support})' if liftable == 0 else ''}"
-        check = CM.get(self.bot, 'blacklist', user.id)
-
-        if check and check['type'] == 2:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | **{user}** is already in my blacklist.")
-        elif not check or check and check['type'] != 2:
-            query = """INSERT INTO blacklist(_id, type, reason, dev, issued, liftable)
-                        VALUES($1, $2, $3, $4, $5, $6)
-                        ON CONFLICT (_id) DO UPDATE
-                        SET type = $2, reason = $3
-                        WHERE blacklist._id = $1 """
-            await self.bot.db.execute(query, user.id, 2, reason, ctx.author.id, datetime.now(), liftable)
-            self.bot.blacklist[user.id] = {'type': 2, 'reason': reason, 'dev': ctx.author.id, 'issued': datetime.now(), 'liftable': liftable}
-            badge = self.bot.settings['emojis']['ranks']['blocked']
-            await self.bot.db.execute("INSERT INTO badges(_id, flags) VALUES($1, $2)", user.id, 2048)
-            self.bot.badges[user.id] = 2048
-            await self.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)", user.id, 1, ctx.author.id, reason, datetime.now(), 2, liftable)
-            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
-            e.set_author(name=user, icon_url=user.avatar_url)
-            e.description = f"Hey!\nI'm sorry, but your blacklist state was updated and you won't be able to use my commands anymore!\n**Reason:** {reason}{apply}"
-            try:
-                await user.send(embed=e)
-                msg = ' and DMed them.'
-            except Exception as e:
-                msg = f', however error occured while DMing them: {e}'
-            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | I've successfully added **{user}** to the blacklist{msg}")
-            await default.blacklist_log(ctx, 0, 0, user, reason)
-
-    @blacklist_add.command(name='server', aliases=['s', 'g', 'guild'])
-    async def blacklist_add_server(self, ctx, server: int, liftable: int = 0, *, reason: str):
-        """ Add server to bot's blacklist
-        liftable values:
-        0 - liftable
-        1 - not liftable"""
-        if await self.bot.db.fetchval("SELECT _id FROM noblack WHERE _id = $1", server):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | That server is whitelisted and cannot be blacklisted by bot admins.")
-        guild = self.bot.get_guild(server)
-        if guild is None:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | I cannot find that server, make sure you have provided the correct server id!")
-        bslash = '\n\n'
-        apply = f"{f'{bslash}If you wish to appeal, you can [join the support server]({self.bot.support})' if liftable == 0 else ''}"
-        check = CM.get(self.bot, 'blacklist', guild.id)
-
-        if check and check['type'] == 3:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | **{guild}** is already in my blacklist.")
-        elif not check or check and check['type'] != 3:
-            owner = guild.owner
-            await self.bot.db.execute("DELETE FROM badges WHERE _id = $1", guild.id)
-            query = """INSERT INTO blacklist(_id, type, reason, dev, issued, liftable, owner_id, server_name)
-                        VALUES($1, $2, $3, $4, $5, $6, $7, $8)
-                        ON CONFLICT (_id) DO UPDATE
-                        SET type = $2, reason = $3
-                        WHERE blacklist._id = $1"""
-            await self.bot.db.execute(query, guild.id, 3, reason, ctx.author.id, datetime.now(), liftable, owner.id, guild.name)
-            self.bot.blacklist[guild.id] = {'type': 3, 'reason': reason, 'dev': ctx.author.id, 'issued': datetime.now(), 'liftable': liftable, 'owner_id': owner.id, 'server_name': guild.name}
-            await self.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)", server, 1, ctx.author.id, reason, datetime.now(), 3, liftable)
-            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
-            e.set_author(name=owner, icon_url=owner.avatar_url)
-            e.description = f"Hey!\nI'm sorry, but your server's ({guild.name}) blacklist state was updated and you won't be able to invite me to that server!\n**Reason:** {reason}{apply}"
-            try:
-                await owner.send(embed=e)
-                msg = ' and DMed the owner of the server.'
-            except Exception as e:
-                msg = f', however error occured while DMing the owner of the server: {e}'
-            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | I've successfully added **{guild}** to the blacklist{msg}")
-            await guild.leave()
-            await default.blacklist_log(ctx, 0, 0, guild, reason)
-
-    @blacklist_add.command(name='suggestions', aliases=['sug'])
-    async def blacklist_add_suggestions(self, ctx, server: int, *, reason: str):
-        """
-        Blacklist server from submitting suggestions
-        """
-        to_block = self.bot.get_guild(server)
-
-        if not to_block:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Can't find server with this ID!")
-
-        if await self.bot.db.fetchval("SELECT _id FROM noblack WHERE _id = $1", to_block) and not await ctx.bot.is_owner(ctx.author):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | That server is whitelisted and cannot be blacklisted by bot admins.")
-
-        check = CM.get(self.bot, 'blacklist', to_block.id)
-        if check and check['type'] == 0:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | **{to_block}** is already in my suggestions blacklist.")
-        elif check and check['type'] == 3:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | **{to_block}** is blacklisted, you shouldn't even be seeing this message though :/")
-        elif not check:
-            query = "INSERT INTO blacklist(_id, type, reason, dev, issued, liftable, owner_id, server_name) VALUES($1, $2, $3, $4, $5, $6, $7, $8)"
-            query2 = "INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)"
-            await self.bot.db.execute(query, to_block.id, 0, reason, ctx.author.id, datetime.now(), 0, to_block.owner.id, to_block.name)
-            await self.bot.db.execute(query2, to_block.id, 1, ctx.author.id, reason, datetime.now(), 0, 0)
-            self.bot.blacklist[to_block.id] = {'type': 0, 'reason': reason, 'dev': ctx.author.id, 'issued': datetime.now(), 'liftable': 0, 'owner_id': to_block.owner.id, 'server_name': to_block.name}
-            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | I've successfully added **{to_block}** to the suggestions blacklist.")
-            await default.blacklist_log(ctx, 0, 1, to_block, reason)
-
-    @blacklist_add.command(name='direct', aliases=['dms'])
-    async def blacklist_add_direct(self, ctx, user: discord.User, *, reason: str):
-        """
-        Blacklist user from sending DMs
-        """
-
-        if await ctx.bot.is_admin(user) and not await ctx.bot.is_owner(ctx.author):
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | You cannot blacklist {user} because they're a part of bot staff team.")
-
-        check = CM.get(self.bot, 'blacklist', user.id)
-
-        if check and check['type'] == 2:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} That user is already blacklisted from using my commands.")
-        elif check and check['type'] == 1:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} That user is already blacklisted from sending DMs to me.")
-        elif not check:
-            query1 = "INSERT INTO blacklist(_id, type, reason, dev, issued, liftable) VALUES($1, $2, $3, $4, $5, $6)"
-            query2 = "INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)"
-            await self.bot.db.execute(query1, user.id, 1, reason, ctx.author.id, datetime.now(), 0)
-            await self.bot.db.execute(query2, user.id, 1, ctx.author.id, reason, datetime.now(), 1, 0)
-            self.bot.blacklist[user.id] = {'type': 1, 'reason': reason, 'dev': ctx.author.id, 'issued': datetime.now(), 'liftable': 0}
-            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | I've successfully added **{user}** to the DMs blacklist.")
-            await default.blacklist_log(ctx, 0, 2, user, reason)
-
-    @blacklist_remove.command(name='user', aliases=['u', 'users', 'member'])
-    async def blacklist_remove_user(self, ctx, user: discord.User, *, reason: str):
-        """ Remove user from the blacklist """
-        check = CM.get(self.bot, 'blacklist', user.id)
-
-        if check and check['type'] == 2:
-            if check['liftable'] != 0 and not await ctx.bot.is_owner(ctx.author):
-                return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | This user cannot be unblacklisted!")
-            await self.bot.db.execute("DELETE FROM blacklist WHERE _id = $1", user.id)
-            self.bot.blacklist.pop(user.id)
-            await self.bot.db.execute("DELETE FROM badges WHERE _id = $1", user.id)
-            self.bot.badges.pop(user.id)
-            e = discord.Embed(color=self.bot.settings['colors']['approve_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
-            e.set_author(name=user, icon_url=user.avatar_url)
-            e.description = f"Hey!\nJust wanted to let you know that your blacklist state was updated and you'll be able to use my commands again!\n**Reason:** {reason}"
-            try:
-                await user.send(embed=e)
-                msg = ' and DMed them.'
-            except Exception as e:
-                msg = f', however error occured while DMing them: {e}'
-            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | I've successfully removed **{user}** from the blacklist{msg}")
-            await default.blacklist_log(ctx, 1, 0, user, reason)
-        elif check and check['type'] == 1:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | **{user}** is blacklisted from sending DMs, only Moksej is allowed to unblacklist them.")
-        elif not check:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | **{user}** is not in my blacklist.")
-
-    @blacklist_remove.command(name='server', aliases=['s', 'g', 'guild'])
-    async def blacklist_remove_server(self, ctx, server: int, *, reason: str):
-        """ Remove user from the blacklist """
-        check = CM.get(self.bot, 'blacklist', server)
-
-        if check and check['type'] == 3:
-            if check['liftable'] != 0 and not await ctx.bot.is_owner(ctx.author):
-                return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | This server cannot be unblacklisted!")
-            await self.bot.db.execute("DELETE FROM blacklist WHERE _id = $1", server)
-            self.bot.blacklist.pop(server)
-            e = discord.Embed(color=self.bot.settings['colors']['approve_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
-            e.description = f"Hey!\nJust wanted to let you know that your server ({check['server_name']}) is now unblacklisted and you'll be able to invite me there!\n**Reason:** {reason}"
-            try:
-                user = self.bot.get_user(check['owner_id'])
-                e.set_author(name=user, icon_url=user.avatar_url)
-                await user.send(embed=e)
-                msg = ' and DMed the server owner.'
-            except Exception as e:
-                msg = f', however error occured while DMing the server owner: {e}'
-            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | I've successfully removed **{check['server_name']}** from the blacklist{msg}")
-            await default.blacklist_log(ctx, 1, 0, server, reason)
-        elif check and check['type'] == 0:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | **{server}** is blacklisted from submitting suggestions, you're using the wrong command")
-        elif not check:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | **{server}** is not in my blacklist.")
-
-    @blacklist_remove.command(name='suggestions', aliases=['sug'])
-    async def blacklist_remove_suggestions(self, ctx, server: int, *, reason: str):
-        """
-        Unblacklist server from submitting suggestions
-        """
-
-        check = CM.get(self.bot, 'blacklist', server)
-
-        if check and check['type'] == 3:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Server seems to be blacklisted from inviting me.")
-        elif check and check['type'] == 0:
-            query = "DELETE FROM blacklist WHERE _id = $1"
-            await self.bot.db.execute(query, server)
-            self.bot.blacklist.pop(server)
-            await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} I've successfully unblacklisted **{check['server_name']}** ({server}) from submitting suggestions")
-            await default.blacklist_log(ctx, 1, 1, self.bot.get_guild(server), reason)
-        elif not check:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} Server doesn't seem to be blacklisted from anything.")
-
-    @admin.command(name='disable-command', aliases=['discmd', 'disablecmd'])
-    async def admin_disable_command(self, ctx, command: str, *, reason: str):
-
-        command = self.bot.get_command(command)
-        cant_disable = ['jsk', 'dev', 'admin', 'theme', 'help']
-
-        if not command:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` doesn\'t exist.")
-
-        elif command in cant_disable or command.parent in cant_disable:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` can't be disabled.")
-
-        else:
-            if command.parent:
-                if await checks.is_disabled(ctx, command):
-                    return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` is already disabled.")
-                else:
-                    if not command.name:
-                        self.bot.disabled_commands[str(command.parent)] = {'reason': reason, 'dev': ctx.author.id}
-                        await self.bot.db.execute("INSERT INTO discmds(command, reason, dev) VALUES($1, $2, $3)", str(command.parent), reason, ctx.author.id)
-                        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent}` and its corresponding subcommands were successfully disabled for {reason}")
-                    elif command.name:
-                        self.bot.disabled_commands[str(f"{command.parent} {command.name}")] = {'reason': reason, 'dev': ctx.author.id}
-                        await self.bot.db.execute("INSERT INTO discmds(command, reason, dev) VALUES($1, $2, $3)", str(f"{command.parent} {command.name}"), reason, ctx.author.id)
-                        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent} {command.name}` and its corresponding subcommands were successfully disabled for {reason}")
-            elif not command.parent:
-                if await checks.is_disabled(ctx, command):
-                    return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` is already disabled.")
-                else:
-                    self.bot.disabled_commands[str(command)] = {'reason': reason, 'dev': ctx.author.id}
-                    await self.bot.db.execute("INSERT INTO discmds(command, reason, dev) VALUES($1, $2, $3)", str(command), reason, ctx.author.id)
-                    await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command}` was successfully disabled for {reason}")
-
-    @admin.command(name='enable-command', aliases=['enbcmd', 'enablecmd'])
-    async def enable_command(self, ctx, *, cmd: str):
-
-        command = self.bot.get_command(cmd)
-
-        if not command:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{cmd}` doesn\'t exist.")
-
-        else:
-            if command.parent:
-                if not await checks.is_disabled(ctx, command):
-                    return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` is not disabled.")
-                else:
-                    if not command.name:
-                        self.bot.disabled_commands.pop(str(command.parent))
-                        await self.bot.db.execute("DELETE FROM discmds WHERE command = $1", str(command.parent))
-                        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent}` and its corresponding subcommands were successfully re-enabled")
-                    elif command.name:
-                        self.bot.disabled_commands.pop(str(f"{command.parent} {command.name}"))
-                        await self.bot.db.execute("DELETE FROM discmds WHERE command = $1", str(f"{command.parent} {command.name}"))
-                        await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent} {command.name}` and its corresponding subcommands were successfully re-enabled")
-            elif not command.parent:
-                if not await checks.is_disabled(ctx, command):
-                    return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | `{command}` is not disabled.")
-                else:
-                    self.bot.disabled_commands.pop(str(command))
-                    await self.bot.db.execute("DELETE FROM discmds WHERE command = $1", str(command))
-                    await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command}` was successfully re-enabled")
-
-    @commands.group(name='add-badge', invoke_without_command=True, aliases=['addbadge', 'abadge'])
-    async def addbadge(self, ctx):
-        await ctx.send_help(ctx.command)
-
-    @commands.group(name='remove-badge', invoke_without_command=True, aliases=['removebadge', 'rbadge'])
-    async def removebadge(self, ctx):
-        await ctx.send_help(ctx.command)
-
-    @addbadge.command(name='user', aliases=['u'])
-    async def addbadge_user(self, ctx, user: typing.Union[discord.User, str], badge: str):
-
-        user = await default.find_user(ctx, user)
-
-        if not user:
-            return await ctx.send(f"{ctx.bot.settings['emojis']['misc']['warn']} | User could not be found")
-
-        attr = getattr(self.bot, 'settings')
-        try:
-            attr['emojis']['ranks'][badge]
-        except Exception as e:
-            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Invalid badge')
-            badges = 'Those are the valid ones:\n'
-            for badge in attr['emojis']['ranks']:
-                badges += f'`{badge}`, '
-            e.description = badges[:-2]
-            return await ctx.send(embed=e)
-        badges = CM.get(self.bot, 'badges', user.id)
-
-        if getattr(publicflags.BotFlags(badges if badges else 0), badge):
-            return await ctx.send(f"**{user}** already has {attr['emojis']['ranks'][badge]} badge")
-        else:
-            badge_value = default.badge_values(ctx)
-            if badges:
-                self.bot.badges[user.id] += badge_value[badge]
-                await self.bot.db.execute("UPDATE badges SET flags = flags + $1 WHERE _id = $2", badge_value[badge], user.id)
-            else:
-                self.bot.badges[user.id] = badge_value[badge]
-                await self.bot.db.execute("INSERT INTO badges(_id, flags) VALUES($1, $2)", user.id, badge_value[badge])
-            await ctx.send(f"Added {attr['emojis']['ranks'][badge]} to {user} badges")
-
-    @removebadge.command(name='user', aliases=['u'])
-    async def removebadge_user(self, ctx, user: typing.Union[discord.User, str], badge: str):
-        user = await default.find_user(ctx, user)
-
-        if not user:
-            return await ctx.send(f"{ctx.bot.settings['emojis']['misc']['warn']} | User could not be found")
-
-        attr = getattr(self.bot, 'settings')
-        try:
-            attr['emojis']['ranks'][badge]
-        except Exception as e:
-            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Invalid badge')
-            badges = 'Those are the valid ones:\n'
-            for badge in attr['emojis']['ranks']:
-                badges += f'`{badge}`, '
-            e.description = badges[:-2]
-            return await ctx.send(embed=e)
-        badges = CM.get(self.bot, 'badges', user.id)
-
-        if not getattr(publicflags.BotFlags(badges if badges else 0), badge):
-            return await ctx.send(f"**{user}** doesn't have {attr['emojis']['ranks'][badge]} badge")
-        else:
-            badge_value = default.badge_values(ctx)
-            self.bot.badges[user.id] -= badge_value[badge]
-            await self.bot.db.execute("UPDATE badges SET flags = flags - $1 WHERE _id = $2", badge_value[badge], user.id)
-            await ctx.send(f"Removed {attr['emojis']['ranks'][badge]} from {user} badges")
-
-    @addbadge.command(name='server', aliases=['s'])
-    async def addbadge_server(self, ctx, server: int, badge: str):
-        guild = self.bot.get_guild(server)
-
-        if not guild:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | Server not found")
-
-        attr = getattr(self.bot, 'settings')
-        try:
-            attr['emojis']['ranks'][badge]
-        except Exception as e:
-            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Invalid badge')
-            badges = 'Those are the valid ones:\n'
-            for badge in attr['emojis']['ranks']:
-                badges += f'`{badge}`, '
-            e.description = badges[:-2]
-            return await ctx.send(embed=e)
-        badges = CM.get(self.bot, 'badges', guild.id)
-
-        if getattr(publicflags.BotFlags(badges if badges else 0), badge):
-            return await ctx.send(f"**{guild}** already has {attr['emojis']['ranks'][badge]}")
-        else:
-            badge_value = default.badge_values(ctx)
-            if badges:
-                self.bot.badges[guild.id] += badge_value[badge]
-                await self.bot.db.execute("UPDATE badges SET flags = flags + $1 WHERE _id = $2", badge_value[badge], guild.id)
-            else:
-                self.bot.badges[guild.id] = badge_value[badge]
-                await self.bot.db.execute("INSERT INTO badges(_id, flags) VALUES($1, $2)", guild.id, badge_value[badge])
-            await ctx.send(f"Added {attr['emojis']['ranks'][badge]} to {guild} badges")
-
-    @removebadge.command(name='server', aliases=['s'])
-    async def removebadge_server(self, ctx, server: int, badge: str):
-        guild = self.bot.get_guild(server)
-
-        if not guild:
-            return await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | Server not found")
-
-        attr = getattr(self.bot, 'settings')
-        try:
-            attr['emojis']['ranks'][badge]
-        except Exception as e:
-            e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title='Invalid badge')
-            badges = 'Those are the valid ones:\n'
-            for badge in attr['emojis']['ranks']:
-                badges += f'`{badge}`, '
-            e.description = badges[:-2]
-            return await ctx.send(embed=e)
-        badges = CM.get(self.bot, 'badges', guild.id)
-
-        if not getattr(publicflags.BotFlags(badges if badges else 0), badge):
-            return await ctx.send(f"**{guild}** doesn't have {attr['emojis']['ranks'][badge]} badge")
-        else:
-            badge_value = default.badge_values(ctx)
-            self.bot.badges[guild.id] -= badge_value[badge]
-            await self.bot.db.execute("UPDATE badges SET flags = flags - $1 WHERE _id = $2", badge_value[badge], guild.id)
-            await ctx.send(f"Removed {attr['emojis']['ranks'][badge]} from {guild} badges")
+        blacklist_emoji = self.bot.settings['emojis']['ranks']['blocked']
+        dropdown = components.DropdownView(ctx, "Select an option...", [discord.SelectOption(label="Blacklist", emoji=blacklist_emoji, value=10, description="Blacklist user or guild"),  # type: ignore
+                                                                        discord.SelectOption(label="Unblacklist", emoji=blacklist_emoji, value=11, description="Unblacklist user or guild"),  # type: ignore
+                                                                        discord.SelectOption(label="Add badge", emoji="➕", value=12, description="Add a badge to user or guild"),  # type: ignore
+                                                                        discord.SelectOption(label="Remove badge", emoji="➖", value=13, description="Remove a badge from user or guild"),  # type: ignore
+                                                                        discord.SelectOption(label="Cancel", emoji="🟥", value=4, description="Cancel command.")],  # type: ignore
+                                           cls=self, reason=reason, thing=thing)
+        return await ctx.send(f"You're managing **{thing}**", view=dropdown)
 
     @commands.command(brief='Approve the suggestion', aliases=['approve'])
     @checks.is_guild(709521003759403063)
@@ -479,13 +186,13 @@ class staff(commands.Cog, name="Staff"):
         trackers = await self.bot.db.fetch("SELECT user_id FROM track_suggestions WHERE _id = $1", int(suggestion_id))
         for res in trackers:
             e = discord.Embed(color=self.bot.settings['colors']['approve_color'], description=f"The following suggestion was approved by {ctx.author}\n**Approval note:** {reason}\n\n**Suggestion:**\n>>> {suggestion_content}")
-            e.set_author(name=f"Suggested by {user} | #{suggestion_id}", icon_url=user.avatar_url)
+            e.set_author(name=f"Suggested by {user} | #{suggestion_id}", icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
             e.set_footer(text="You're either an author of this suggestion or you're following this suggestion's status")
             user = self.bot.get_user(res['user_id'])
             try:
                 # await self.bot.db.execute("DELETE FROM track_suggestions WHERE user_id = $1 AND _id = $2", user.id, int(suggestion_id))
                 await user.send(embed=e)
-            except Exception as e:
+            except Exception:
                 pass
 
     @commands.command(brief='Deny the suggestion', aliases=['deny'])
@@ -521,13 +228,13 @@ class staff(commands.Cog, name="Staff"):
         trackers = await self.bot.db.fetch("SELECT user_id FROM track_suggestions WHERE _id = $1", int(suggestion_id))
         for res in trackers:
             e = discord.Embed(color=self.bot.settings['colors']['deny_color'], description=f"The following suggestion was denied by {ctx.author}\n**Denial note:** {reason}\n\n**Suggestion:**\n>>> {suggestion_content}")
-            e.set_author(name=f"Suggested by {user} | #{suggestion_id}", icon_url=user.avatar_url)
+            e.set_author(name=f"Suggested by {user} | #{suggestion_id}", icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
             e.set_footer(text="You're either an author of this suggestion or you're following this suggestion's status")
             user = self.bot.get_user(res['user_id'])
             try:
                 await self.bot.db.execute("DELETE FROM track_suggestions WHERE user_id = $1 AND _id = $2", user.id, int(suggestion_id))
                 await user.send(embed=e)
-            except Exception as e:
+            except Exception:
                 pass
 
     @commands.command(brief='Deny the suggestion', aliases=['sdelete'])
@@ -557,13 +264,13 @@ class staff(commands.Cog, name="Staff"):
         trackers = await self.bot.db.fetch("SELECT user_id FROM track_suggestions WHERE _id = $1", int(suggestion_id))
         for res in trackers:
             e = discord.Embed(color=self.bot.settings['colors']['error_color'], description=f"The following suggestion was deleted by {ctx.author}\n**Delete note:** {reason}\n\n**Suggestion:**\n>>> {suggestion_content}")
-            e.set_author(name=f"Suggested by {user} | #{suggestion_id}", icon_url=user.avatar_url)
+            e.set_author(name=f"Suggested by {user} | #{suggestion_id}", icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
             e.set_footer(text="You're either an author of this suggestion or you're following this suggestion's status")
             user = self.bot.get_user(res['user_id'])
             try:
                 await self.bot.db.execute("DELETE FROM track_suggestions WHERE user_id = $1 AND _id = $2", user.id, int(suggestion_id))
                 await user.send(embed=e)
-            except Exception as e:
+            except Exception:
                 pass
 
     @commands.command(brief='Mark suggestion as done', aliases=['sdone'])
@@ -603,29 +310,28 @@ class staff(commands.Cog, name="Staff"):
         trackers = await self.bot.db.fetch("SELECT user_id FROM track_suggestions WHERE _id = $1", int(suggestion_id))
         for res in trackers:
             e = discord.Embed(color=self.bot.settings['colors']['approve_color'], description=f"The following suggestion was marked as done by {ctx.author}\n**Note:** {note}\n\n**Suggestion:**\n>>> {suggestion_content}")
-            e.set_author(name=f"Suggested by {user} | #{suggestion_id}", icon_url=user.avatar_url)
+            e.set_author(name=f"Suggested by {user} | #{suggestion_id}", icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
             e.set_footer(text="You're either an author of this suggestion or you're following this suggestion's status")
             user = self.bot.get_user(res['user_id'])
             try:
                 await self.bot.db.execute("DELETE FROM track_suggestions WHERE user_id = $1 AND _id = $2", user.id, int(suggestion_id))
                 await user.send(embed=e)
-            except Exception as e:
+            except Exception:
                 pass
 
     @admin.command(brief="DM a user", description="Direct message an user")
-    async def dm(self, ctx, id: int, msg_id: typing.Optional[int], *, msg: str):
+    async def dm(self, ctx, id: int, msg_id: Optional[int], *, msg: str):
         """ Send a DM to an user """
         try:
             await ctx.message.delete()
-        except Exception as e:
+        except Exception:
             pass
         try:
             num = len(self.bot.dm)
             try:
                 user = self.bot.dm[id]
-            except Exception as e:
-                id = num + 1
-                user = self.bot.dm[num] = id
+            except Exception:
+                user = self.bot.dm[num + 1] = id
             user = self.bot.get_user(user)
             if not user:
                 self.bot.dm.pop(num)
@@ -644,7 +350,7 @@ class staff(commands.Cog, name="Staff"):
             logembed = discord.Embed(description=msg,
                                      color=0x81C969,
                                      timestamp=datetime.now(timezone.utc))
-            logembed.set_author(name=f"I've sent a DM to {user} | #{id}", icon_url=user.avatar_url)
+            logembed.set_author(name=f"I've sent a DM to {user} | #{id}", icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
             logembed.set_footer(text=f"User ID: {user.id}")
             await logchannel.send(embed=logembed)
         except discord.errors.Forbidden:
@@ -661,7 +367,7 @@ class staff(commands.Cog, name="Staff"):
         elif guild and not is_tester:
             self.bot.testers[guild_id] = guild.name
             return await ctx.send(f"Added {guild} ({guild_id}) to testers list, they'll be able to use beta commands now.")
-        elif guild and is_tester:
+        elif guild:
             self.bot.testers.pop(guild_id)
             return await ctx.send(f"Removed {guild} ({guild_id}) from testers list.")
 
@@ -672,6 +378,7 @@ class staff(commands.Cog, name="Staff"):
             data = json.load(f)
 
         try:
+            # noinspection PyUnusedLocal
             check = data[f"{name}"]
             return await ctx.send(f"Radio station {name} already exists.")
         except KeyError:

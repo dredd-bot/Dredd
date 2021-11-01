@@ -15,16 +15,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import discord
 import aiohttp
-import asyncio
-import random
-import typing
 
 from discord.ext import commands
 from discord.utils import escape_markdown
 
+from typing import Optional
 from datetime import datetime, timezone
-from utils.paginator import Pages
-from utils import default, btime, checks
+from utils.paginator import Pages, ListPages
+from utils import btime, checks, components
 from db.cache import CacheManager as CM
 from db.cache import LoadCache as LC
 from utils.i18n import locale_doc
@@ -34,11 +32,14 @@ def to_add_reaction(c):
     return '\N{KEYCAP TEN}' if c == 10 else str(c) + '\u20e3'
 
 
-class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
+# noinspection PyUnboundLocalVariable,PyTypeHints
+class Misc(commands.Cog, name='Miscellaneous'):
     def __init__(self, bot):
         self.bot = bot
         self.help_icon = "<:etaa:747192603757248544>"
         self.big_icon = "https://cdn.discordapp.com/emojis/747192603757248544.png?v=1"
+
+        self.to_delete = {}
 
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36"
 
@@ -57,6 +58,52 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         else:
             self.bot.reminders[ctx.author.id][str(len(check_reminders) + 1)] = {'time': time, 'content': content, 'channel': ctx.channel.id, 'message': ctx.message.id}
 
+    async def perform_action(self, value: bool, interaction: discord.Interaction, command: Optional[str]) -> None:  # sourcery no-metrics
+        if command:
+            if command == "snipes":
+                cache = CM.get(self.bot, 'snipes_op', interaction.user.id)
+                if value:
+                    if cache is None:
+                        await self.bot.db.execute('INSERT INTO snipes_op(user_id, username) VALUES($1, $2)', interaction.user.id, interaction.user.display_name)
+                        self.bot.snipes_op[interaction.user.id] = interaction.user.display_name
+                        return await interaction.message.edit(content=_("{0} Alright. I won't be logging your snipes anymore!").format(self.bot.settings['emojis']['misc']['white-mark']), view=None)  # type: ignore
+                    else:
+                        await self.bot.db.execute('DELETE FROM snipes_op WHERE user_id = $1', interaction.user.id)
+                        self.bot.snipes_op.pop(interaction.user.id)
+                        return await interaction.message.edit(  # type: ignore
+                            content=_("{0} You're now opted-in! From now on, I'll be logging your deleted messages in my snipe command!").format(self.bot.settings['emojis']['misc']['white-mark']), view=None)
+                elif cache is not None:
+                    return await interaction.message.edit(content=_("Alright, not opting you in."), view=None)  # type: ignore
+                else:
+                    return await interaction.message.edit(content=_("Oh sweet! I'll continue logging your snipes."), view=None)  # type: ignore
+            elif command == "todos":
+                if not value:
+                    return await interaction.message.edit(content=_("{0} I'm not deleting any items from your todo list.").format(self.bot.settings['emojis']['misc']['white-mark']), view=None)  # type: ignore
+                todos = await self.bot.db.fetch('SELECT * FROM todos WHERE user_id = $1 ORDER BY time', interaction.user.id)
+                await interaction.message.edit(content=_("{0} Deleted {1} items from your todo list").format(
+                    self.bot.settings['emojis']['misc']['white-mark'], len(todos)
+                ), view=None)
+                return await self.bot.db.execute("DELETE FROM todos WHERE user_id = $1", interaction.user.id)
+            elif command == "nicknames":
+                cache = CM.get(self.bot, 'nicks_op', f'{interaction.user.id} - {interaction.guild.id}')  # type: ignore
+                if value:
+                    if cache is None:
+                        await self.bot.db.execute('INSERT INTO nicks_op(guild_id, user_id) VALUES($1, $2)', interaction.guild.id, interaction.user.id)
+                        self.bot.nicks_op[f'{interaction.user.id} - {interaction.guild.id}'] = interaction.user.id
+                        await self.bot.db.execute("DELETE FROM nicknames WHERE user_id = $1 AND guild_id = $2", interaction.user.id, interaction.guild.id)
+                        return await interaction.message.edit(content=_("{0} Alright. I won't be logging your nicknames anymore in this server!").format(self.bot.settings['emojis']['misc']['white-mark']),  # type: ignore
+                                                              view=None)
+                    else:
+                        await self.bot.db.execute('DELETE FROM nicks_op WHERE guild_id = $1 AND user_id = $2', interaction.guild.id, interaction.user.id)
+                        self.bot.nicks_op.pop(f'{interaction.user.id} - {interaction.guild.id}')
+                        return await interaction.message.edit(content=_("{0} You're now opted-in! I'll be logging your nicknames from now on in this server!").format(  # type: ignore
+                            self.bot.settings['emojis']['misc']['white-mark']), view=None)
+                elif cache is not None:
+                    return await interaction.message.edit(content=_("Alright. Not opting you in"), view=None)  # type: ignore
+                else:
+                    return await interaction.message.edit(content=_("Oh sweet! I'll continue logging your nicknames"), view=None)  # type: ignore
+        return await interaction.message.edit(view=None)  # type: ignore
+
     @commands.command(brief=_("Search the urban dictionary"))
     @commands.guild_only()
     @commands.is_nsfw()
@@ -69,26 +116,30 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 url = await r.json()
 
         if url is None:
-            return await ctx.send("No URL found")
+            return await ctx.send(_("No URL found"))
 
         count = len(url.get('list', []))
         if count == 0:
-            return await ctx.send("No results were found.")
-        result = url['list'][random.randint(0, count - 1)]
+            return await ctx.send(_("No results were found."))
+        options, text_to_send = [], []
+        for result in url['list']:
+            options.append(f"{result['author']}")
+            definition = result['definition']
+            example = result['example']
+            if len(definition) >= 1000:
+                definition = definition[:1000]
+                definition = definition.rsplit(' ', 1)[0]
+                definition += '...'
 
-        definition = result['definition']
-        example = result['example']
-        if len(definition) >= 1000:
-            definition = definition[:1000]
-            definition = definition.rsplit(' ', 1)[0]
-            definition += '...'
+            text = _("**Search:** {0}\n**Author:** {1}\n"
+                     "{2} {3} | {4} {5}\n**Definition:**\n{6}\n"
+                     "**Example:**\n{7}").format(result['word'], result['author'], self.bot.settings['emojis']['misc']['upvote'],
+                                                 result['thumbs_up'], self.bot.settings['emojis']['misc']['downvote'], result['thumbs_down'],
+                                                 definition, example)
+            text_to_send.append(text)
 
-        text = _("**Search:** {0}\n**Author:** {1}\n"
-                 "{2} {3} | {4} {5}\n**Definition:**\n{6}\n"
-                 "**Example:**\n{7}").format(result['word'], result['author'], self.bot.settings['emojis']['misc']['upvote'],
-                                             result['thumbs_up'], self.bot.settings['emojis']['misc']['downvote'], result['thumbs_down'],
-                                             definition, example)
-        await ctx.send(text)
+        pages = ListPages(ctx, items=text_to_send, options=options)
+        await pages.paginate()
 
     @commands.command(brief=_("Suggest a feature that you'd like to see implemented"), aliases=['idea'])
     @commands.cooldown(1, 15, commands.BucketType.user)
@@ -110,13 +161,13 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
 
         logchannel = self.bot.get_channel(self.bot.settings['channels']['suggestions'])
 
-        if len(suggestion) > 1000:
-            num = len(suggestion) - 1000
+        if len(suggestion) > 1000:  # type: ignore
+            num = len(suggestion) - 1000  # type: ignore
             chars = _('characters') if num != 1 else _('character')
             return await ctx.send(_("{0} Suggestions can only be 1000 characters long. You're {1} {2} over the limit.").format(
                                         self.bot.settings['emojis']['misc']['warn'], num, chars
                                     ))
-        elif len(suggestion) < 1000:
+        elif len(suggestion) < 1000:  # type: ignore
             try:
                 await ctx.message.delete()
             except Exception:
@@ -125,7 +176,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             e = discord.Embed(color=self.bot.settings['colors']['embed_color'],
                               title=f"New suggestion from {ctx.author.name} #{len(ids) + 1}",
                               description=f"> {suggestion}", timestamp=discord.utils.utcnow())
-            e.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+            e.set_author(name=ctx.author, icon_url=ctx.author.avatar.url)
             msg = await logchannel.send(embed=e)
             await msg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
             await msg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
@@ -135,7 +186,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                                                                                                 "You'll get notified in your DMs when the suggestion will be approved or denied."
                                                                                                 "People can also follow this suggestion using `{1}suggestion track {2}`\n"
                                                                                                 "**Suggestion:**\n>>> {3} ").format(self.bot.support, ctx.prefix, len(ids) + 1, suggestion), timestamp=datetime.now(timezone.utc))
-            e.set_author(name=_("Suggestion sent as #{0}").format(len(ids) + 1), icon_url=ctx.author.avatar_url)
+            e.set_author(name=_("Suggestion sent as #{0}").format(len(ids) + 1), icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
             return await ctx.send(embed=e)
 
     @commands.group(brief=_("Track and untrack suggestions"), aliases=['ideas'], invoke_without_command=True)
@@ -202,15 +253,14 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
 
         if check is not None:
             return await ctx.send(_("{0} You already have that item in your todo list.").format(self.bot.settings['emojis']['misc']['warn']))
-        else:
-            await self.bot.db.execute("INSERT INTO todos(user_id, todo, jump_url, time) VALUES($1, $2, $3, $4)", ctx.author.id, todo, ctx.message.jump_url, datetime.now())
-            if len(todo) > 200:
-                todo = todo[:200]
-                todo += '...'
-            count = await self.bot.db.fetchval("SELECT count(*) FROM todos WHERE user_id = $1", ctx.author.id)
-            await ctx.send(_("{0} Added **{1}** to your todo list. You now have **{2}** items in your list.").format(
-                self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(todo, as_needed=True), count
-            ))
+        await self.bot.db.execute("INSERT INTO todos(user_id, todo, jump_url, time) VALUES($1, $2, $3, $4)", ctx.author.id, todo, ctx.message.jump_url, datetime.now())
+        if len(todo) > 200:  # type: ignore
+            todo = todo[:200]
+            todo += '...'
+        count = await self.bot.db.fetchval("SELECT count(*) FROM todos WHERE user_id = $1", ctx.author.id)
+        await ctx.send(_("{0} Added **{1}** to your todo list. You now have **{2}** items in your list.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], escape_markdown(todo, as_needed=True), count  # type: ignore
+        ))
 
     @todo.command(name='edit', brief=_("Edit your todo"), aliases=['e'])
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -230,11 +280,11 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             return await ctx.send(_("{0} You already have that item in your todo list.").format(self.bot.settings['emojis']['misc']['warn']))
 
         await self.bot.db.execute("UPDATE todos SET todo = $1 WHERE user_id = $2 AND time = $3", todo, ctx.author.id, todos[pos - 1]['time'])
-        if len(todo) > 200:
+        if len(todo) > 200:  # type: ignore
             todo = todo[:200]
             todo += '...'
         await ctx.send(_("{0} Successfully edited the item in your todo list with an ID of **{1}** to: **{2}**").format(
-            self.bot.settings['emojis']['misc']['white-mark'], pos, escape_markdown(todo, as_needed=True)
+            self.bot.settings['emojis']['misc']['white-mark'], pos, escape_markdown(todo, as_needed=True)  # type: ignore
         ))
 
     @todo.command(name='swap', brief=_("Swap 2 todo's in places"), aliases=['s'])
@@ -283,11 +333,9 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
 
         paginator = Pages(ctx,
                           entries=todol,
-                          thumbnail=None,
                           per_page=10,
                           embed_color=ctx.bot.settings['colors']['embed_color'],
-                          embed_author=_("{0}'s Todo List").format(ctx.author),
-                          show_entry_count=True)
+                          embed_author=_("{0}'s Todo List").format(ctx.author))
         await paginator.paginate()
 
     @todo.command(name='info', aliases=['i'], brief=_("Information about your todo item"))
@@ -304,10 +352,10 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             return await ctx.send(_("{0} There is no todo item with an id of **{1}** in your todo list.").format(self.bot.settings['emojis']['misc']['warn'], pos))
 
         e = discord.Embed(color=self.bot.settings['colors']['embed_color'])
-        e.set_author(name=_("Information about your todo item"), icon_url=ctx.author.avatar_url)
+        e.set_author(name=_("Information about your todo item"), icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
         dots = '...'
         e.description = _("""**Todo:** {0}\n\n**Todo position:** {1}/{2}\n**Todo added:** {3}\n**Jump url:** [click here to jump]({4})""").format(
-            f"{todo[pos-1]['todo']}" if len(todo[pos - 1]['todo']) < 1800 else f"{escape_markdown(todo[pos - 1]['todo'][:1800] + dots, as_needed=False)}",
+            f"{todo[pos-1]['todo']}" if len(todo[pos - 1]['todo']) < 1800 else f"{escape_markdown(todo[pos - 1]['todo'][:1800] + dots)}",
             pos, len(todo), btime.discord_time_format(todo[pos - 1]['time'], 'R'), todo[pos - 1]['jump_url']
         )
         await ctx.send(embed=e)
@@ -334,7 +382,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         entries = [(ctx.author.id, todos[todo_id - 1]['time']) for todo_id in to_remove]
         await self.bot.db.executemany(query, entries)
         dots = '...'
-        contents = '\n• '.join([f"""{f'{escape_markdown(todos[todo_id-1]["todo"], as_needed=False)}' if len(todos[todo_id-1]['todo']) < 150 else f'{escape_markdown(todos[todo_id-1]["todo"][:150] + dots, as_needed=False)}'} """ for todo_id in to_remove])
+        contents = '\n• '.join(f"""{f'{escape_markdown(todos[todo_id-1]["todo"])}' if len(todos[todo_id-1]['todo']) < 150 else f'{escape_markdown(todos[todo_id-1]["todo"][:150] + dots)}'} """ for todo_id in to_remove)
         return await ctx.send(_("{0} Removed **{1}** todo from your todo list:\n• {2}").format(
             self.bot.settings['emojis']['misc']['white-mark'], len(todo_ids), contents
         ))
@@ -349,38 +397,8 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         if not todos:
             return await ctx.send(_("{0} There's nothing to clear. Your todo list is already empty.").format(self.bot.settings['emojis']['misc']['warn']))
 
-        def check(r, u):
-            return u.id == ctx.author.id and r.message.id == checkmsg.id
-
-        try:
-            checkmsg = await ctx.send(_("Are you sure you want to clear **{0}** items from your todo list?").format(len(todos)))
-            await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
-            await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
-            react, user = await self.bot.wait_for('reaction_add', check=check, timeout=30)
-
-            if str(react) == f"{self.bot.settings['emojis']['misc']['white-mark']}":
-                try:
-                    await checkmsg.clear_reactions()
-                except Exception:
-                    pass
-                await checkmsg.edit(content=_("{0} Deleted {1} items from your todo list").format(
-                    self.bot.settings['emojis']['misc']['white-mark'], len(todos)
-                ))
-                await self.bot.db.execute("DELETE FROM todos WHERE user_id = $1", ctx.author.id)
-
-            if str(react) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
-                try:
-                    await checkmsg.clear_reactions()
-                except Exception:
-                    pass
-                await checkmsg.edit(content=_("{0} I'm not deleting any items from your todo list.").format(self.bot.settings['emojis']['misc']['white-mark']))
-
-        except asyncio.TimeoutError:
-            try:
-                await checkmsg.clear_reactions()
-            except Exception:
-                pass
-            await checkmsg.edit(content=_("Canceling..."), delete_after=15)
+        buttons = components.ConfirmationButtons(self.bot, self, ctx.author, command="todos")
+        return await ctx.send(_("Are you sure you want to clear **{0}** items from your todo list?").format(len(todos)), view=buttons)
 
     @commands.command(brief=_("Set your AFK status in the current server"), aliases=['afk'])
     @commands.guild_only()
@@ -389,27 +407,31 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
     @locale_doc
     async def setafk(self, ctx, *, note: commands.clean_content = "I'm currently AFK"):
         _(""" Set your AFK status in the current server so users who mention you would know that you're AFK """)
-        check = CM.get(self.bot, 'afk', f"{str(ctx.guild.id)}, {str(ctx.author.id)}")
-        check1 = CM.get(self.bot, 'afk', f"{str(ctx.author.id)}")
+        check = CM.get(self.bot, 'afk', f'{ctx.guild.id}, {ctx.author.id}')  # type: ignore
+        check1 = CM.get(self.bot, 'afk', f'{ctx.author.id}')  # type: ignore
 
         if check1:
             return await ctx.send(_("{0} You've set your AFK status globally already.").format(
                 self.bot.settings['emojis']['misc']['warn']
             ))
 
-        if len(note) > 500:
+        if len(note) > 500:  # type: ignore
             note = note[:500]
             note += '...'
 
         if check is not None:
             await self.bot.db.execute("UPDATE afk SET message = $1 WHERE user_id = $2 AND guild_id = $3", note, ctx.author.id, ctx.guild.id)
-            self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"]['note'] = note
+            self.bot.afk[f'{ctx.guild.id}, {ctx.author.id}']['note'] = note
             await ctx.send(_("{0} **Changed your AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))
-        elif check is None:
+        else:
             await self.bot.db.execute("INSERT INTO afk(user_id, guild_id, message, time) VALUES($1, $2, $3, $4)", ctx.author.id, ctx.guild.id, note, datetime.utcnow())
-            self.bot.afk[f"{str(ctx.guild.id)}, {str(ctx.author.id)}"] = {'note': note, 'time': datetime.utcnow()}
+            self.bot.afk[f'{ctx.guild.id}, {ctx.author.id}'] = {
+                'note': note,
+                'time': datetime.utcnow(),
+            }
+
             await ctx.send(_("{0} ** Set your AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))
@@ -422,7 +444,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
     async def setglobalafk(self, ctx, *, note: commands.clean_content = "I'm currently AFK"):
         _(""" Set your AFK status in all the shared servers with the bot so users who mention you would know that you're AFK """)
 
-        check = CM.get(self.bot, 'afk', f"{str(ctx.author.id)}")
+        check = CM.get(self.bot, 'afk', f'{ctx.author.id}')  # type: ignore
         check1 = await self.bot.db.fetchval("SELECT count(*) FROM afk WHERE user_id = $1 AND guild_id IS NOT NULL", ctx.author.id)
 
         if check1 > 0:
@@ -430,7 +452,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
                 self.bot.settings['emojis']['misc']['warn'], check1
             ))
 
-        if len(note) > 500:
+        if len(note) > 500:  # type: ignore
             note = note[:500]
             note += '...'
 
@@ -440,9 +462,9 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             await ctx.send(_("{0} **Changed your global AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))
-        elif check is None:
+        else:
             await self.bot.db.execute("INSERT INTO afk(user_id, message, time) VALUES($1, $2, $3)", ctx.author.id, note, datetime.utcnow())
-            self.bot.afk[f"{str(ctx.author.id)}"] = {'note': note, 'time': datetime.utcnow()}
+            self.bot.afk[f'{ctx.author.id}'] = {'note': note, 'time': datetime.utcnow()}
             await ctx.send(_("{0} ** Set your global AFK state to:** {1}").format(
                 self.bot.settings['emojis']['misc']['white-mark'], note
             ))
@@ -479,11 +501,11 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             message = snipe['message'] or _("*[Couldn't get the sniped content]*")
             message = message.replace('[', '\[')
             e = discord.Embed(color=self.bot.settings['colors']['embed_color'], description=message)
-            e.set_author(name=_("Deleted by {0}").format(name), icon_url=user.avatar_url)
+            e.set_author(name=_("Deleted by {0}").format(name), icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
             e.set_footer(text=_("Deleted {0} in #{1}").format(btime.human_timedelta(snipe['deleted_at']), channel.name))
             await ctx.send(embed=e)
 
-    # toggle commands for activity and snipes
+    # toggle commands for nicknames and snipes
     @commands.group(brief=_("Toggle your data logging"), invoke_without_command=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
     @locale_doc
@@ -499,56 +521,12 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         This applies to all the servers we share """)
         check = CM.get(self.bot, 'snipes_op', ctx.author.id)
 
-        def checks(r, u):
-            return u.id == ctx.author.id and r.message.id == checkmsg.id
+        buttons = components.ConfirmationButtons(self.bot, self, ctx.author, command="snipes")
 
         if check is None:
-            try:
-                checkmsg = await ctx.send(_("Are you sure you want to opt-out? Once you'll do that, I won't log your deleted messages in my snipe command."))
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
-                react, user = await self.bot.wait_for('reaction_add', check=checks, timeout=30.0)
-
-                if str(react) == f"{self.bot.settings['emojis']['misc']['white-mark']}":
-                    await self.bot.db.execute('INSERT INTO snipes_op(user_id, username) VALUES($1, $2)', ctx.author.id, ctx.author.display_name)
-                    self.bot.snipes_op[ctx.author.id] = ctx.author.display_name
-                    await ctx.channel.send(_("{0} Alright. I won't be logging your snipes anymore!").format(self.bot.settings['emojis']['misc']['white-mark']))
-                    await checkmsg.delete()
-
-                if str(react) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
-                    await checkmsg.delete()
-                    await ctx.channel.send(_("Oh sweet! I'll continue logging your snipes."))
-            except asyncio.TimeoutError:
-                await checkmsg.clear_reactions()
-                return
-            except Exception as e:
-                self.bot.dispatch('command_error', ctx, e)
-                return
-
-        elif check is not None:
-            try:
-                checkmsg = await ctx.send("Are you sure you want to opt-in? Once you'll do that I'll start logging your snipes to my cache.")
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
-                react, user = await self.bot.wait_for('reaction_add', check=checks, timeout=30.0)
-
-                if str(react) == f"{self.bot.settings['emojis']['misc']['white-mark']}":
-                    await self.bot.db.execute('DELETE FROM snipes_op WHERE user_id = $1', ctx.author.id)
-                    self.bot.snipes_op.pop(ctx.author.id)
-                    await ctx.channel.send(_("{0} You're now opted-in! From now on, I'll be logging your deleted messages in my snipe command!").format(
-                        self.bot.settings['emojis']['misc']['white-mark']
-                    ))
-                    await checkmsg.delete()
-
-                if str(react) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
-                    await checkmsg.delete()
-                    await ctx.channel.send(_("Alright, not opting you in."))
-            except asyncio.TimeoutError:
-                await checkmsg.clear_reactions()
-                return
-            except Exception as e:
-                self.bot.dispatch('command_error', ctx, e)
-                return
+            return await ctx.send(_("Are you sure you want to opt-out? Once you'll do that, I won't log your deleted messages in my snipe command."), view=buttons)
+        else:
+            return await ctx.send(_("Are you sure you want to opt-in? Once you'll do that I'll start logging your snipes to my cache."), view=buttons)
 
     @toggle.command(brief=_("Toggle your nicknames logging"), aliases=['nicks'], name='nicknames')
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -556,71 +534,24 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
     async def toggle_nicknames(self, ctx):
         _(""" Toggle your nicknames logging
         This applies to all the servers we share """)
-        check = CM.get(self.bot, 'nicks_op', f'{ctx.author.id} - {ctx.guild.id}')
+        check = CM.get(self.bot, 'nicks_op', f'{ctx.author.id} - {ctx.guild.id}')  # type: ignore
 
-        def checks(r, u):
-            return u.id == ctx.author.id and r.message.id == checkmsg.id
+        buttons = components.ConfirmationButtons(self.bot, self, ctx.author, command="nicknames")
 
         if check is None:
-            try:
-                checkmsg = await ctx.send(_("Are you sure you want to opt-out? Once you'll do that, I won't be logging nickname changes from you in this server."))
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
-                react, user = await self.bot.wait_for('reaction_add', check=checks, timeout=30.0)
-
-                if str(react) == f"{self.bot.settings['emojis']['misc']['white-mark']}":
-                    await self.bot.db.execute('INSERT INTO nicks_op(guild_id, user_id) VALUES($1, $2)', ctx.guild.id, ctx.author.id)
-                    self.bot.nicks_op[f'{ctx.author.id} - {ctx.guild.id}'] = ctx.author.id
-                    await self.bot.db.execute("DELETE FROM nicknames WHERE user_id = $1 AND guild_id = $2", ctx.author.id, ctx.guild.id)
-                    await ctx.channel.send(_("{0} Alright. I won't be logging your nicknames anymore in this server!").format(self.bot.settings['emojis']['misc']['white-mark']))
-                    await checkmsg.delete()
-
-                if str(react) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
-                    await checkmsg.delete()
-                    await ctx.channel.send(_("Oh sweet! I'll continue logging your nicknames"))
-            except asyncio.TimeoutError:
-                await checkmsg.clear_reactions()
-                return
-            except Exception as e:
-                self.bot.dispatch('command_error', ctx, e)
-                return
-
-        elif check is not None:
-            try:
-                checkmsg = await ctx.send(_("Are you sure you want to opt-in? Once you'll do that I'll start logging your nicknames again."))
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
-                await checkmsg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
-                react, user = await self.bot.wait_for('reaction_add', check=checks, timeout=30.0)
-
-                if str(react) == f"{self.bot.settings['emojis']['misc']['white-mark']}":
-                    await self.bot.db.execute('DELETE FROM nicks_op WHERE guild_id = $1 AND user_id = $2', ctx.guild.id, ctx.author.id)
-                    self.bot.nicks_op.pop(f'{ctx.author.id} - {ctx.guild.id}')
-                    await ctx.channel.send(_("{0} You're now opted-in! I'll be logging your nicknames from now on in this server!").format(self.bot.settings['emojis']['misc']['white-mark']))
-                    await checkmsg.delete()
-
-                if str(react) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
-                    await checkmsg.delete()
-                    await ctx.channel.send(_("Alright. Not opting you in"))
-            except asyncio.TimeoutError:
-                await checkmsg.clear_reactions()
-                return
-            except Exception as e:
-                self.bot.dispatch('command_error', ctx, e)
-                return
+            return await ctx.send(_("Are you sure you want to opt-out? Once you'll do that, I won't be logging nickname changes from you in this server."), view=buttons)
+        else:
+            return await ctx.send(_("Are you sure you want to opt-in? Once you'll do that I'll start logging your nicknames again."), view=buttons)
 
     @commands.command(brief=_("Create a poll"), aliases=['poll'])
     @commands.guild_only()
     @commands.cooldown(1, 5, commands.BucketType.user)
     @locale_doc
-    async def createpoll(self, ctx, channel: typing.Optional[discord.TextChannel], *, questions_and_answers: str):
+    async def createpoll(self, ctx, channel: Optional[discord.TextChannel], *, questions_and_answers: str):
         _(""" Create a poll with upto 10 options.
         Separate the options with a `|` between them """)
 
-        if "|" in questions_and_answers:
-            next_question = "|"
-        else:
-            next_question = None
-
+        next_question = "|" if "|" in questions_and_answers else None
         if next_question:
             questions_and_choices = questions_and_answers.split(next_question)
         else:
@@ -648,7 +579,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
         embed = discord.Embed(color=self.bot.settings['colors']['embed_color'],
                               title=question,
                               description=answer)
-        embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+        embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
 
         channel = channel or ctx.channel
         msg = await channel.send(embed=embed, content=_('New poll created by **{0}**').format(ctx.author))
@@ -659,7 +590,7 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
             await ctx.send(_("{0} Successfully created poll in this channel!").format(
                 self.bot.settings['emojis']['misc']['white-mark']
             ))
-        elif channel != ctx.channel:
+        else:
             await ctx.send(_("{0} Successfully created poll in {1}!").format(
                 self.bot.settings['emojis']['misc']['white-mark'], channel.mention
             ))
@@ -716,11 +647,9 @@ class Misc(commands.Cog, name='Miscellaneous', aliases=['Misc']):
 
         paginator = Pages(ctx,
                           entries=reminders,
-                          thumbnail=None,
                           per_page=10,
                           embed_color=ctx.bot.settings['colors']['embed_color'],
-                          embed_author=_("{0}'s Reminders").format(ctx.author),
-                          show_entry_count=True)
+                          embed_author=_("{0}'s Reminders").format(ctx.author))
         await paginator.paginate()
 
     @remind.command(brief=_("Remove a reminder"), name='remove')

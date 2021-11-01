@@ -21,8 +21,11 @@ from discord.ext import commands
 from discord.utils import escape_markdown
 from datetime import datetime, timezone
 
+from time import time
+from utils import logger as logging
 from utils import btime, default, publicflags
 from db.cache import CacheManager as CM
+from contextlib import suppress
 
 
 # noinspection PyMethodMayBeStatic,PySimplifyBooleanCheck
@@ -47,30 +50,35 @@ class Logging(commands.Cog):
 
     async def insert_new_case(self, mod_id, channel, case_num, user_id, guild_id, action, reason):
         query1 = 'INSERT INTO modlog(mod_id, channel_id, case_num, message_id, user_id, guild_id, action, reason) VALUES($1, $2, $3, $4, $5, $6, $7, $8)'
-        await self.bot.db.execute(query1, mod_id, channel, case_num if case_num else 1, None,
-                                  user_id, guild_id, action, reason)
+        await self.bot.db.execute(query1, mod_id, channel, case_num or 1, None, user_id, guild_id, action, reason)
 
     async def update_old_case(self, message_id, guild_id, case_num):
-        await self.bot.db.execute("UPDATE modlog SET message_id = $1 WHERE guild_id = $2 AND case_num = $3", message_id, guild_id, case_num if case_num else 1)
-        await self.bot.db.execute("UPDATE modlog SET case_num = $1 WHERE guild_id = $2 AND message_id = $3", case_num if case_num else 1, guild_id, message_id)
-        await self.bot.db.execute("UPDATE cases SET case_num = $1 + 1 WHERE guild_id = $2", case_num if case_num else 1, guild_id)
+        await self.bot.db.execute("UPDATE modlog SET message_id = $1 WHERE guild_id = $2 AND case_num = $3", message_id, guild_id, case_num or 1)
+        await self.bot.db.execute("UPDATE modlog SET case_num = $1 WHERE guild_id = $2 AND message_id = $3", case_num or 1, guild_id, message_id)
+        await self.bot.db.execute("UPDATE cases SET case_num = $1 + 1 WHERE guild_id = $2", case_num or 1, guild_id)
         self.bot.case_num[guild_id] += 1
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
+        if not self.bot.is_ready():
+            return
+
         self.bot.dispatch('member_joinlog', member)
         self.bot.dispatch('join_message', member)
         self.bot.dispatch('joinrole', member)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
+        if not self.bot.is_ready():
+            return
+
         self.bot.dispatch('member_leavelog', member)
         self.bot.dispatch('leave_message', member)
         self.bot.dispatch('member_kick', member.guild, member)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
-        if not before.guild:
+        if not before.guild or not self.bot.is_ready():
             return
 
         message_edits = CM.get(self.bot, 'messageedits', before.guild.id)
@@ -109,12 +117,13 @@ class Logging(commands.Cog):
 
             try:
                 await editlog_channel.send(embed=editlog_embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`message edit`', e, before.guild, editlog_channel)
 
     @commands.Cog.listener()
     async def on_message_delete(self, message):
-        if not message.guild:
+        if not message.guild or not self.bot.is_ready():
             return
 
         message_deletes = CM.get(self.bot, 'messagedeletes', message.guild.id)
@@ -134,14 +143,13 @@ class Logging(commands.Cog):
         deletelog_embed.title = _("{0} Message Deleted").format(self.bot.settings['emojis']['logs']['msgdelete'])
         deletelog_embed.description = _("**User:** {0} `{1}`\n**Channel:** {2} `#{3}`").format(message.author.mention, message.author,
                                                                                                message.channel.mention, message.channel.name)
-        if message.content:
-            if message.stickers != []:
-                message.content = message.content[:-len(_("\n*Sticker* - {0}").format(message.stickers[0].name))]
+        if message.content and message.stickers != []:
+            message.content = message.content[:-len(_("\n*Sticker* - {0}").format(message.stickers[0].name))]
 
-            if message.content:
-                deletelog_embed.add_field(name=_("**Message:**"),
-                                          value=message.content[:1000] + '...' if len(message.content) > 1000 else message.content,
-                                          inline=False)
+        if message.content:
+            deletelog_embed.add_field(name=_("**Message:**"),
+                                      value=message.content[:1000] + '...' if len(message.content) > 1000 else message.content,
+                                      inline=False)
         if message.attachments != []:
             deletelog_embed.add_field(name=_("**Attachments:**"),
                                       value=message.attachments[0].url)
@@ -152,6 +160,7 @@ class Logging(commands.Cog):
 
         try:
             await deletelog_channel.send(embed=deletelog_embed)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`message delete`', e, message.guild, deletelog_channel)
 
@@ -161,14 +170,14 @@ class Logging(commands.Cog):
 
         if not member_update:
             return
-        if before.bot:
+        if before.bot or not self.bot.is_ready():
             return
 
         if before.nick != after.nick:
             nick_channel = before.guild.get_channel(member_update)
             nick_embed = discord.Embed(color=self.bot.settings['colors']['log_color'],
                                        timestamp=datetime.now(timezone.utc))
-            nick_embed.set_author(name=_("{0} changed their nickname").format(before), icon_url=before.avatar_url)
+            nick_embed.set_author(name=_("{0} changed their nickname").format(before), icon_url=before.avatar.url if before.avatar else before.display_avatar.url)
             nick_embed.title = _("{0} Nickname Changed").format(self.bot.settings['emojis']['logs']['memberedit'])
             nick_embed.description = _("**Member:** {0} `{1}`\n\n**Before:** {2}\n**After:** {3}").format(before.mention, before,
                                                                                                           escape_markdown(before.nick) if before.nick else escape_markdown(before.name),
@@ -177,6 +186,7 @@ class Logging(commands.Cog):
 
             try:
                 await nick_channel.send(embed=nick_embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`member update`', e, before.guild, nick_channel)
 
@@ -184,7 +194,7 @@ class Logging(commands.Cog):
         #     roles_channel = before.guild.get_channel(member_update)
         #     roles_embed = discord.Embed(color=self.bot.settings['colors']['log_color'],
         #                                 timestamp=datetime.now(timezone.utc))
-        #     roles_embed.set_author(name=_("{0}'s roles were updated").format(before), icon_url=before.avatar_url)
+        #     roles_embed.set_author(name=_("{0}'s roles were updated").format(before), icon_url=before.avatar.url)
         #     roles_embed.title = _("{0}'s roles were updated").format(before)
         #     field_title = _("Added") if len(after.roles) > len(before.roles) else _("Removed")
         #     field_value = ""
@@ -197,7 +207,10 @@ class Logging(commands.Cog):
         #     await roles_channel.send(embed=roles_embed)
 
     @commands.Cog.listener()
-    async def on_user_update(self, before, after):
+    async def on_user_update(self, before, after):  # sourcery no-metrics
+        if not self.bot.is_ready():
+            return
+
         for guild in self.bot.guilds:
             if guild.get_member(before.id):
                 member_update = CM.get(self.bot, 'memberlog', guild.id)
@@ -210,27 +223,27 @@ class Logging(commands.Cog):
                 if before.avatar != after.avatar:
                     updateavatar_channel = guild.get_channel(member_update)
                     updateavatar_embed = discord.Embed(color=self.bot.settings['colors']['log_color'], timestamp=datetime.now(timezone.utc))
-                    updateavatar_embed.set_author(name=_("{0} changed their avatar").format(before), icon_url=before.avatar_url)
+                    updateavatar_embed.set_author(name=_("{0} changed their avatar").format(before), icon_url=before.avatar.url if before.avatar else before.display_avatar.url)
                     updateavatar_embed.title = _("{0} Avatar Changed").format(self.bot.settings['emojis']['logs']['memberedit'])
-                    updateavatar_embed.description = _("**Member:** {0} `{1}`\n[Avatar URL]({2})").format(before.mention, before, after.avatar_url)
-                    updateavatar_embed.set_thumbnail(url=after.avatar_url)
+                    updateavatar_embed.description = _("**Member:** {0} `{1}`\n[Avatar URL]({2})").format(before.mention, before, after.avatar.url if after.avatar else after.display_avatar.url)
+                    updateavatar_embed.set_thumbnail(url=after.avatar.url if after.avatar else after.display_avatar.url)
                     updateavatar_embed.set_footer(text=_("User ID: {0}").format(before.id))
                     try:
                         await updateavatar_channel.send(embed=updateavatar_embed)
-                        pass
+                        await logging.new_log(self.bot, time(), 7, 1)
                     except Exception as e:
                         await default.background_error(self, '`user update (avatar update)`', e, guild, updateavatar_channel)
-                        pass
 
                 if before.name != after.name:
                     updateuser_channel = guild.get_channel(member_update)
                     updateuser_embed = discord.Embed(color=self.bot.settings['colors']['log_color'], timestamp=datetime.now(timezone.utc))
-                    updateuser_embed.set_author(name=_("{0} changed their username").format(after), icon_url=before.avatar_url)
+                    updateuser_embed.set_author(name=_("{0} changed their username").format(after), icon_url=before.avatar.url if before.avatar else before.display_avatar.url)
                     updateuser_embed.title = _("{0} Username Changed").format(self.bot.settings['emojis']['logs']['memberedit'])
                     updateuser_embed.description = _("**Member:** {0} `{1}`\n**Before:** {2}\n**After:** {3}").format(after.mention, after, escape_markdown(before.name), escape_markdown(after.name))
                     updateuser_embed.set_footer(text=_("User ID: {0}").format(before.id))
                     try:
                         await updateuser_channel.send(embed=updateuser_embed)
+                        await logging.new_log(self.bot, time(), 7, 1)
                     except Exception as e:
                         await default.background_error(self, '`user update (username update)`', e, guild, updateuser_channel)
 
@@ -239,16 +252,15 @@ class Logging(commands.Cog):
         await asyncio.sleep(1)
         moderation = CM.get(self.bot, 'moderation', guild.id)
         case = CM.get(self.bot, 'case_num', guild.id)
-        if not moderation:
+        if not moderation or not self.bot.is_ready():
             return
         if not guild.me.guild_permissions.view_audit_log:
             return
         mod, reason = None, ""
         async for entry in guild.audit_logs(action=discord.AuditLogAction.ban, limit=5):
-            if entry.target == user:
-                if (discord.utils.utcnow() - entry.created_at).total_seconds() < 3:
-                    mod = entry.user
-                    reason += f"{entry.reason}"
+            if entry.target == user and (discord.utils.utcnow() - entry.created_at).total_seconds() < 3:
+                mod = entry.user
+                reason += f"{entry.reason}"
 
         if mod == self.bot.user or not mod:
             return
@@ -256,21 +268,22 @@ class Logging(commands.Cog):
 
         log_channel = self.bot.get_channel(moderation)
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
         await self.insert_new_case(mod.id, log_channel.id, case, user.id, guild.id, 1, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['ban_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} A member has been banned").format(self.bot.settings['emojis']['logs']['ban'])
         the_user = f"{user} ({user.id})"
         embed.description = _("**Member:** {0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format(the_user, mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`ban members`', e, guild, log_channel)
 
@@ -279,16 +292,15 @@ class Logging(commands.Cog):
         await asyncio.sleep(1)
         moderation = CM.get(self.bot, 'moderation', guild.id)
         case = CM.get(self.bot, 'case_num', guild.id)
-        if not moderation:
+        if not moderation or not self.bot.is_ready():
             return
         if not guild.me.guild_permissions.view_audit_log:
             return
         mod, reason = None, ""
         async for entry in guild.audit_logs(action=discord.AuditLogAction.unban, limit=5):
-            if entry.target == user:
-                if (discord.utils.utcnow() - entry.created_at).total_seconds() < 4:
-                    mod = entry.user
-                    reason += f"{entry.reason}"
+            if entry.target == user and (discord.utils.utcnow() - entry.created_at).total_seconds() < 4:
+                mod = entry.user
+                reason += f"{entry.reason}"
 
         if mod == self.bot.user or not mod:
             return
@@ -296,21 +308,22 @@ class Logging(commands.Cog):
 
         log_channel = self.bot.get_channel(moderation)
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
         await self.insert_new_case(mod.id, log_channel.id, case, user.id, guild.id, 6, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} A member was un-banned").format(self.bot.settings['emojis']['logs']['unban'])
         the_user = f"{user} ({user.id})"
         embed.description = _("**Member:** {0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format(the_user, mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`unban members`', e, guild, log_channel)
 
@@ -318,7 +331,7 @@ class Logging(commands.Cog):
     async def on_guild_update(self, before, after):
         guild_logs = CM.get(self.bot, 'guildlog', before.id)
 
-        if guild_logs is None:
+        if guild_logs is None or not self.bot.is_ready():
             return
 
         channels = self.bot.get_channel(guild_logs)
@@ -330,6 +343,7 @@ class Logging(commands.Cog):
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.name, after.name)
             try:
                 await channels.send(embed=embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`guild name update`', e, before, channels)
                 return
@@ -339,6 +353,7 @@ class Logging(commands.Cog):
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.region, after.region)
             try:
                 await channels.send(embed=embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`guild region update`', e, before, channels)
                 return
@@ -348,6 +363,7 @@ class Logging(commands.Cog):
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.afk_channel, after.afk_channel)
             try:
                 await channels.send(embed=embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`guild afk channel update`', e, before, channels)
                 return
@@ -358,6 +374,7 @@ class Logging(commands.Cog):
             embed.set_thumbnail(url=after.icon_url)
             try:
                 await channels.send(embed=embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`guild icon update`', e, before, channels)
                 return
@@ -367,6 +384,7 @@ class Logging(commands.Cog):
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.mfa_level, after.mfa_lever)
             try:
                 await channels.send(embed=embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`guild MFA update`', e, before, channels)
                 return
@@ -376,6 +394,7 @@ class Logging(commands.Cog):
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.verification_level, after.verification_level)
             try:
                 await channels.send(embed=embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`guild verification update`', e, before, channels)
                 return
@@ -385,9 +404,19 @@ class Logging(commands.Cog):
             embed.description = _("**Before:** {0}\n**After:** {1}").format(before.default_notifications, after.default_notifications)
             try:
                 await channels.send(embed=embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`guild notifications update`', e, before, channels)
                 return
+
+    @commands.Cog.listener()
+    async def on_thread_join(self, thread):
+        if not self.bot.is_ready():
+            return
+
+        with suppress(Exception):
+            if self.bot.user not in thread.members:
+                await thread.join()
 
 # Custom Events Start Here
 
@@ -399,7 +428,7 @@ class Logging(commands.Cog):
             joinlog_channel = member.guild.get_channel(joinlog)
             joinlog_embed = discord.Embed(color=self.bot.settings['colors']['memberlog_color'], timestamp=datetime.now(timezone.utc))
             joinlog_embed.title = _("{0} A new member has joined").format(self.bot.settings['emojis']['logs']['memberjoin'])
-            joinlog_embed.set_author(name=_('{0} joined the server').format(member), icon_url=member.avatar_url)
+            joinlog_embed.set_author(name=_('{0} joined the server').format(member), icon_url=member.avatar.url if member.avatar else member.display_avatar.url)
             joinlog_embed.description = _("**Member:** {0} ({1})\n"
                                           "**Account Created:** {2}").format(
                                               member.mention, member.id, btime.human_timedelta(member.created_at)
@@ -407,6 +436,7 @@ class Logging(commands.Cog):
             joinlog_embed.set_footer(text=_("Member #{0}").format(member.guild.member_count))
             try:
                 await joinlog_channel.send(embed=joinlog_embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`member joinlog`', e, member.guild, joinlog_channel)
 
@@ -418,7 +448,7 @@ class Logging(commands.Cog):
             joinlog_channel = member.guild.get_channel(leavelog)
             joinlog_embed = discord.Embed(color=self.bot.settings['colors']['deny_color'], timestamp=datetime.now(timezone.utc))
             joinlog_embed.title = _("{0} A member has left the server").format(self.bot.settings['emojis']['logs']['memberleave'])
-            joinlog_embed.set_author(name=_('{0} left the server').format(member), icon_url=member.avatar_url)
+            joinlog_embed.set_author(name=_('{0} left the server').format(member), icon_url=member.avatar.url if member.avatar else member.display_avatar.url)
             roles = [x.mention for x in member.roles if x.name != '@everyone']
             joinlog_embed.description = _("**Member:** {0} ({1})\n"
                                           "**Joined server:** {2}\n"
@@ -429,6 +459,7 @@ class Logging(commands.Cog):
             joinlog_embed.set_footer(text=_("Members left: {0}").format(member.guild.member_count))
             try:
                 await joinlog_channel.send(embed=joinlog_embed)
+                await logging.new_log(self.bot, time(), 7, 1)
             except Exception as e:
                 await default.background_error(self, '`member joinlog`', e, member.guild, joinlog_channel)
 
@@ -461,17 +492,16 @@ class Logging(commands.Cog):
                     await default.background_error(self, '`join role (people)`', e, member.guild, None)
 
     @commands.Cog.listener()
-    async def on_join_message(self, member):
-        db_check = CM.get(self.bot, 'temp_mutes', f'{member.id}, {member.guild.id}') or CM.get(self.bot, 'mutes', f'{member.id}, {member.guild.id}')
+    async def on_join_message(self, member):  # sourcery no-metrics
+        db_check = CM.get(self.bot, 'temp_mutes', f'{member.id}, {member.guild.id}') or CM.get(self.bot, 'mutes', f'{member.id}, {member.guild.id}')  # type: ignore
         if db_check:
             try:
-                duration = CM.get(self.bot, 'temp_mutes', f'{member.id}, {member.guild.id}')
+                duration = CM.get(self.bot, 'temp_mutes', f'{member.id}, {member.guild.id}')  # type: ignore
                 the_role = member.guild.get_role(db_check['role'])
                 await member.add_roles(the_role, reason="Member tried to evade the mute.")
                 self.bot.dispatch('mute', member.guild, self.bot.user, [member], duration['time'] if duration else None, _('Automatic Mute | Mute evading'), member.joined_at)
             except Exception as e:
                 await default.background_error(self, '`evading mute re-join`', e, member.guild, None)
-                pass
         joinmessage = CM.get(self.bot, 'joinmessage', member.guild.id)
         if joinmessage:
             if member.bot and not joinmessage['log_bots']:
@@ -494,7 +524,7 @@ class Logging(commands.Cog):
                         emb_dict["fields"] = self.placeholder_replacer(field["name"], member)
                         emb_dict["fields"] = self.placeholder_replacer(field["value"], member)
                 joinmessage = emb_dict
-            elif not is_embed:
+            else:
                 if joinmessage['message']:
                     joinmessage = str(joinmessage['message'])
                 else:
@@ -512,19 +542,22 @@ class Logging(commands.Cog):
             if is_embed:
                 try:
                     try:
-                        await welcome_channel.send(content=joinmessage['plainText'], embed=discord.Embed.from_dict(joinmessage), allowed_mentions=all_mentions)
+                        await welcome_channel.send(content=joinmessage['plainText'], embed=discord.Embed.from_dict(joinmessage), allowed_mentions=all_mentions)  # type: ignore
+                        await logging.new_log(self.bot, time(), 7, 1)
                     except Exception:
                         await welcome_channel.send(embed=discord.Embed.from_dict(joinmessage), allowed_mentions=all_mentions)
+                        await logging.new_log(self.bot, time(), 7, 1)
                 except Exception as e:
                     await default.background_error(self, '`welcoming message (embed)`', e, member.guild, welcome_channel)
-            elif not is_embed:
+            else:
                 try:
                     await welcome_channel.send(content=joinmessage, allowed_mentions=all_mentions)
+                    await logging.new_log(self.bot, time(), 7, 1)
                 except Exception as e:
                     await default.background_error(self, '`welcoming message (text)`', e, member.guild, welcome_channel)
 
     @commands.Cog.listener()
-    async def on_leave_message(self, member):
+    async def on_leave_message(self, member):  # sourcery no-metrics
         leavemessage = CM.get(self.bot, 'leavemessage', member.guild.id)
         if leavemessage:
             if member.bot and not leavemessage['log_bots']:
@@ -547,7 +580,7 @@ class Logging(commands.Cog):
                         emb_dict["fields"] = self.placeholder_replacer(field["name"], member)
                         emb_dict["fields"] = self.placeholder_replacer(field["value"], member)
                 leavemessage = emb_dict
-            elif not is_embed:
+            else:
                 if leavemessage['message']:
                     leavemessage = str(leavemessage['message'])
                 else:
@@ -564,13 +597,15 @@ class Logging(commands.Cog):
 
             if is_embed:
                 try:
-                    await welcome_channel.send(content=leavemessage['plainText'] if 'plainText' in leavemessage else None,
+                    await welcome_channel.send(content=leavemessage['plainText'] if 'plainText' in leavemessage else None,  # type: ignore
                                                embed=discord.Embed.from_dict(leavemessage), allowed_mentions=all_mentions)
+                    await logging.new_log(self.bot, time(), 7, 1)
                 except Exception as e:
                     await default.background_error(self, '`leaving message (embed)`', e, member.guild, welcome_channel)
-            elif not is_embed:
+            else:
                 try:
                     await welcome_channel.send(content=leavemessage, allowed_mentions=all_mentions)
+                    await logging.new_log(self.bot, time(), 7, 1)
                 except Exception as e:
                     await default.background_error(self, '`leaving message (text)`', e, member.guild, welcome_channel)
 
@@ -586,24 +621,25 @@ class Logging(commands.Cog):
 
         ban_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            ban_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            ban_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 1, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['ban_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) banned").format(self.bot.settings['emojis']['logs']['ban'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list),
                                                                                                           _("\n**Duration:** {0}").format(time) if time else '',
                                                                                                           mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`ban members (manual)`', e, guild, log_channel)
 
@@ -618,23 +654,24 @@ class Logging(commands.Cog):
 
         ban_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            ban_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            ban_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 1, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['ban_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) hack-banned").format(self.bot.settings['emojis']['logs']['ban'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list[:10]), '' if len(ban_list) <= 10 else f"\n**(+{len(ban_list) - 10}**)",
                                                                                                           mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`hackban members (manual)`', e, guild, log_channel)
 
@@ -649,23 +686,24 @@ class Logging(commands.Cog):
 
         kick_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            kick_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            kick_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 2, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) kicked").format(self.bot.settings['emojis']['logs']['memberleave'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(kick_list),
                                                                                                        mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`kick members (manual)`', e, guild, log_channel)
 
@@ -680,23 +718,24 @@ class Logging(commands.Cog):
 
         kick_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            kick_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            kick_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 3, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) softbanned").format(self.bot.settings['emojis']['logs']['memberleave'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(kick_list),
                                                                                                        mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`softban members (manual)`', e, guild, log_channel)
 
@@ -707,33 +746,31 @@ class Logging(commands.Cog):
         if not moderation:
             return
         log_channel = self.bot.get_channel(moderation)
-        if isinstance(duration, btime.FutureTime):
-            time = duration.dt
-        else:
-            time = duration
+        time = duration.dt if isinstance(duration, btime.FutureTime) else duration
         time = btime.human_timedelta(time, source=created_at, suffix=None) if duration else None
         reason = reason or "No reason"
 
         ban_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            ban_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            ban_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 4, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) muted").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list),
                                                                                                           _("\n**Duration:** {0}").format(time) if time else '',
                                                                                                           mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`mute members (manual)`', e, guild, log_channel)
 
@@ -748,23 +785,24 @@ class Logging(commands.Cog):
 
         warn_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            warn_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            warn_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 5, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['warn_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) warned").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(warn_list),
                                                                                                        mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`warn members (manual)`', e, guild, log_channel)
 
@@ -779,25 +817,26 @@ class Logging(commands.Cog):
 
         unban_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            unban_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            unban_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 6, reason)
 
         unban_lists = unban_list if len(unban_list) <= 10 else unban_list[:10]
 
         embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) un-banned").format(self.bot.settings['emojis']['logs']['unban'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(unban_lists), '' if len(unban_list) <= 10 else f"\n**(+{len(unban_list) - 10}**)",
                                                                                                           mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`unban members (manual)`', e, guild, log_channel)
 
@@ -812,23 +851,24 @@ class Logging(commands.Cog):
 
         unmute_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            unmute_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            unmute_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 7, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) un-muted").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(unmute_list),
                                                                                                        mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`unmute members (manual)`', e, guild, log_channel)
 
@@ -843,10 +883,9 @@ class Logging(commands.Cog):
             return
         mod, reason = None, ""
         async for entry in guild.audit_logs(action=discord.AuditLogAction.kick, limit=5):
-            if entry.target == user:
-                if (discord.utils.utcnow() - entry.created_at).total_seconds() < 3:
-                    mod = entry.user
-                    reason += f"{entry.reason}"
+            if entry.target == user and (discord.utils.utcnow() - entry.created_at).total_seconds() < 3:
+                mod = entry.user
+                reason += f"{entry.reason}"
 
         if mod is None:
             return
@@ -857,21 +896,22 @@ class Logging(commands.Cog):
 
         log_channel = self.bot.get_channel(moderation)
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
         await self.insert_new_case(mod.id, log_channel.id, case, user.id, guild.id, 2, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} A member has been kicked").format(self.bot.settings['emojis']['logs']['memberleave'])
         the_user = f"{user} ({user.id})"
         embed.description = _("**Member:** {0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format(the_user, mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`kick members`', e, guild, log_channel)
 
@@ -886,23 +926,24 @@ class Logging(commands.Cog):
 
         mute_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            mute_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            mute_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 8, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) voice muted").format(self.bot.settings['emojis']['logs']['vmute'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(mute_list),
                                                                                                        mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`voice mute members (manual)`', e, guild, log_channel)
 
@@ -917,23 +958,24 @@ class Logging(commands.Cog):
 
         mute_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            mute_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            mute_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 9, reason)
 
         embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) voice unmuted").format(self.bot.settings['emojis']['logs']['vunmute'], len(members))
         embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(mute_list),
                                                                                                        mod, mod.id, reason)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`voice unmute members (manual)`', e, guild, log_channel)
 
@@ -948,25 +990,26 @@ class Logging(commands.Cog):
 
         dehoist_list = []
         query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
-        await self.bot.db.execute(query, guild.id, case if case else 0)
+        await self.bot.db.execute(query, guild.id, case or 0)
         if not case:
             self.bot.case_num[guild.id] = 1
-        for num, member in enumerate(members, start=0):
-            dehoist_list.append(f"`[{num + 1}]` {member} ({member.id})")
+        for num, member in enumerate(members, start=1):
+            dehoist_list.append(f"`[{num}]` {member} ({member.id})")
             await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 10, reason)
 
         dehoist_lists = dehoist_list if len(dehoist_list) <= 10 else dehoist_list[:10]
 
         embed = discord.Embed(color=self.bot.settings['colors']['update_color'], timestamp=datetime.now(timezone.utc))
-        embed.set_author(name=mod, icon_url=mod.avatar_url, url=f'https://discord.com/users/{mod.id}')
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) dehoisted").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n").format("\n".join(dehoist_lists), '' if len(dehoist_list) <= 10 else f"\n**(+{len(dehoist_list) - 10}**)",
                                                                                            mod, mod.id)
-        embed.set_footer(text=_("Case ID: #{0}").format(case if case else 1))
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
         try:
             message = await log_channel.send(embed=embed)
             await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`unban members (manual)`', e, guild, log_channel)
 
@@ -993,13 +1036,13 @@ class Logging(commands.Cog):
                 badges = CM.get(self.bot, 'badges', before.id)
                 badge = 'donator'
 
-                if getattr(publicflags.BotFlags(badges if badges else 0), badge):
+                if getattr(publicflags.BotFlags(badges or 0), badge):
                     return
 
                 if badges:
                     await self.bot.db.execute("UPDATE badges SET flags = flags + 256 WHERE _id = $1", before.id)
                     self.bot.badges[before.id] += 256
-                elif not badges:
+                else:
                     await self.bot.db.execute("INSERT INTO badges(_id, flags) VALUES($1, $2)", before.id, 256)
                     self.bot.badges[before.id] = 256
 
@@ -1018,10 +1061,7 @@ class Logging(commands.Cog):
 
         nick = member.display_name
         chosen_nick = check['nickname']
-        logchannel = check['channel']
         chosen_nick = chosen_nick or 'z (hoister)'
-        if logchannel:
-            channel = member.guild.get_channel(logchannel)
         if not nick[0].isalnum():
             await asyncio.sleep(60)
             if not nick[0].isalnum():
@@ -1044,10 +1084,7 @@ class Logging(commands.Cog):
         if before.nick != after.nick:
             nick = after.display_name
             chosen_nick = check['nickname']
-            logchannel = check['channel']
             chosen_nick = chosen_nick or 'z (hoister)'
-            if logchannel:
-                channel = after.guild.get_channel(logchannel)
             if not nick[0].isalnum():
                 await asyncio.sleep(60)
                 if not nick[0].isalnum():

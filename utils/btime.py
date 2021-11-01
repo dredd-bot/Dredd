@@ -20,7 +20,7 @@ import discord
 import parsedatetime as pdt
 from dateutil.relativedelta import relativedelta
 from discord.ext import commands
-from utils import default
+from datetime import timezone
 
 
 class plural:
@@ -54,7 +54,7 @@ class HumanTime:
     calendar = pdt.Calendar(version=pdt.VERSION_CONTEXT_STYLE)
 
     def __init__(self, argument, *, now=None):
-        now = now or discord.utils.utcnow()
+        now = now or datetime.datetime.utcnow()
         dt, status = self.calendar.parseDT(argument, sourceTime=now)
         if not status.hasDateOrTime:
             raise commands.BadArgument('invalid time provided, try e.g. "tomorrow" or "3 days"')
@@ -86,7 +86,7 @@ class ShortTime:
         if match is None or not match.group(0):
             raise commands.BadArgument('invalid time provided')
 
-        data = {k: int(v) for k, v in match.groupdict(default=0).items()}
+        data = {k: int(v) for k, v in match.groupdict(default=0).items()}  # type: ignore
         now = now or discord.utils.utcnow()
         self.dt = now + relativedelta(**data)
 
@@ -111,9 +111,10 @@ class FutureTime(Time):
         super().__init__(argument, now=now)
 
         if self._past:
-            raise commands.BadArgument(_("{0} The time you've provided is in the past").format(self.bot.settings['emojis']['misc']['warn']))
+            raise commands.BadArgument(_("{0} The time you've provided is in the past").format(self.bot.settings['emojis']['misc']['warn']))  # type: ignore
 
 
+# noinspection PyUnboundLocalVariable,PyUnusedLocal
 class UserFriendlyTime(commands.Converter):
     """That way quotes aren't absolutely necessary."""
     def __init__(self, converter=None, *, default=None):
@@ -143,7 +144,7 @@ class UserFriendlyTime(commands.Converter):
 
             match = regex.match(argument)
             if match is not None and match.group(0):
-                data = {k: int(v) for k, v in match.groupdict(default=0).items()}
+                data = {k: int(v) for k, v in match.groupdict(default=0).items()}  # type: ignore
                 remaining = argument[match.end():].strip()
                 self.dt = now + relativedelta(**data)
                 return await self.check_constraints(ctx, now, remaining)
@@ -164,7 +165,7 @@ class UserFriendlyTime(commands.Converter):
 
             dt, status, begin, end, dt_string = elements[0]
 
-            self.dt = dt
+            self.dt = dt.replace(tzinfo=datetime.timezone.utc)
 
             if begin in (0, 1):
                 if begin == 1:
@@ -183,7 +184,7 @@ class UserFriendlyTime(commands.Converter):
 
             return await self.check_constraints(ctx, now, remaining)
         except commands.BadArgument as exc:
-            return await ctx.send(exc)
+            return await ctx.send(exc)  # type: ignore
         except Exception as exc:
             raise commands.BadArgument(_("Sorry, but I did not understand what you meant. You probably didn't specify the time "
                                          "or you specified it in another language (not English)"))
@@ -191,6 +192,12 @@ class UserFriendlyTime(commands.Converter):
 
 def human_timedelta(dt, *, source=None, accuracy=3, brief=False, suffix=True):
     now = source or discord.utils.utcnow()
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+
     # Microsecond free zone
     now = now.replace(microsecond=0)
     dt = dt.replace(microsecond=0)
@@ -244,15 +251,12 @@ def human_timedelta(dt, *, source=None, accuracy=3, brief=False, suffix=True):
 
     if len(output) == 0:
         return 'now'
-    else:
-        if not brief:
-            return human_join(output, final='and') + suffix
-        else:
-            return ' '.join(output) + suffix
+    if not brief:
+        return human_join(output, final='and') + suffix
+    return ' '.join(output) + suffix
 
 
 def discord_time_format(time, source=None):
     if source:
         return f"<t:{int(time.timestamp())}:{source}>"
     return f"<t:{int(time.timestamp())}>"
-

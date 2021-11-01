@@ -89,7 +89,6 @@ def parse_object_inv(stream, url):
     # next line is "# Project: <name>"
     # then after that is "# Version: <version>"
     projname = stream.readline().rstrip()[11:]
-    version = stream.readline().rstrip()[11:]
 
     # next line says if it's a zlib header
     line = stream.readline()
@@ -145,6 +144,7 @@ async def build_rtfm_lookup_table(self, page_types):
     self._rtfm_cache = cache
 
 
+# noinspection PyProtectedMember
 async def do_rtfm(self, ctx, key, obj):
     page_types = {
         'latest': 'https://enhanced-dpy.readthedocs.io/en/latest',
@@ -173,16 +173,13 @@ async def do_rtfm(self, ctx, key, obj):
 
     cache = list(self.bot._rtfm_cache[key].items())
 
-    def transform(tup):
-        return tup[0]
-
     matches = finder(obj, cache, key=lambda t: t[0])[:12]
     e = discord.Embed(colour=discord.Colour.blurple())
     if len(matches) == 0:
         return await ctx.send(_('I could not find anything, sorry.'))
     v = discord.__version__
     if page_types[key] == page_types['latest']:
-        e.set_author(name=_('enhanced discord.py {0}').format(v), icon_url=ctx.author.avatar_url, url=page_types[key])
+        e.set_author(name=_('enhanced discord.py {0}').format(v), icon_url=ctx.author.avatar.url, url=page_types[key])
         e.set_footer(text=_("Keep in mind this is NOT the original d.py; certain things may be different"))
     e.title = _('**Search query:** `{0}`\n\n').format(obj.lower())
 

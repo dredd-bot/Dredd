@@ -10,6 +10,10 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Credits:
+https://github.com/EmoteCollector/bot/blob/master/emote_collector/utils/i18n.py
+https://github.com/Gelbpunkt/IdleRPG/blob/current/utils/i18n.py#L68-L97
 """
 
 import ast
@@ -18,7 +22,6 @@ import contextvars
 import gettext
 import inspect
 import os.path
-import traceback
 
 from glob import glob
 from os import getcwd
@@ -46,7 +49,7 @@ gettext_translations = {
 # we don't use default_locale as the key here
 # because the default locale for this installation may not be en_US
 gettext_translations["en_US"] = gettext.NullTranslations()
-locales = locales | {"en_US"}
+locales |= {"en_US"}
 
 
 def use_current_gettext(*args: Any, **kwargs: Any) -> str:
@@ -61,23 +64,22 @@ def use_current_gettext(*args: Any, **kwargs: Any) -> str:
 
 def i18n_docstring(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
     src = inspect.getsource(func)
-    # We heavily rely on the content of the function to be correct
     try:
         parsed_tree = ast.parse(src)
-    except IndentationError as exc:
+    except IndentationError:
         parsed_tree = ast.parse("class Foo:\n" + src)
         assert isinstance(parsed_tree.body[0], ast.ClassDef)
-        function_body: ast.ClassDef = parsed_tree.body[0]
+        function_body: ast.ClassDef = parsed_tree.body[0]  # type: ignore
         assert isinstance(function_body.body[0], ast.AsyncFunctionDef)
-        tree: ast.AsyncFunctionDef = function_body.body[0]
+        tree: ast.AsyncFunctionDef = function_body.body[0]  # type: ignore
     else:
         assert isinstance(parsed_tree.body[0], ast.AsyncFunctionDef)
-        tree = parsed_tree.body[0]
+        tree = parsed_tree.body[0]  # type: ignore
 
     if not isinstance(tree.body[0], ast.Expr):
         return func
 
-    gettext_call = tree.body[0].value
+    gettext_call = tree.body[0].value  # type: ignore
     if not isinstance(gettext_call, ast.Call):
         return func
 
@@ -87,7 +89,7 @@ def i18n_docstring(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
     assert len(gettext_call.args) == 1
     assert isinstance(gettext_call.args[0], ast.Str)
 
-    func.__doc__ = gettext_call.args[0].s
+    func.__doc__ = gettext_call.args[0].s  # type: ignore
     return func
 
 

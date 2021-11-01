@@ -20,15 +20,15 @@ import subprocess
 import os
 
 from discord.ext import commands, tasks
-from discord.utils import escape_markdown
 from discord.errors import NotFound
 from io import BytesIO
 
-from utils import btime, default
+from utils import default
 from datetime import datetime, timedelta
 from db.cache import CacheManager as cm
 from cogs.music import Player
 from contextlib import suppress
+from colorama import Fore as print_color
 
 
 class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
@@ -96,8 +96,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                             await guild.unban(user, reason='Auto Unban')
                             self.bot.to_unban[guild.id]['users'].append(user)
         except Exception as e:
-            print(e)
-            pass
+            print(print_color.RED, "[AUTO UNBAN] - {e}")
 
     @tasks.loop(seconds=1)
     async def temp_mute(self):
@@ -123,7 +122,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                         if member:
                             self.bot.to_unmute[guild.id]['users'].append(member)
         except Exception as e:
-            pass
+            print(print_color.RED, "[AUTO UNMUTE] - {e}")
 
     @tasks.loop(seconds=10)
     async def dispatch_unmute(self):
@@ -143,7 +142,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                     self.bot.dispatch('unban', self.bot.get_guild(guild), self.bot.to_unban[guild]['mod'], self.bot.to_unban[guild]['users'], 'Auto Unban')
                 self.bot.to_unban.pop(guild, None)
         except Exception as e:
-            pass
+            print(print_color.RED, "[DISPATCH UNMUTE] - {e}")
 
     @tasks.loop(seconds=1)
     async def reminders(self):
@@ -196,9 +195,8 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         backup = BytesIO(backup.encode('utf8'))
         if not backup:
             return await ch.send(f"{self.bot.get_user(345457928972533773).mention} Backup `{name}.sql` is empty!", allowed_mentions=discord.AllowedMentions(users=True))
-        else:
-            await self.client.send(receiver, content, subject="Database Backup", bcc=None, attachment_bytes=backup.read(), attachment_name=f"{name}.sql")
-            return await ch.send(f"Created backup `{name}.sql`")
+        await self.client.send(receiver, content, subject="Database Backup", attachment_bytes=backup.read(), attachment_name=f"{name}.sql")
+        return await ch.send(f"Created backup `{name}.sql`")
 
     @tasks.loop(hours=24)
     async def delete_nicknames(self):
@@ -217,7 +215,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         for guild in self.bot.mode247:
             now = datetime.utcnow()
             last_connection = self.bot.mode247[guild]['last_connection'] + timedelta(hours=12)
-            seconds = (last_connection - now).total_seconds()
+            seconds = (last_connection - now).total_seconds()  # type: ignore
             guild = self.bot.get_guild(guild)
             if seconds <= 0 and guild:
                 player = self.bot.wavelink.get_player(guild.id, cls=Player)
@@ -235,57 +233,57 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
     @guild_data.before_loop
     async def before_guild_delete(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started automatic guild data delete process")
+        print(print_color.GREEN, "[BACKGROUND] Started automatic guild data delete process")
 
     @temp_ban.before_loop
     async def before_temp_ban(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started temp bans unbanning process")
+        print(print_color.GREEN, "[BACKGROUND] Started temp bans unbanning process")
 
     @temp_mute.before_loop
     async def before_temp_mute(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started temp mutes unmuting process")
+        print(print_color.GREEN, "[BACKGROUND] Started temp mutes unmuting process")
 
     @reminders.before_loop
     async def before_reminders(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started sending reminders")
+        print(print_color.GREEN, "[BACKGROUND] Started sending reminders")
 
     @delete_nicknames.before_loop
     async def before_delete_nicknames(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started deleting old nicknames")
+        print(print_color.GREEN, "[BACKGROUND] Started deleting old nicknames")
 
     @backups.before_loop
     async def before_backups(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started creating backups")
+        print(print_color.GREEN, "[BACKGROUND] Started creating backups")
 
     @del_member_count.before_loop
     async def before_del_member_count(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started updating DEL member count")
+        print(print_color.GREEN, "[BACKGROUND] Started updating DEL member count")
 
     @clear_mode247.before_loop
     async def before_clear_mode247(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started leaving inactive voice channels")
+        print(print_color.GREEN, "[BACKGROUND] Started leaving inactive voice channels")
 
     @dispatch_unmute.before_loop
     async def before_dispatch_unmute(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started dispatching mutes.")
+        print(print_color.GREEN, "[BACKGROUND] Started dispatching mutes.")
 
     @dispatch_unban.before_loop
     async def before_dispatch_unban(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started dispatching bans.")
+        print(print_color.GREEN, "[BACKGROUND] Started dispatching bans.")
 
     @clear_automod_counter.before_loop
     async def before_automod_clear(self):
         await self.bot.wait_until_ready()
-        print("[BACKGROUND] Started resetting raid counters.")
+        print(print_color.GREEN, "[BACKGROUND] Started resetting raid counters.")
 
 
 def setup(bot):

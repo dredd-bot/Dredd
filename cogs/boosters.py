@@ -13,7 +13,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import discord
+import asyncio
 
 from discord.ext import commands
 from utils.checks import is_booster
@@ -69,17 +69,16 @@ class Boosters(commands.Cog, aliases=['Donators']):
             ))
         if check:
             return await ctx.send(_("{0} You already have {name.lower()} linked in your medias.").format(
-                self.bot.settings['emojis']['misc']['warn']
+                self.bot.settings['emojis']['misc']['warn'], name=name
             ))
         if not (url.startswith('https://') or url.startswith('http://')):
             return await ctx.send(_("{0} URL must start with either a http:// or https://").format(
                 self.bot.settings['emojis']['misc']['warn']
             ))
-        else:
-            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link) VALUES($1, $2, $3)", ctx.author.id, str(name.lower()), str(url))
-            await ctx.send(_("{0} Added {1} (<{2}>) to your medias.").format(
-                self.bot.settings['emojis']['misc']['white-mark'], name.lower(), url
-            ))
+        await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link) VALUES($1, $2, $3)", ctx.author.id, str(name.lower()), str(url))
+        await ctx.send(_("{0} Added {1} (<{2}>) to your medias.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], name.lower(), url
+        ))
 
     @socialmedia.command(name='discord', brief=_("Link your Discord server"))
     @is_booster()
@@ -105,16 +104,15 @@ class Boosters(commands.Cog, aliases=['Donators']):
             return await ctx.send(_("{0} You already have {1} linked in your medias.").format(
                 self.bot.settings['emojis']['misc']['warn'], name
             ))
-        else:
-            try:
-                invite = await self.bot.fetch_invite(str(invite))
-                name = name or invite.guild.name
-            except Exception as e:
-                raise commands.BadArgument(_("Can't seem to find that invite, please make sure you're only sending the code (PMZXUwdr) else it won't work."))
-            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, name, invite.url, 1)
-            await ctx.send(_("{0} Added Discord ({1} - <{2}>) to your medias list.").format(
-                self.bot.settings['emojis']['misc']['white-mark'], name, invite.url
-            ))
+        try:
+            invite = await self.bot.fetch_invite(str(invite))
+            name = name or invite.guild.name
+        except Exception:
+            raise commands.BadArgument(_("Can't seem to find that invite, please make sure you're only sending the code (PMZXUwdr) else it won't work."))
+        await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, name, invite.url, 1)
+        await ctx.send(_("{0} Added Discord ({1} - <{2}>) to your medias list.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], name, invite.url
+        ))
 
     @socialmedia.command(name='instagram', brief=_("Link your Instagram account"))
     @is_booster()
@@ -139,12 +137,11 @@ class Boosters(commands.Cog, aliases=['Donators']):
             return await ctx.send(_("{0} You already have {1} linked in your medias.").format(
                 self.bot.settings['emojis']['misc']['warn'], account_name
             ))
-        else:
-            link = 'https://instagram.com/{0}'.format(account_name)
-            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 2)
-            await ctx.send(_("{0} Added Instagram ({1} - <{2}>) to your medias list.").format(
-                self.bot.settings['emojis']['misc']['white-mark'], account_name, link
-            ))
+        link = 'https://instagram.com/{0}'.format(account_name)
+        await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 2)
+        await ctx.send(_("{0} Added Instagram ({1} - <{2}>) to your medias list.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], account_name, link
+        ))
 
     @socialmedia.command(name='twitch', brief=_("Link your Twitch account"))
     @is_booster()
@@ -169,12 +166,11 @@ class Boosters(commands.Cog, aliases=['Donators']):
             return await ctx.send(_("{0} You already have {1} linked in your medias.").format(
                 self.bot.settings['emojis']['misc']['warn'], account_name
             ))
-        else:
-            link = 'https://twitch.tv/{0}'.format(account_name)
-            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 3)
-            await ctx.send(_("{0} Added Twitch ({1} - <{2}>) to your medias list.").format(
-                self.bot.settings['emojis']['misc']['white-mark'], account_name, link
-            ))
+        link = 'https://twitch.tv/{0}'.format(account_name)
+        await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 3)
+        await ctx.send(_("{0} Added Twitch ({1} - <{2}>) to your medias list.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], account_name, link
+        ))
 
     @socialmedia.command(name='twitter', brief=_("Link your Twitter account"))
     @is_booster()
@@ -199,12 +195,11 @@ class Boosters(commands.Cog, aliases=['Donators']):
             return await ctx.send(_("{0} You already have {1} linked in your medias.").format(
                 self.bot.settings['emojis']['misc']['warn'], account_name
             ))
-        else:
-            link = 'https://twitter.com/{0}'.format(account_name)
-            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 4)
-            await ctx.send(_("{0} Added Twitter ({1} - <{2}>) to your medias list.").format(
-                self.bot.settings['emojis']['misc']['white-mark'], account_name, link
-            ))
+        link = 'https://twitter.com/{0}'.format(account_name)
+        await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 4)
+        await ctx.send(_("{0} Added Twitter ({1} - <{2}>) to your medias list.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], account_name, link
+        ))
 
     @socialmedia.command(name='github', brief=_("Link your GitHub account"))
     @is_booster()
@@ -229,12 +224,11 @@ class Boosters(commands.Cog, aliases=['Donators']):
             return await ctx.send(_("{0} You already have {1} linked in your medias.").format(
                 self.bot.settings['emojis']['misc']['warn'], account_name
             ))
-        else:
-            link = 'https://github.com/{0}'.format(account_name)
-            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 5)
-            await ctx.send(_("{0} Added GitHub ({1} - <{2}>) to your medias list.").format(
-                self.bot.settings['emojis']['misc']['white-mark'], account_name, link
-            ))
+        link = 'https://github.com/{0}'.format(account_name)
+        await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, account_name, link, 5)
+        await ctx.send(_("{0} Added GitHub ({1} - <{2}>) to your medias list.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], account_name, link
+        ))
 
     @socialmedia.command(name='youtube', brief=_("Link your youtube account"))
     @is_booster()
@@ -262,12 +256,11 @@ class Boosters(commands.Cog, aliases=['Donators']):
             return await ctx.send(_("{0} You already have {1} linked in your medias.").format(
                 self.bot.settings['emojis']['misc']['warn'], account_name
             ))
-        else:
-            link = 'https://youtube.com/channel/{0}'.format(account_name)
-            await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, overwrite_name, link, 7)
-            await ctx.send(_("{0} Added YouTube ({1} - <{2}>) to your medias list.").format(
-                self.bot.settings['emojis']['misc']['white-mark'], overwrite_name, link
-            ))
+        link = 'https://youtube.com/channel/{0}'.format(account_name)
+        await self.bot.db.execute("INSERT INTO media(user_id, media_type, media_link, type) VALUES($1, $2, $3, $4)", ctx.author.id, overwrite_name, link, 7)
+        await ctx.send(_("{0} Added YouTube ({1} - <{2}>) to your medias list.").format(
+            self.bot.settings['emojis']['misc']['white-mark'], overwrite_name, link
+        ))
 
     @socialmedia.command(name='remove', brief=_("Remove linked social media"))
     @is_booster()
@@ -310,8 +303,6 @@ class Boosters(commands.Cog, aliases=['Donators']):
                     elif str(verify_response) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
                         await ctx.channel.send(_("Alright, I will not be removing your social medias."))
                         break
-                    else:
-                        pass
                 except asyncio.TimeoutError:
                     await ctx.send(_("{0} You've waited for too long, canceling the command.").format(self.bot.settings['emojis']['misc']['warn']))
                     break

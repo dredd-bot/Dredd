@@ -16,15 +16,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import traceback
 import mystbin
-import dbl
-from io import BytesIO
 
 from discord.ext import commands
 from datetime import datetime, timezone
-from jishaku.models import copy_context_with
 from contextlib import suppress
 
-from utils.default import admin_tracker, permissions_converter, auto_guild_leave, botlist_exception, global_cooldown
+from time import time
+from utils import logger as logging
+from utils.default import admin_tracker, permissions_converter, auto_guild_leave, global_cooldown, printRAW
 from utils.checks import not_voted, admin_only, booster_only, CooldownByContent, invalid_permissions_flag, music_error, DisabledCommand
 
 
@@ -37,7 +36,7 @@ class CommandError(commands.Cog, name="CommandError",
         self.big_icon = ''
         self.anti_spam_commands = CooldownByContent.from_cooldown(17, 15.0, commands.BucketType.member)  # 12 commands per 15 seconds
         self.pre_anti_spam = CooldownByContent.from_cooldown(5, 10, commands.BucketType.member)  # 5 commands per 10 seconds
-        self.global_cooldown = commands.CooldownMapping.from_cooldown(60, 60.0, commands.BucketType.user)
+        self.global_cooldown = commands.CooldownMapping.from_cooldown(17, 10.0, commands.BucketType.user)
         self.mystbin_client = mystbin.Client()
 
     @commands.Cog.listener()
@@ -59,13 +58,6 @@ class CommandError(commands.Cog, name="CommandError",
                 content_bucket.reset()
                 await global_cooldown(ctx=ctx)
 
-        # noinspection PyPep8Naming
-        def printRAW(*Text):
-            RAWOut = open(1, 'w', encoding='utf8', closefd=False)
-            print(*Text, file=RAWOut)
-            RAWOut.flush()
-            RAWOut.close()
-
         if ctx.guild:
             if ctx.guild.chunked is False:
                 await ctx.guild.chunk(cache=True)
@@ -74,6 +66,9 @@ class CommandError(commands.Cog, name="CommandError",
         else:
             printRAW(f"{datetime.now().__format__('%a %d %b %y, %H:%M')} - DM channel | {ctx.author}"
                      f"> {ctx.message.content}")
+
+        if not await ctx.bot.is_owner(ctx.author):
+            await logging.new_log(self.bot, time(), 5, 1)
 
         if ctx.command.cog:
             if await ctx.bot.is_owner(ctx.author):
@@ -96,10 +91,8 @@ class CommandError(commands.Cog, name="CommandError",
                     AND command_logs.guild_id = $6
                     AND command_logs.command = $7
                 """
-        if ctx.guild:
-            guild = ctx.guild.id
-        else:
-            guild = ctx.channel.id
+
+        guild = ctx.guild.id if ctx.guild else ctx.channel.id
         await self.bot.db.execute(query, ctx.author.id, guild, str(cmd), 1, ctx.author.id, guild, str(cmd))
 
         if cmd not in self.bot.cmdUsage:
@@ -107,33 +100,34 @@ class CommandError(commands.Cog, name="CommandError",
         else:
             self.bot.cmdUsage[cmd] += 1
 
-        if not str(ctx.author.id) in self.bot.cmdUsers:
+        if str(ctx.author.id) not in self.bot.cmdUsers:
             self.bot.cmdUsers[str(ctx.author.id)] = 1
         else:
             self.bot.cmdUsers[str(ctx.author.id)] += 1
 
-        if ctx.guild and str(ctx.guild.id) not in self.bot.guildUsage:
-            self.bot.guildUsage[str(ctx.guild.id)] = 1
-        elif ctx.guild and str(ctx.guild.id) in self.bot.guildUsage:
-            self.bot.guildUsage[str(ctx.guild.id)] += 1
+        if ctx.guild:
+            if str(ctx.guild.id) not in self.bot.guildUsage:
+                self.bot.guildUsage[str(ctx.guild.id)] = 1
+            else:
+                self.bot.guildUsage[str(ctx.guild.id)] += 1
 
     @commands.Cog.listener()
-    async def on_command_error(self, ctx, exc):
+    async def on_command_error(self, ctx, exc):  # sourcery no-metrics
 
         guild_id = '' if not ctx.guild else ctx.guild.id
         channel_id = ctx.channel.id
 
-        if ctx.command.has_error_handler() or ctx.command.cog.has_error_handler():
+        if ctx.command.has_error_handler():
             return
 
         elif isinstance(exc, not_voted):
             botlist = self.bot.bot_lists
             e = discord.Embed(color=self.bot.settings['colors']['deny_color'], title=_('Vote required!'))
-            e.set_author(name=_("Hey {0}!").format(ctx.author), icon_url=ctx.author.avatar_url)
+            e.set_author(name=_("Hey {0}!").format(ctx.author), icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
             e.description = _("Thank you for using me! Unfortunately this command is vote locked and you'll need to vote for Dredd. You can vote in any of these lists:\n"
-                              "`[1]` {0}\n`[2]` {1}\n`[3]` {2}\n`[4]` {3}\nIf you've voted already, please wait cause the API might be slow."
+                              "{0}\nIf you've voted already, please wait cause the API might be slow."
                               "\n\n*After you vote, you'll be able to use this command, and you will help Dredd gain more servers :D*").format(
-                                  botlist['dbots'], botlist['dboats'], botlist['dbl'], botlist['shitgg']
+                                  "\n".join(f"`[{num}]` {bot_list}" for num, bot_list in enumerate(self.bot.bot_lists.values(), start=1))
                               )
             return await ctx.send(embed=e)
 
@@ -201,12 +195,12 @@ class CommandError(commands.Cog, name="CommandError",
             if ctx.author.id == 345457928972533773:
                 await ctx.reinvoke()
             else:
-                perms = "`" + '`, `'.join(permissions_converter(ctx, exc.missing_perms)) + "`"
+                perms = "`" + '`, `'.join(permissions_converter(ctx, exc.missing_permissions)) + "`"
                 emoji = self.bot.settings['emojis']['misc']['warn']
                 return await ctx.send(_("{0} You're missing the {1} permission.").format(emoji, perms))
 
         elif isinstance(exc, commands.BotMissingPermissions):
-            perms = "`" + '`, `'.join(permissions_converter(ctx, exc.missing_perms)) + "`"
+            perms = "`" + '`, `'.join(permissions_converter(ctx, exc.missing_permissions)) + "`"
             emoji = self.bot.settings['emojis']['misc']['warn']
             return await ctx.send(_("{0} I'm missing "
                                     "{1} permissions").format(emoji, perms))
@@ -235,7 +229,7 @@ class CommandError(commands.Cog, name="CommandError",
                                   title=f"Cooldown resets in "
                                         f"**{exc.retry_after:.0f}** seconds")
             embed.set_author(name="User is on cooldown",
-                             icon_url=ctx.author.avatar_url)
+                             icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
             embed.description = (f"**User:** {ctx.author} ({ctx.author.id})\n"
                                  f"**Guild:** {ctx.guild} ({guild_id})\n"
                                  f"**Channel:** #{ctx.channel} ({channel_id})\n")
@@ -252,6 +246,14 @@ class CommandError(commands.Cog, name="CommandError",
         elif isinstance(exc, commands.errors.InvalidEndOfQuotedStringError):
             return await ctx.send(_("{0} | Expected space after the quote, but received another quote").format(self.bot.settings['emojis']['misc']['warn']))
 
+        elif isinstance(exc, commands.errors.UnexpectedQuoteError):
+            return await ctx.send(_("{0} | Unexpected quote in non-quoted string, please remove all quotes.").format(self.bot.settings['emojis']['misc']['warn']))
+
+        elif isinstance(exc, AssertionError):
+            if exc:
+                await ctx.send(f"{self.bot.settings['emojis']['misc']['warn']} | {exc}")
+            return
+
         if str(exc) == "'NoneType' object has no attribute 'add_reaction'":  # no other way to prevent this
             return await ctx.send(_("{0} | Failed to add the reactions, please reinvoke the command.").format(self.bot.settings['emojis']['misc']['warn']))
 
@@ -263,7 +265,6 @@ class CommandError(commands.Cog, name="CommandError",
             elif not ctx.channel.can_send:
                 if content_bucket.update_rate_limit(current):
                     content_bucket.reset()
-                    pass
                 elif not content_bucket.update_rate_limit(current):
                     return
 
@@ -298,24 +299,21 @@ class CommandError(commands.Cog, name="CommandError",
             log_embed = discord.Embed(color=self.bot.settings['colors']['error_color'],
                                       title=f"Unknown error caught | #{error_id + 1}",
                                       description=f"```py\n{tb}```{error_code}")
-            log_embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+            log_embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
             log_embed.add_field(name='Error information:', value=(f"`{ctx.message.clean_content}`\n"
                                                                   f"**Server:** {ctx.guild} **ID:** {guild_id};\n"
                                                                   f"**Channel:** {ctx.channel} **ID:** {channel_id};\n"
                                                                   f"**Author:** {ctx.author} **ID:** {ctx.author.id}"))
             msg = await log.send(embed=log_embed)
             await self.bot.db.execute("INSERT INTO errors VALUES($1, $2, $3, $4, $5, $6, $7)", str(tb), msg.jump_url, str(ctx.command), 0, datetime.now(), error_id + 1, str(exc))
-
+            await logging.new_log(self.bot, time(), 5, 1)
             e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc),
                               title=_("{0} Unknown error | #{1}").format(self.bot.settings['emojis']['misc']['error'], error_id + 1),
                               description=_("Command `{0}` raised an error, which I reported to my developer(s).\n"
                                             "My developer(s) will be working to fixing this error ASAP. "
                                             "Meanwhile, you can [join the support server]({1}) for updates.").format(ctx.command, support))
-            e.add_field(name=_("Error info:"), value=f"""```py\n{exc}```""")
-            with suppress(Exception):
-                return await ctx.send(embed=e)
 
-        elif len(error) != 0:
+        else:
             error_jump = f"[Click here]({error[0]['error_jump']})"
             log_embed = discord.Embed(color=self.bot.settings['colors']['error_color'],
                                       title=f"Known error | #{error[0]['error_id']}",
@@ -325,17 +323,18 @@ class CommandError(commands.Cog, name="CommandError",
                                                                   f"**Channel:** {ctx.channel} **ID:** {channel_id};\n"
                                                                   f"**Author:** {ctx.author} **ID:** {ctx.author.id}\n"
                                                                   f"**Original error:** {error_jump}"))
-            log_embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+            log_embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
             await log.send(embed=log_embed)
-
+            await logging.new_log(self.bot, time(), 5, 1)
             e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc),
                               title=_("{0} Known error | #{1}").format(self.bot.settings['emojis']['misc']['error'], error[0]['error_id']),
                               description=_("Command `{0}` raised an error that has already reported to my developer(s).\n"
                                             "They'll be looking into this issue and trying to fix it ASAP. "
                                             "Meanwhile, you can [join the support server]({1}) for updates.").format(ctx.command, support))
-            e.add_field(name=_("Error info:"), value=f"""```py\n{exc}```""")
-            with suppress(Exception):
-                return await ctx.send(embed=e)
+
+        e.add_field(name=_("Error info:"), value=f"""```py\n{exc}```""")
+        with suppress(Exception):
+            return await ctx.send(embed=e)
 
     @commands.Cog.listener()
     async def on_silent_error(self, ctx, error, trace_error=True):
@@ -353,6 +352,7 @@ class CommandError(commands.Cog, name="CommandError",
                                                       f"**Channel:** {ctx.channel} **ID:** {ctx.channel.id};\n"
                                                       f"**Author:** {ctx.author} **ID:** {ctx.author.id}"))
         await channel.send(embed=e)
+        await logging.new_log(self.bot, time(), 5, 1)
 
 
 def setup(bot):

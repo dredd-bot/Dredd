@@ -17,10 +17,8 @@ import discord
 import json
 import random
 import aiohttp
-import urllib.parse
 
 from discord.ext import commands
-from utils import checks
 from utils.i18n import locale_doc
 
 
@@ -75,7 +73,7 @@ class fun(commands.Cog, name="Fun"):
         if text and len(text) > 500:
             return await ctx.send(_("{0} The text is {1} characters over the limit.").format(
                 self.bot.settings['emojis']['misc']['warn'],
-                len(question) - 500
+                len(text) - 500
             ))
         hearts = ['❤', '💛', '💚', '💙', '💜']
         reason = _(" for **{0}** ").format(text) if text else ""
@@ -194,23 +192,19 @@ class fun(commands.Cog, name="Fun"):
 
         member = member or ctx.author
         owner = self.bot.get_user(345457928972533773)
-        if member == owner:
-            if bypass and ctx.message.content.lower().endswith(self.bot.settings['bypass']['owner-bypass']):
-                pass
-            else:
-                return await ctx.send(_("You can't roast Moksej! I'll drop you a hint, though."
-                                        " There's a bypass that you can use to roast him ;)"))
+        if member == owner and not bypass and ctx.message.content.lower().endswith(self.bot.settings['bypass']['owner-bypass']):
+            return await ctx.send(_("You can't roast Moksej! I'll drop you a hint, though."
+                                    " There's a bypass that you can use to roast him ;)"))
 
         bot = self.bot.get_user(667117267405766696)
         if member == bot:
             return await ctx.send(_("Don't you dare do that!"))
 
-        with open("db/lines.json", "r") as f:
-            data = json.load(f)
+        r = await self.bot.session.get("https://evilinsult.com/generate_insult.php?lang=en&type=text")
+        if 500 % (r.status + 1) == 500:
+            return await ctx.send(_("Roast api seems to be down, try again later!"))
 
-        roasts = data["roasts"]
-
-        await ctx.send(f"{member.name}, {random.choice(roasts)}")
+        await ctx.send(f"{member.name}, {await r.text()}")
 
     @commands.command(brief="A *~~hidden~~* duck image command.", aliases=['duckmasteral', 'quacky', 'uck', '\U0001f986'], hidden=True)
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -218,7 +212,7 @@ class fun(commands.Cog, name="Fun"):
         """ A *~~hidden~~* duck image command.\nPowered by random-d.uk | Not secretly added by Duck <a:BongoCoding:806396390103187526> """
 
         embed = discord.Embed(title='Quack Quack :duck:', color=discord.Color.orange())
-        embed.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+        embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url)
         embed.set_footer(text='Powered by random-d.uk', icon_url="https://cdn.discordapp.com/avatars/426787835044036610/795ed0c0b2da8d6c37c071dc61e0c77f.png")
         file = random.choice(['jpg', 'gif'])
         if file == 'jpg':

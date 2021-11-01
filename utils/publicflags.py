@@ -19,6 +19,7 @@ class flag_value:
         self.__doc__ = func.__doc__
 
     def __get__(self, instance, owner):
+        # noinspection PyProtectedMember
         return instance._has_flag(self.flag)
 
 
@@ -38,76 +39,80 @@ class UserFlags:
         return (self.value & o) == o
 
     @flag_value
-    def discord_employee(self):
+    def discord_employee(self) -> int:
         return 1 << 0
 
     @flag_value
-    def discord_partner(self):
+    def discord_partner(self) -> int:
         return 1 << 1
 
     @flag_value
-    def hs_events(self):
+    def hs_events(self) -> int:
         return 1 << 2
 
     @flag_value
-    def bug_hunter_lvl1(self):
+    def bug_hunter_lvl1(self) -> int:
         return 1 << 3
 
     @flag_value
-    def mfa_sms(self):
+    def mfa_sms(self) -> int:
         return 1 << 4
 
     @flag_value
-    def premium_promo_dismissed(self):
+    def premium_promo_dismissed(self) -> int:
         return 1 << 5
 
     @flag_value
-    def hs_bravery(self):
+    def hs_bravery(self) -> int:
         return 1 << 6
 
     @flag_value
-    def hs_brilliance(self):
+    def hs_brilliance(self) -> int:
         return 1 << 7
 
     @flag_value
-    def hs_balance(self):
+    def hs_balance(self) -> int:
         return 1 << 8
 
     @flag_value
-    def early_supporter(self):
+    def early_supporter(self) -> int:
         return 1 << 9
 
     @flag_value
-    def team_user(self):
+    def team_user(self) -> int:
         return 1 << 10
 
     @flag_value
-    def system(self):
+    def system(self) -> int:
         return 1 << 12
 
     @flag_value
-    def unread_sys_msg(self):
+    def unread_sys_msg(self) -> int:
         return 1 << 13
 
     @flag_value
-    def bug_hunter_lvl2(self):
+    def bug_hunter_lvl2(self) -> int:
         return 1 << 14
 
     @flag_value
-    def underage_deleted(self):
+    def underage_deleted(self) -> int:
         return 1 << 15
 
     @flag_value
-    def verified_bot(self):
+    def verified_bot(self) -> int:
         return 1 << 16
 
     @flag_value
-    def verified_dev(self):
+    def verified_dev(self) -> int:
         return 1 << 17
 
     @flag_value
-    def certified_mod(self):
+    def certified_mod(self) -> int:
         return 1 << 18
+
+    @flag_value
+    def spam_account(self) -> int:  # this is not being actually used yet
+        return 1 << 20
 
 
 class BotFlags:
@@ -126,57 +131,57 @@ class BotFlags:
         return (self.value & o) == o
 
     @flag_value
-    def bot_owner(self):
+    def bot_owner(self) -> int:
         return 1 << 0
 
     @flag_value
-    def bot_admin(self):
+    def bot_admin(self) -> int:
         return 1 << 1
 
     @flag_value
-    def bot_partner(self):
+    def bot_partner(self) -> int:
         return 1 << 2
 
     @flag_value
-    def server_partner(self):
+    def server_partner(self) -> int:
         return 1 << 3
 
     @flag_value
-    def bug_hunter_lvl1(self):
+    def bug_hunter_lvl1(self) -> int:
         return 1 << 4
 
     @flag_value
-    def bug_hunter_lvl2(self):
+    def bug_hunter_lvl2(self) -> int:
         return 1 << 5
 
     @flag_value
-    def verified(self):
+    def verified(self) -> int:
         return 1 << 6
 
     @flag_value
-    def sponsor(self):
+    def sponsor(self) -> int:
         return 1 << 7
 
     @flag_value
-    def donator(self):
+    def donator(self) -> int:
         return 1 << 8
 
     @flag_value
-    def early(self):
+    def early(self) -> int:
         return 1 << 9
 
     @flag_value
-    def early_supporter(self):
+    def early_supporter(self) -> int:
         return 1 << 10
 
     @flag_value
-    def blocked(self):
+    def blocked(self) -> int:
         return 1 << 11
 
     @flag_value
-    def duck(self):
+    def duck(self) -> int:
         return 1 << 12
 
     @flag_value
-    def translator(self):
+    def translator(self) -> int:
         return 1 << 13

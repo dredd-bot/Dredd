@@ -16,14 +16,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import asyncio
 import re
+import logging as log
 
 from discord.ext import commands
-from discord.utils import escape_markdown
 
+from time import time
 from db.cache import CacheManager as CM
-from utils import btime, checks, default
+from utils import btime, checks, default, logger as logging
 from datetime import datetime, timedelta, timezone
 from contextlib import suppress
+
+dredd_logger = log.getLogger("dredd")
 
 LINKS = re.compile(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|%[0-9a-fA-F][0-9a-fA-F])+")
 INVITE = re.compile(r'discord(?:\.com/invite|app\.com/invite|\.gg)/?([a-zA-Z0-9\-]{2,32})')
@@ -44,11 +47,11 @@ class Events(commands.Cog):
         if ctx.guild and ctx.guild.id == 835844760194908160:
             return True
 
-        if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author):
-            return
-
-        if ctx.bot.user.id == 663122720044875796 and CM.get(ctx.bot, 'testers', ctx.guild.id):
+        if ctx.bot.user.id == 663122720044875796 and ctx.guild.data.beta:  # type: ignore
             return True
+
+        if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author) or not ctx.guild.data.beta:  # type: ignore
+            return False
 
         blacklist = await ctx.bot.is_blacklisted(ctx.author)
         if blacklist and blacklist['type'] == 2:
@@ -63,19 +66,20 @@ class Events(commands.Cog):
         if await checks.guild_disabled(ctx):
             return False
 
-        if ctx.command.cog:
-            if ctx.command.qualified_name != self.bot.get_command('help').qualified_name and await checks.cog_disabled(ctx, str(ctx.command.cog.qualified_name)):
-                return False
+        if ctx.command.cog and ctx.command.qualified_name != self.bot.get_command('help').qualified_name and await checks.cog_disabled(ctx, str(ctx.command.cog.qualified_name)):
+            return False
 
         return True
 
     @commands.Cog.listener()
     async def on_ready(self):
+        boot_time = btime.human_timedelta(self.bot.uptime, suffix=None)
         m = "Logged in as:"
         m += "\nName: {0} ({0.id})".format(self.bot.user)
-        m += f"\nTime taken to boot: {btime.human_timedelta(self.bot.uptime, suffix=None)}"
+        m += f"\nTime taken to boot: {boot_time}"
         print(m)
         await self.bot.change_presence(status='online', activity=discord.Activity(type=discord.ActivityType.playing, name="-help or @Dredd help"))
+        dredd_logger.info(f"[BOT] Booted up, boot time - {boot_time}")
 
         support_guild = self.bot.get_guild(self.bot.settings['servers']['main'])
         await support_guild.chunk(cache=True)
@@ -86,11 +90,13 @@ class Events(commands.Cog):
         #         self.bot.dispatch('guild_join', guild)
 
     @commands.Cog.listener()
-    async def on_message(self, message):
+    async def on_message(self, message):  # sourcery no-metrics
         if message.author.bot:
             return
 
         ctx = await self.bot.get_context(message)
+        if not ctx.valid:
+            await logging.new_log(self.bot, time(), 9, 1)
 
         if ctx.guild and not ctx.valid:
             if message.content.lower() in [f"<@{self.bot.user.id}>", f"<@!{self.bot.user.id}>"]:
@@ -118,13 +124,10 @@ class Events(commands.Cog):
                 e.description = _("I appreciate you for using me! You can also use my commands here in DMs with a prefix `!`,"
                                   " but if you aren't using any commands - the DM will be logged in my [support server]({0}),"
                                   " so please don't send me any sensitive information.").format(self.bot.support)
-                e.set_thumbnail(url=self.bot.user.avatar_url)
+                e.set_thumbnail(url=self.bot.user.avatar.url)
                 await self.bot.db.execute("INSERT INTO dms(user_id, name) VALUES($1, $2)", message.author.id, message.author.name)
                 self.bot.dms[message.author.id] = message.author.name
                 await message.author.send(embed=e)
-            else:
-                pass
-
             if ctx.valid:
                 return
 
@@ -138,13 +141,14 @@ class Events(commands.Cog):
                 return
 
             logchannel = self.bot.get_channel(self.bot.settings['channels']['dm'])
-            dmid = ''
-            for num in self.bot.dm:
-                if self.bot.dm[num] == message.author.id:
-                    dmid += f"{num}"
+            dmid = ''.join(
+                f"{num}"
+                for num in self.bot.dm
+                if self.bot.dm[num] == message.author.id
+            )
 
-            total_dms = len(self.bot.dm)
             if not dmid:
+                total_dms = len(self.bot.dm)
                 self.bot.dm[total_dms + 1] = message.author.id
                 dmid = total_dms + 1
 
@@ -159,7 +163,7 @@ class Events(commands.Cog):
 
             msgembed = discord.Embed(
                 description=message.content, color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
-            msgembed.set_author(name=f"New DM from: {message.author} | #{dmid}", icon_url=message.author.avatar_url)
+            msgembed.set_author(name=f"New DM from: {message.author} | #{dmid}", icon_url=message.author.avatar.url if message.author.avatar else message.author.display_avatar.url)
             msgembed.set_footer(text=f"User ID: {message.author.id}")
             # They've sent an image/gif/file
             if message.attachments:
@@ -175,7 +179,7 @@ class Events(commands.Cog):
                     ai_reply = discord.Embed(description=the_reply,
                                              color=0x81C969,
                                              timestamp=datetime.now(timezone.utc))
-                    ai_reply.set_author(name=f"I've sent a DM to {message.author} | #{dmid}", icon_url=message.author.avatar_url)
+                    ai_reply.set_author(name=f"I've sent a DM to {message.author} | #{dmid}", icon_url=message.author.avatar.url if message.author.avatar else message.author.display_avatar.url)
                     ai_reply.set_footer(text=f"User ID: {message.author.id}")
                     await logchannel.send(content='Chatbot has replied to this DM', embed=ai_reply)
                 except Exception as e:
@@ -195,12 +199,11 @@ class Events(commands.Cog):
             message = await channel.fetch_message(payload.message_id)
             if str(payload.emoji) not in check['dict']:
                 return await message.remove_reaction(payload.emoji, payload.member)
-            if check['required_role']:
-                if check['required_role'] not in [x.id for x in payload.member.roles]:
-                    return await message.remove_reaction(payload.emoji, payload.member)
+            if check['required_role'] and check['required_role'] not in [x.id for x in payload.member.roles]:
+                return await message.remove_reaction(payload.emoji, payload.member)
 
-            members, count = [], 0
             if check['max_roles'] and check['max_roles'] < len(message.reactions):
+                members, count = [], 0
                 for reaction in message.reactions:
                     if payload.member in await reaction.users().flatten():
                         count += 1
@@ -222,13 +225,11 @@ class Events(commands.Cog):
 
             with suppress(Exception):
                 if str(payload.emoji) not in check['dict']:
-                    the_emoji = self.bot.get_emoji(payload.emoji.id)
+                    the_emoji = self.bot.get_emoji(payload.emoji.id)  # type: ignore
                     if the_emoji.animated:
-                        payload.emoji = f"<a:{payload.emoji.name}:{payload.emoji.id}>"
+                        payload.emoji = f"<a:{payload.emoji.name}:{payload.emoji.id}>"  # type: ignore
                         if str(payload.emoji) not in check['dict']:
                             return
-                else:
-                    pass
 
             guild = self.bot.get_guild(payload.guild_id)
             member = guild.get_member(payload.user_id)
@@ -241,7 +242,7 @@ class Events(commands.Cog):
 
     # noinspection PyDunderSlots
     @commands.Cog.listener()
-    async def on_guild_join(self, guild):
+    async def on_guild_join(self, guild):  # sourcery no-metrics
         check = CM.get(self.bot, 'blacklist', guild.id)
         check_delete_data = CM.get(self.bot, 'guilds_data', guild.id)
 
@@ -261,7 +262,7 @@ class Events(commands.Cog):
                         msg, check['reason']
                     )
                     e.set_thumbnail(url=self.bot.gif_pfp)
-                    e.set_author(name=_("Blacklist issue occured!"), icon_url=self.bot.user.avatar_url)
+                    e.set_author(name=_("Blacklist issue occured!"), icon_url=self.bot.user.avatar.url)
                     await to_send.send(embed=e)
                 else:
                     message = _("""Hey!\nThis server is blacklisted, thus why I will not be staying here anymore. {0}\n\n**Blacklisting reason:** {1}""").format(
@@ -274,7 +275,7 @@ class Events(commands.Cog):
 
         with suppress(Exception):
             head = {"Authorization": self.bot.config.DREDD_API_TOKEN, "Client": self.bot.config.DREDD_API_CLIENT}
-            body = {"guilds": len(self.bot.guilds), "users": sum([x.member_count for x in self.bot.guilds])}
+            body = {"guilds": len(self.bot.guilds), "users": sum(x.member_count for x in self.bot.guilds)}
             await self.bot.session.post('https://dredd-bot.xyz/api/stats', headers=head, json=body)
             print("Updated the stats - guild join")
 
@@ -322,21 +323,22 @@ class Events(commands.Cog):
         ratio = f'{int(100 / guild.member_count * bots)}'
         owner = guild.owner
         e = discord.Embed(timestamp=datetime.now(timezone.utc))
-        e.set_author(name=guild.name, icon_url=guild.icon_url)
+        e.set_author(name=guild.name, icon_url=guild.icon.url or self.bot.user.display_avatar.url)
         chan = self.bot.get_channel(self.bot.settings['channels']['joins-leaves'])
-        e.color = self.bot.settings['colors']['approve_color']
+        e.color = self.bot.settings['colors']['approve_color']  # type: ignore
         e.title = 'I\'ve joined a new guild'
         e.description = f"""
 **Guild:** {guild.name} ({guild.id})
 **Owner:** [{owner}](https://discord.com/users/{owner.id}) ({owner.id})
-**Created at:** {btime.human_timedelta(guild.created_at.replace(tzinfo=None), source=datetime.utcnow())}
+**Created at:** {btime.human_timedelta(guild.created_at, source=datetime.utcnow())}
 **Members:** {len(guild.humans)} users and {bots} bots (Total: {guild.member_count})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice
-**Icon url:** [Click here]({guild.icon_url})
+**Icon url:** [Click here]({guild.icon.url})
 """
         e.set_footer(text=f"I'm in {len(self.bot.guilds)} guilds now")
         msg = await chan.send(embed=e)
+        await logging.new_log(self.bot, time(), 1, 1)
         try:
             if check_delete_data:
                 self.bot.guilds_data.pop(guild.id, None)
@@ -349,7 +351,7 @@ class Events(commands.Cog):
 
     # noinspection PyDunderSlots
     @commands.Cog.listener()
-    async def on_guild_remove(self, guild):
+    async def on_guild_remove(self, guild):  # sourcery no-metrics
         # I'm using asyncio.sleep() here just to
         # make sure the events don't bug out and
         # acidentally delete the data from the db.
@@ -369,10 +371,10 @@ class Events(commands.Cog):
         else:
             ratio = f'{int(100 / len(guild.members) * bots)}'
         e = discord.Embed(timestamp=datetime.now(timezone.utc))
-        e.set_author(name=guild.name, icon_url=guild.icon_url)
+        e.set_author(name=guild.name, icon_url=guild.icon.url or self.bot.user.display_avatar.url)
         with suppress(Exception):
             head = {"Authorization": self.bot.config.DREDD_API_TOKEN, "Client": self.bot.config.DREDD_API_CLIENT}
-            body = {"guilds": len(self.bot.guilds), "users": sum([x.member_count for x in self.bot.guilds])}
+            body = {"guilds": len(self.bot.guilds), "users": sum(x.member_count for x in self.bot.guilds)}
             await self.bot.session.post('https://dredd-bot.xyz/api/stats', headers=head, json=body)
             print("Updated the stats - guild leave")
 
@@ -380,16 +382,16 @@ class Events(commands.Cog):
             mod = self.bot.get_user(check['dev'])
             reason = check['reason']
             lift = f"{'Yes' if check['liftable'] == 0 else 'No'}"
-            e.color = self.bot.settings['colors']['error_color']
+            e.color = self.bot.settings['colors']['error_color']  # type: ignore
             e.title = 'Blacklisted server left'
             e.description = f"""
 **Guild:** {guild.name} ({guild.id})
 **Owner:** [{guild.owner}](https://discord.com/users/{guild.owner.id}) ({guild.owner.id})
-**Created at:** {btime.human_timedelta(guild.created_at.replace(tzinfo=None), source=datetime.utcnow())}
+**Created at:** {btime.human_timedelta(guild.created_at, source=datetime.utcnow())}
 **Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count if hasattr(guild, 'member_count') else len(guild.members)})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice
-**Icon url:** [Click here]({guild.icon_url})
+**Icon url:** [Click here]({guild.icon.url})
 """
             e.add_field(name='Blacklist info:', value=f"Blacklisted by **{mod}** {btime.human_timedelta(check['issued'], source=datetime.now())}.\n**Reason:** {reason}\n**Liftable:** {lift}")
             chan = self.bot.get_channel(self.bot.settings['channels']['joins-leaves'])
@@ -400,7 +402,7 @@ class Events(commands.Cog):
 **Guild:** {guild.name} ({guild.id})
 **Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count if hasattr(guild, 'member_count') else len(guild.members)})
 **Users/Bots ratio:** {ratio}%
-**Icon url:** [Click here]({guild.icon_url})
+**Icon url:** [Click here]({guild.icon.url})
 """
             chan = self.bot.get_channel(self.bot.settings['channels']['joins-leaves'])
             all_mentions = discord.AllowedMentions(users=True, everyone=False, roles=False)
@@ -410,11 +412,11 @@ class Events(commands.Cog):
                 await partner_main_chat.send(f"{guild.owner.mention} Hey! I was kicked from your server ({guild.name}) whilst being partnered. "
                                              f"You have 48 hours to reinvite me to that server or I'll be with unpartnering you.\n"
                                              f"> • Must have Dredd in the server\n Thanks!", allowed_mentions=all_mentions)
-            e.color = self.bot.settings['colors']['deny_color']
+            e.color = self.bot.settings['colors']['deny_color']  # type: ignore
             e.set_footer(text=f"I'm in {len(self.bot.guilds)} guilds now")
             msg = await chan.send(embed=e)
+            await logging.new_log(self.bot, time(), 2, 1)
 
-            content = ''
             try:
                 time_when = datetime.utcnow() + timedelta(days=30)
                 self.bot.guilds_data[guild.id] = time_when
@@ -453,7 +455,7 @@ class Events(commands.Cog):
             return
 
         if before.nick != after.nick:
-            if CM.get(self.bot, 'nicks_op', f'{before.id} - {before.guild.id}'):
+            if CM.get(self.bot, 'nicks_op', f'{before.id} - {before.guild.id}'):  # type: ignore
                 return
             nick = before.nick or before.name
             await self.bot.db.execute("INSERT INTO nicknames(user_id, guild_id, nickname, time) VALUES($1, $2, $3, $4)", after.id, after.guild.id, nick, datetime.now())
@@ -468,25 +470,25 @@ class Events(commands.Cog):
         if not message.guild:
             return
 
-        afks = CM.get(self.bot, 'afk', f'{str(message.guild.id)}, {str(message.author.id)}')
-        afks2 = CM.get(self.bot, 'afk', f'{str(message.author.id)}')
+        afks = CM.get(self.bot, 'afk', f'{message.guild.id}, {message.author.id}')  # type: ignore
+        afks2 = CM.get(self.bot, 'afk', f'{message.author.id}')  # type: ignore
         if afks:
             await message.channel.send(_("Welcome back {0}! You were away for **{1}**. Your AFK state has been removed.").format(
                     message.author.mention, btime.human_timedelta(afks['time'], source=datetime.utcnow(), suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
             await self.bot.db.execute("DELETE FROM afk WHERE user_id = $1 AND guild_id = $2", message.author.id, message.guild.id)
-            self.bot.afk.pop(f'{str(message.guild.id)}, {str(message.author.id)}')
+            self.bot.afk.pop(f'{message.guild.id}, {message.author.id}')
         elif afks2:
             await message.channel.send(_("Welcome back {0}! You were away for **{1}**. Your AFK state has been removed.").format(
                     message.author.mention, btime.human_timedelta(afks2['time'], source=datetime.utcnow(), suffix=None)), allowed_mentions=discord.AllowedMentions(users=True))
             await self.bot.db.execute("DELETE FROM afk WHERE user_id = $1", message.author.id)
-            self.bot.afk.pop(f'{str(message.author.id)}')
+            self.bot.afk.pop(f'{message.author.id}')
 
         to_send = ''
         for user in message.mentions:
-            check = CM.get(self.bot, 'afk', f'{str(message.guild.id)}, {str(user.id)}')
-            check2 = CM.get(self.bot, 'afk', f'{str(user.id)}')
+            check = CM.get(self.bot, 'afk', f'{message.guild.id}, {user.id}')  # type: ignore
+            check2 = CM.get(self.bot, 'afk', f'{user.id}')  # type: ignore
             if check or check2:
-                check = check if check else check2
+                check = check or check2
                 afkmsg = check['note']
                 afkmsg = afkmsg.strip()
                 member = message.guild.get_member(user.id)
@@ -519,7 +521,7 @@ class Events(commands.Cog):
         if not message.guild:
             return
 
-        if message.stickers != []:
+        if message.stickers:
             message.content += _("\n*Sticker* - {0}").format(message.stickers[0].name)
 
         self.bot.snipes[message.channel.id] = {'message': message.content, 'deleted_at': discord.utils.utcnow(), 'author': message.author.id, 'nsfw': message.channel.is_nsfw()}

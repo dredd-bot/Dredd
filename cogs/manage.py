@@ -25,11 +25,11 @@ from utils import default, i18n
 from utils.checks import admin, moderator, is_guild_disabled
 from utils.paginator import Pages
 from contextlib import suppress
-from utils.i18n import locale_doc
-# from datetime import datetime
+from utils.i18n import locale_doc, current_locale
 
 
-class Manage(commands.Cog, name='Management', aliases=['Manage']):
+# noinspection PyUnboundLocalVariable,PyUnusedLocal
+class Manage(commands.Cog, name='Management'):
     def __init__(self, bot):
         self.bot = bot
         self.help_icon = "<:settingss:695707235833085982>"
@@ -49,7 +49,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             text = _('If you want to change my prefix you can do so by invoking `{0}prefix set <new prefix>`').format(ctx.prefix)
             return await ctx.send(_("My prefix in this server is `{0}`\n"
                                     "{1}").format(escape_markdown(prefix, as_needed=True), text if ctx.author.guild_permissions.manage_guild else ''))
-        elif not prefix:
+        else:
             self.bot.prefix[ctx.guild.id] = self.bot.settings['default']['prefix']
             try:
                 await self.bot.db.execute("INSERT INTO guilds VALUES($1, $2)", ctx.guild.id, self.bot.settings['default']['prefix'])
@@ -85,12 +85,12 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
 
         if language not in i18n.locales:
             return await ctx.send(_("{0} Looks like that language doesn't exist, available languages are: {1}").format(
-                self.bot.settings['emojis']['misc']['warn'], '`' + '`, `'.join([x for x in i18n.locales]) + '`'
+                self.bot.settings['emojis']['misc']['warn'], '`' + '`, `'.join(i18n.locales) + '`',
             ))
-        else:
-            await self.bot.db.execute("UPDATE guilds SET language = $1 WHERE guild_id = $2", language, ctx.guild.id)
-            self.bot.translations[ctx.guild.id] = language
-            await ctx.send(_("{0} Changed the bot language to `{1}`").format(self.bot.settings['emojis']['misc']['white-mark'], language))
+        current_locale.set(language)
+        await self.bot.db.execute("UPDATE guilds SET language = $1 WHERE guild_id = $2", language, ctx.guild.id)
+        self.bot.translations[ctx.guild.id] = language
+        await ctx.send(_("{0} Changed the bot language to `{1}`").format(self.bot.settings['emojis']['misc']['white-mark'], language))
 
     @commands.group(brief=_("A rough overview on server settings"),
                     aliases=['settings', 'guildsettings'],
@@ -148,19 +148,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         if not joinmessage:
             return await ctx.send(_("{0} Welcome messages are disabled in this server.").format(self.bot.settings['emojis']['misc']['warn']))
 
-        elif joinmessage:
-            if not joinmessage['embedded']:
-                return await ctx.send(_("{0} Welcome messages do not use embeds in this server.").format(self.bot.settings['emojis']['misc']['warn']))
-            else:
-                if joinmessage['message']:
-                    message = json.loads(joinmessage['message'])
-                else:
-                    message = self.bot.settings['default']['join_message_embed']
-                embed = discord.Embed.from_dict(message)
-                if not embed:
-                    return await ctx.send(_("{0} Embed code is invalid, or only plain text is visible. "
-                                            "Please make sure you're using the correct format by visiting this website <https://embedbuilder.nadekobot.me/>").format(self.bot.settings['emojis']['misc']['warn']))
-                await ctx.send(content=_("Your welcome embed looks like this: *plain text is not displayed*"), embed=embed)
+        if not joinmessage['embedded']:
+            return await ctx.send(_("{0} Welcome messages do not use embeds in this server.").format(self.bot.settings['emojis']['misc']['warn']))
+
+        message = json.loads(joinmessage['message']) or self.bot.settings['default']['join_message_embed']
+        embed = discord.Embed.from_dict(message)
+        if not embed:
+            return await ctx.send(_("{0} Embed code is invalid, or only plain text is visible. "
+                                    "Please make sure you're using the correct format by visiting this website <https://embedbuilder.nadekobot.me/>").format(self.bot.settings['emojis']['misc']['warn']))
+        await ctx.send(content=_("Your welcome embed looks like this: *plain text is not displayed*"), embed=embed)
 
     @serversettings.command(name='leaveembed', brief=_("View leaving embed"))
     @commands.guild_only()
@@ -172,19 +168,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         if not leavemessage:
             return await ctx.send(_("{0} Leave messages are disabled in this server.").format(self.bot.settings['emojis']['misc']['warn']))
 
-        elif leavemessage:
-            if not leavemessage['embedded']:
-                return await ctx.send(_("{0} Leave messages do not use embeds in this server.").format(self.bot.settings['emojis']['misc']['warn']))
-            else:
-                if leavemessage['message']:
-                    message = leavemessage['message']
-                else:
-                    message = self.bot.settings['default']['leave_message_embed']
-                embed = discord.Embed.from_dict(message)
-                if not embed:
-                    return await ctx.send(_("{0} Embed code is invalid, or only plain text is visible. "
-                                            "Please make sure you're using the correct format by visiting this website <https://embedbuilder.nadekobot.me/>").format(self.bot.settings['emojis']['misc']['warn']))
-                await ctx.send(content=_("Your leave embed looks like this: *plain text is not displayed*"), embed=embed)
+        if not leavemessage['embedded']:
+            return await ctx.send(_("{0} Leave messages do not use embeds in this server.").format(self.bot.settings['emojis']['misc']['warn']))
+
+        message = json.loads(leavemessage['message']) or self.bot.settings['default']['leave_message_embed']
+        embed = discord.Embed.from_dict(message)
+        if not embed:
+            return await ctx.send(_("{0} Embed code is invalid, or only plain text is visible. "
+                                    "Please make sure you're using the correct format by visiting this website <https://embedbuilder.nadekobot.me/>").format(self.bot.settings['emojis']['misc']['warn']))
+        await ctx.send(content=_("Your leave embed looks like this: *plain text is not displayed*"), embed=embed)
 
     @commands.group(brief=_("Toggle logging on or off"),
                     aliases=['logging'],
@@ -208,7 +200,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         _(""" This enables or disables member logging.
         Member logging includes: avatar changes, nickname changes, username changes. """)
 
-        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
+        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         memberlogs = self.bot.cache.get(self.bot, 'memberlog', ctx.guild.id)
@@ -217,15 +209,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await self.bot.db.execute("DELETE from memberlog WHERE guild_id = $1", ctx.guild.id)
             self.bot.memberlog.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfully disabled member logs.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif memberlogs and channel:
+        elif memberlogs:
             await self.bot.db.execute("UPDATE memberlog SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
             self.bot.memberlog[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Successfully changed the member logging channel. I will now send member updates in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                                           channel.mention))
-        elif not memberlogs and not channel:
+        elif not channel:
             return await ctx.send(_("{0} You don't have member logs enabled in this server."
                                     "\n*Hint: If you want to enable logging, you need to provide a channel where logging should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not memberlogs and channel:
+        else:
             await self.bot.db.execute("INSERT INTO memberlog VALUES($1, $2)", ctx.guild.id, channel.id)
             self.bot.memberlog[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Successfully enabled member logs. I will now send member updates in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
@@ -242,7 +234,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         _(""" This enables or disables new members logging
         New member logging includes: join logging. """)
 
-        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
+        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         joinlogs = self.bot.cache.get(self.bot, 'joinlog', ctx.guild.id)
@@ -251,16 +243,16 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await self.bot.db.execute("DELETE from joinlog WHERE guild_id = $1", ctx.guild.id)
             self.bot.joinlog.pop(ctx.guild.id)
             return await ctx.send(_("{0} New members logging was successfully disabled.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif joinlogs and channel:
+        elif joinlogs:
             await self.bot.db.execute("UPDATE joinlog SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
             self.bot.joinlog[ctx.guild.id] = channel.id
             self.bot.dispatch('member_joinlog', ctx.author)
             return await ctx.send(_("{0} Successfully changed the new member logging channel. I will now send member updates in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                                               channel.mention))
-        elif not joinlogs and not channel:
+        elif not channel:
             return await ctx.send(_("{0} You don't have new member logs enabled in this server."
                                     "\n*Hint: If you want to enable logging, you need to provide a channel where logging should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not joinlogs and channel:
+        else:
             await self.bot.db.execute("INSERT INTO joinlog VALUES($1, $2)", ctx.guild.id, channel.id)
             self.bot.joinlog[ctx.guild.id] = channel.id
             self.bot.dispatch('member_joinlog', ctx.author)
@@ -277,7 +269,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         _(""" This enables or disables member leave logging.
         Member leave logging includes: leave logging. """)
 
-        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
+        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         leavelogs = self.bot.cache.get(self.bot, 'leavelog', ctx.guild.id)
@@ -286,16 +278,16 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await self.bot.db.execute("DELETE from leavelog WHERE guild_id = $1", ctx.guild.id)
             self.bot.leavelog.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfully disabled leave member logs.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif leavelogs and channel:
+        elif leavelogs:
             await self.bot.db.execute("UPDATE leavelog SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
             self.bot.leavelog[ctx.guild.id] = channel.id
             self.bot.dispatch('member_leavelog', ctx.author)
             return await ctx.send(_("{0} Successfully changed the leave member logging channel. I will now send member updates in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                                                 channel.mention))
-        elif not leavelogs and not channel:
+        elif not channel:
             return await ctx.send(_("{0} You don't have leave member logs enabled in this server."
                                     "\n*Hint: If you want to enable logging, you need to provide a channel where logging should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not leavelogs and channel:
+        else:
             await self.bot.db.execute("INSERT INTO leavelog VALUES($1, $2)", ctx.guild.id, channel.id)
             self.bot.leavelog[ctx.guild.id] = channel.id
             self.bot.dispatch('member_leavelog', ctx.author)
@@ -312,7 +304,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         _(""" This enables or disables guild changes logging.
         Guild changes logging includes: name, region, icon, afk channel, mfa level, verification level, default notifications. """)
 
-        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
+        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         guildlogs = self.bot.cache.get(self.bot, 'guildlog', ctx.guild.id)
@@ -321,15 +313,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await self.bot.db.execute("DELETE from guildlog WHERE guild_id = $1", ctx.guild.id)
             self.bot.guildlog.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfully disabled guild log updates.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif guildlogs and channel:
+        elif guildlogs:
             await self.bot.db.execute("UPDATE guildlog SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
             self.bot.guildlog[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Successfully changed the guild log updates channel. I will now send guild updates in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                                             channel.mention))
-        elif not guildlogs and not channel:
+        elif not channel:
             return await ctx.send(_("{0} You don't have guild update logging enabled in this server."
                                     "\n*Hint: If you want to enable logging, you need to provide a channel where logging should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not guildlogs and channel:
+        else:
             await self.bot.db.execute("INSERT INTO guildlog VALUES($1, $2)", ctx.guild.id, channel.id)
             self.bot.guildlog[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Successfully enabled guild updates logging. I will now send guild updates in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
@@ -345,7 +337,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     async def togglelog_messageedits(self, ctx, channel: discord.TextChannel = None):
         _(""" This enables or disables messages edit logging """)
 
-        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
+        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         messageedit = self.bot.cache.get(self.bot, 'messageedits', ctx.guild.id)
@@ -354,15 +346,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await self.bot.db.execute("DELETE from messageedits WHERE guild_id = $1", ctx.guild.id)
             self.bot.messageedits.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfully disabled edit message logs.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif messageedit and channel:
+        elif messageedit:
             await self.bot.db.execute("UPDATE messageedits SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
             self.bot.messageedits[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Successfully updated the logging channel for edited messages to {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                        channel.mention))
-        elif not messageedit and not channel:
+        elif not channel:
             return await ctx.send(_("{0} You don't have edit message logs enabled in this server."
                                     "\n*Hint: If you want to enable logging, you need to provide a channel where logging should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not messageedit and channel:
+        else:
             await self.bot.db.execute("INSERT INTO messageedits VALUES($1, $2)", ctx.guild.id, channel.id)
             self.bot.messageedits[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Enabled edit message logging in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
@@ -377,7 +369,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     async def togglelog_messagedeletes(self, ctx, channel: discord.TextChannel = None):
         _(""" This enables or disables messages deleting logging """)
 
-        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
+        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         messagedelete = self.bot.cache.get(self.bot, 'messagedeletes', ctx.guild.id)
@@ -386,15 +378,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await self.bot.db.execute("DELETE from messagedeletes WHERE guild_id = $1", ctx.guild.id)
             self.bot.messagedeletes.pop(ctx.guild.id)
             return await ctx.send(_("{0} Successfully disabled deleted message logs.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif messagedelete and channel:
+        elif messagedelete:
             await self.bot.db.execute("UPDATE messagedeletes SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
             self.bot.messagedeletes[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Successfully updated the logging channel for deleted messages to {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                         channel.mention))
-        elif not messagedelete and not channel:
+        elif not channel:
             return await ctx.send(_("{0} Deleted message logs are currently disabled in this server."
                                     "\n*Hint: If you want to enable logging, you need to provide a channel where logging should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not messagedelete and channel:
+        else:
             await self.bot.db.execute("INSERT INTO messagedeletes VALUES($1, $2)", ctx.guild.id, channel.id)
             self.bot.messagedeletes[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Enabled deleted message logging in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
@@ -410,7 +402,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         _(""" This enables or disables moderation logging
         Moderation logging includes: bans, kicks, mutes, unbans, unmutes. """)
 
-        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
+        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         moderation = self.bot.cache.get(self.bot, 'moderation', ctx.guild.id)
@@ -419,15 +411,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await self.bot.db.execute("DELETE from moderation WHERE guild_id = $1", ctx.guild.id)
             self.bot.moderation.pop(ctx.guild.id)
             return await ctx.send(_("{0} Moderation logging was successfully disabled.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif moderation and channel:
+        elif moderation:
             await self.bot.db.execute("UPDATE moderation SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
             self.bot.moderation[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Successfully updated the moderation logging channel to {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                               channel.mention))
-        elif not moderation and not channel:
+        elif not channel:
             return await ctx.send(_("{0} Moderation logs are currently disabled in this server."
                                     "\n*Hint: If you want to enable logging, you need to provide a channel where logging should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not moderation and channel:
+        else:
             await self.bot.db.execute("INSERT INTO moderation VALUES($1, $2)", ctx.guild.id, channel.id)
             self.bot.moderation[ctx.guild.id] = channel.id
             return await ctx.send(_("{0} Enabled moderation logging in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
@@ -442,7 +434,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     async def togglelog_all(self, ctx, channel: discord.TextChannel = None):
         _(""" This enables all the logging """)
 
-        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
+        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         options = ['moderation', 'memberlog', 'joinlog', 'leavelog', 'guildlog', 'messageedits', 'messagedeletes']
@@ -457,12 +449,11 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                         attr.pop(ctx.guild.id)
                     except Exception:
                         count += 1
-                        pass
             if count == 7:
                 return await ctx.send(_("{0} Logs are currently disabled in this server."
                                         "\n*Hint: If you want to enable logging, you need to provide a channel where logging should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
             return await ctx.send(_("{0} Successfully disabled logging.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif channel:
+        else:
             query = """INSERT INTO {0}(guild_id, channel_id) VALUES($1, $2) ON CONFLICT (guild_id) DO UPDATE SET channel_id = $2 WHERE {0}.guild_id = $1"""
             for option in options:
                 await self.bot.db.execute(query.format(option), ctx.guild.id, channel.id)
@@ -488,22 +479,22 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         if new_nickname and len(new_nickname) > 32:
             return await ctx.send(_("{0} Nickname can't be longer than 32 characters over, you're {1} characters over.").format(self.bot.settings['emojis']['misc']['warn'], len(new_nickname) - 32))
 
-        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:
+        if channel and not channel.can_send or channel and not channel.permissions_for(ctx.guild.me).embed_links:  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         if check and not channel:
             await self.bot.db.execute("DELETE from antihoist WHERE guild_id = $1", ctx.guild.id)
             self.bot.antihoist.pop(ctx.guild.id)
             return await ctx.send(_("{0} Anti hoist was successfully disabled.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif check and channel:
+        elif check:
             await self.bot.db.execute("UPDATE antihoist SET channel_id = $1, new_nick = $2 WHERE guild_id = $3", channel.id, new_nickname, ctx.guild.id)
             self.bot.antihoist[ctx.guild.id] = {'channel': channel.id, 'nickname': new_nickname}
             return await ctx.send(_("{0} Successfully updated the anti hoist logging channel to {1} and nickname to {2}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                                                                   channel.mention, new_nickname))
-        elif not check and not channel:
+        elif not channel:
             return await ctx.send(_("{0} Anti hoisting is currently disabled in this server."
                                     "\n*Hint: If you want to enable it, you need to provide a channel where logging should be sent to and a new nickname*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not check and channel:
+        else:
             await self.bot.db.execute("INSERT INTO antihoist VALUES($1, $2)", ctx.guild.id, channel.id)
             self.bot.antihoist[ctx.guild.id] = {'channel': channel.id, 'nickname': new_nickname}
             return await ctx.send(_("{0} Enabled anti hoist logging in {1} and set the new nickname to {2}.").format(self.bot.settings['emojis']['misc']['white-mark'],
@@ -527,7 +518,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         _(""" Set a channel where welcoming messages should be sent to.
         Make sure bot has permissions to send messages in that channel. """)
 
-        if channel and (not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links):
+        if channel and (not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links):  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         joinmessages = self.bot.cache.get(self.bot, 'joinmessage', ctx.guild.id)
@@ -536,15 +527,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await self.bot.db.execute("DELETE from joinmessage WHERE guild_id = $1", ctx.guild.id)
             self.bot.joinmessage.pop(ctx.guild.id)
             return await ctx.send(_("{0} Disabled welcome messages.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif joinmessages and channel:
+        elif joinmessages:
             await self.bot.db.execute("UPDATE joinmessage SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
             self.bot.joinmessage[ctx.guild.id]['channel'] = channel.id
             return await ctx.send(_("{0} Enabled welcome messages in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                    channel.mention))
-        elif not joinmessages and not channel:
+        elif not channel:
             return await ctx.send(_("{0} Welcome messages are currently disabled in this server."
                                     "\n*Hint: If you want to enable them you need to provide a channel where they should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not joinmessages and channel:
+        else:
             query = "INSERT INTO joinmessage(guild_id, embedded, log_bots, channel_id, message) VALUES($1, $2, $3, $4, $5)"
             await self.bot.db.execute(query, ctx.guild.id, False, True, channel.id, None)
             self.bot.joinmessage[ctx.guild.id] = {'message': None, 'embedded': False, 'log_bots': True, 'channel': channel.id}
@@ -558,7 +549,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
     @locale_doc
-    async def welcoming_message(self, ctx, *, message: str = None):
+    async def welcoming_message(self, ctx, *, message: str = None):  # sourcery no-metrics
         _(""" Set the welcoming messages in the server
         Passing no message will reset your welcoming message to the default one.
          
@@ -579,42 +570,41 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                     "To enable them run `{1}welcoming channel [#channel]`").format(self.bot.settings['emojis']['misc']['warn'],
                                                                                                    ctx.prefix))
 
-        elif joinmessage:
-            if not joinmessage['embedded']:
-                if not message:
-                    message = str(self.bot.settings['default']['join_message_text'])
+        if not joinmessage['embedded']:
+            if not message:
+                message = str(self.bot.settings['default']['join_message_text'])
 
-                if joinmessage['message'] == message:
-                    return await ctx.send(_("{0} Your current welcome message is the same as the new one.").format(self.bot.settings['emojis']['misc']['warn']))
-                if len(message) > 1000:
-                    return await ctx.send(_("{0} Welcome messages can't be longer than 1000 characters. You're {1} character(s) over the limit.").format(self.bot.settings['emojis']['misc']['warn'],
-                                                                                                                                                         len(message) - 1000))
-                await self.bot.db.execute("UPDATE joinmessage SET message = $1 WHERE guild_id = $2", message, ctx.guild.id)
-                self.bot.joinmessage[ctx.guild.id]['message'] = message
-                await ctx.send(_("{0} **Successfully set your welcome message to:**\n{1}").format(self.bot.settings['emojis']['misc']['white-mark'],
-                                                                                                  message))
+            if joinmessage['message'] == message:
+                return await ctx.send(_("{0} Your current welcome message is the same as the new one.").format(self.bot.settings['emojis']['misc']['warn']))
+            if len(message) > 1000:
+                return await ctx.send(_("{0} Welcome messages can't be longer than 1000 characters. You're {1} character(s) over the limit.").format(self.bot.settings['emojis']['misc']['warn'],
+                                                                                                                                                     len(message) - 1000))
+            await self.bot.db.execute("UPDATE joinmessage SET message = $1 WHERE guild_id = $2", message, ctx.guild.id)
+            self.bot.joinmessage[ctx.guild.id]['message'] = message
+            await ctx.send(_("{0} **Successfully set your welcome message to:**\n{1}").format(self.bot.settings['emojis']['misc']['white-mark'],
+                                                                                              message))
 
-            elif joinmessage['embedded']:
-                if message:
-                    try:
-                        jsonify = json.loads(message)
-                    except Exception as e:
-                        return await ctx.send(_("{0} Your sent dict is invalid. Please "
-                                                "use <https://embedbuilder.nadekobot.me/> to create an embed dict, then paste the code here.").format(self.bot.settings['emojis']['misc']['warn']))
-                elif not message:
-                    jsonify = self.bot.settings['default']['join_message_embed']
-
-                if joinmessage['message'] == message:
-                    return await ctx.send(_("{0} Your current welcome message is the same as the new one.").format(self.bot.settings['emojis']['misc']['warn']))
-
-                welcoming_embed = discord.Embed.from_dict(jsonify)
-                if not welcoming_embed:
-                    return await ctx.send(_("{0} Your embed seems to be empty. Please "
+        else:
+            if message:
+                try:
+                    jsonify = json.loads(message)
+                except Exception:
+                    return await ctx.send(_("{0} Your sent dict is invalid. Please "
                                             "use <https://embedbuilder.nadekobot.me/> to create an embed dict, then paste the code here.").format(self.bot.settings['emojis']['misc']['warn']))
-                await self.bot.db.execute("UPDATE joinmessage SET message = $1 WHERE guild_id = $2", message, ctx.guild.id)
-                self.bot.joinmessage[ctx.guild.id]['message'] = message
-                plainText = '' if 'plainText' not in jsonify else _("\n**Plain Text:** {0}").format(jsonify['plainText'])
-                await ctx.send(content=_("**Here is your new welcome embed:**{0}").format(plainText), embed=welcoming_embed)
+            else:
+                jsonify = self.bot.settings['default']['join_message_embed']
+
+            if joinmessage['message'] == message:
+                return await ctx.send(_("{0} Your current welcome message is the same as the new one.").format(self.bot.settings['emojis']['misc']['warn']))
+
+            welcoming_embed = discord.Embed.from_dict(jsonify)
+            if not welcoming_embed:
+                return await ctx.send(_("{0} Your embed seems to be empty. Please "
+                                        "use <https://embedbuilder.nadekobot.me/> to create an embed dict, then paste the code here.").format(self.bot.settings['emojis']['misc']['warn']))
+            await self.bot.db.execute("UPDATE joinmessage SET message = $1 WHERE guild_id = $2", message, ctx.guild.id)
+            self.bot.joinmessage[ctx.guild.id]['message'] = message
+            plainText = '' if 'plainText' not in jsonify else _("\n**Plain Text:** {0}").format(jsonify['plainText'])
+            await ctx.send(content=_("**Here is your new welcome embed:**{0}").format(plainText), embed=welcoming_embed)
 
     @welcoming.command(name='toggle',
                        brief=_("Toggle welcoming messages type"))
@@ -632,17 +622,16 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                     "To enable them run `{1}welcoming channel [#channel]`").format(self.bot.settings['emojis']['misc']['warn'],
                                                                                                    ctx.prefix))
 
-        elif joinmessage:
-            if joinmessage['embedded']:
-                await self.bot.db.execute("UPDATE joinmessage SET embedded = $1, message = $2 WHERE guild_id = $3", False, None, ctx.guild.id)
-                self.bot.joinmessage[ctx.guild.id]['embedded'] = False
-                self.bot.joinmessage[ctx.guild.id]['message'] = None
-                await ctx.send(_("{0} Welcome messages will not be sent in embeds anymore.").format(self.bot.settings['emojis']['misc']['white-mark']))
-            elif not joinmessage['embedded']:
-                await self.bot.db.execute("UPDATE joinmessage SET embedded = $1, message = $2 WHERE guild_id = $3", True, None, ctx.guild.id)
-                self.bot.joinmessage[ctx.guild.id]['embedded'] = True
-                self.bot.joinmessage[ctx.guild.id]['message'] = None
-                await ctx.send(_("{0} Welcome messages will now be sent in embeds.").format(self.bot.settings['emojis']['misc']['white-mark']))
+        if joinmessage['embedded']:
+            await self.bot.db.execute("UPDATE joinmessage SET embedded = $1, message = $2 WHERE guild_id = $3", False, None, ctx.guild.id)
+            self.bot.joinmessage[ctx.guild.id]['embedded'] = False
+            self.bot.joinmessage[ctx.guild.id]['message'] = None
+            await ctx.send(_("{0} Welcome messages will not be sent in embeds anymore.").format(self.bot.settings['emojis']['misc']['white-mark']))
+        else:
+            await self.bot.db.execute("UPDATE joinmessage SET embedded = $1, message = $2 WHERE guild_id = $3", True, None, ctx.guild.id)
+            self.bot.joinmessage[ctx.guild.id]['embedded'] = True
+            self.bot.joinmessage[ctx.guild.id]['message'] = None
+            await ctx.send(_("{0} Welcome messages will now be sent in embeds.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
     @welcoming.command(name='bots',
                        brief=_("Toggle bot welcoming messages"),
@@ -661,15 +650,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                     "To enable them run `{1}welcoming channel [#channel]`").format(self.bot.settings['emojis']['misc']['warn'],
                                                                                                    ctx.prefix))
 
-        elif joinmessage:
-            if joinmessage['log_bots']:
-                await self.bot.db.execute("UPDATE joinmessage SET log_bots = $1 WHERE guild_id = $2", False, ctx.guild.id)
-                self.bot.joinmessage[ctx.guild.id]['log_bots'] = False
-                await ctx.send(_("{0} I will no longer welcome bots.").format(self.bot.settings['emojis']['misc']['white-mark']))
-            elif not joinmessage['log_bots']:
-                await self.bot.db.execute("UPDATE joinmessage SET log_bots = $1 WHERE guild_id = $2", True, ctx.guild.id)
-                self.bot.joinmessage[ctx.guild.id]['log_bots'] = True
-                await ctx.send(_("{0} I will now longer welcome bots.").format(self.bot.settings['emojis']['misc']['white-mark']))
+        if joinmessage['log_bots']:
+            await self.bot.db.execute("UPDATE joinmessage SET log_bots = $1 WHERE guild_id = $2", False, ctx.guild.id)
+            self.bot.joinmessage[ctx.guild.id]['log_bots'] = False
+            await ctx.send(_("{0} I will no longer welcome bots.").format(self.bot.settings['emojis']['misc']['white-mark']))
+        else:
+            await self.bot.db.execute("UPDATE joinmessage SET log_bots = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            self.bot.joinmessage[ctx.guild.id]['log_bots'] = True
+            await ctx.send(_("{0} I will now longer welcome bots.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
     @commands.group(brief=_("Edit the leaving messages"), invoke_without_command=True)
     @commands.guild_only()
@@ -689,7 +677,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         _(""" Set a channel where leaving messages should be sent to.
         Make sure bot has permissions to send messages in that channel. """)
 
-        if channel and (not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links):
+        if channel and (not channel.can_send or not channel.permissions_for(ctx.guild.me).embed_links):  # type: ignore
             return await ctx.send(_("{0} I'm missing permissions in that channel. Make sure you have given me the correct permissions!").format(self.bot.settings['emojis']['misc']['warn']))
 
         leavemessages = self.bot.cache.get(self.bot, 'leavemessage', ctx.guild.id)
@@ -698,15 +686,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             await self.bot.db.execute("DELETE from leavemessage WHERE guild_id = $1", ctx.guild.id)
             self.bot.leavemessage.pop(ctx.guild.id)
             return await ctx.send(_("{0} Leave messages are now disabled.").format(self.bot.settings['emojis']['misc']['white-mark']))
-        elif leavemessages and channel:
+        elif leavemessages:
             await self.bot.db.execute("UPDATE leavemessage SET channel_id = $1 WHERE guild_id = $2", channel.id, ctx.guild.id)
             self.bot.leavemessage[ctx.guild.id]['channel'] = channel.id
             return await ctx.send(_("{0} I will now send leave messages in {1}.").format(self.bot.settings['emojis']['misc']['white-mark'],
                                                                                          channel.mention))
-        elif not leavemessages and not channel:
+        elif not channel:
             return await ctx.send(_("{0} You don't have leave messages enabled in this server."
                                     "\n*Hint: If you want to enable them, you need to provide a channel where they should be sent to*").format(self.bot.settings['emojis']['misc']['warn']))
-        elif not leavemessages and channel:
+        else:
             query = "INSERT INTO leavemessage(guild_id, embedded, log_bots, channel_id, message) VALUES($1, $2, $3, $4, $5)"
             await self.bot.db.execute(query, ctx.guild.id, False, True, channel.id, None)
             self.bot.leavemessage[ctx.guild.id] = {'message': None, 'embedded': False, 'log_bots': True, 'channel': channel.id}
@@ -720,7 +708,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     @commands.cooldown(1, 10, commands.BucketType.member)
     @admin(manage_guild=True)
     @locale_doc
-    async def leaving_message(self, ctx, *, message: str = None):
+    async def leaving_message(self, ctx, *, message: str = None):  # sourcery no-metrics
         _(""" Set the leaving messages in the server
         Passing no message will reset your leaving message to the default one
                  
@@ -741,42 +729,41 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                     "To enable them run `{1}leaving channel [#channel]`").format(self.bot.settings['emojis']['misc']['warn'],
                                                                                                  ctx.prefix))
 
-        elif leavemessage:
-            if not leavemessage['embedded']:
-                if not message:
-                    message = str(self.bot.settings['default']['leave_message_text'])
+        if not leavemessage['embedded']:
+            if not message:
+                message = str(self.bot.settings['default']['leave_message_text'])
 
-                if leavemessage['message'] == message:
-                    return await ctx.send(_("{0} Your current leave message is the same as the new one.").format(self.bot.settings['emojis']['misc']['warn']))
-                if len(message) > 1000:
-                    return await ctx.send(_("{0} Leave messages can't be longer than 1000 characters. You're {1} character(s) over the limit.").format(self.bot.settings['emojis']['misc']['warn'],
-                                                                                                                                                       len(message) - 1000))
-                await self.bot.db.execute("UPDATE leavemessage SET message = $1 WHERE guild_id = $2", message, ctx.guild.id)
-                self.bot.leavemessage[ctx.guild.id]['message'] = message
-                await ctx.send(_("{0} **Successfully set your leave message to:**\n{1}").format(self.bot.settings['emojis']['misc']['white-mark'],
-                                                                                                message))
+            if leavemessage['message'] == message:
+                return await ctx.send(_("{0} Your current leave message is the same as the new one.").format(self.bot.settings['emojis']['misc']['warn']))
+            if len(message) > 1000:
+                return await ctx.send(_("{0} Leave messages can't be longer than 1000 characters. You're {1} character(s) over the limit.").format(self.bot.settings['emojis']['misc']['warn'],
+                                                                                                                                                   len(message) - 1000))
+            await self.bot.db.execute("UPDATE leavemessage SET message = $1 WHERE guild_id = $2", message, ctx.guild.id)
+            self.bot.leavemessage[ctx.guild.id]['message'] = message
+            await ctx.send(_("{0} **Successfully set your leave message to:**\n{1}").format(self.bot.settings['emojis']['misc']['white-mark'],
+                                                                                            message))
 
-            elif leavemessage['embedded']:
-                if message:
-                    try:
-                        jsonify = json.loads(message)
-                    except Exception as e:
-                        return await ctx.send(_("{0} Your sent dict is invalid. Please "
-                                                "use <https://embedbuilder.nadekobot.me/> to create an embed dict and then paste that code.").format(self.bot.settings['emojis']['misc']['warn']))
-                elif not message:
-                    jsonify = self.bot.settings['default']['leave_message_embed']
-
-                if leavemessage['message'] == message:
-                    return await ctx.send(_("{0} Your current leave message is the same as the new one.").format(self.bot.settings['emojis']['misc']['warn']))
-
-                leaving_embed = discord.Embed.from_dict(jsonify)
-                if not leaving_embed:
-                    return await ctx.send(_("{0} Your embed seems to be empty. Please "
+        else:
+            if message:
+                try:
+                    jsonify = json.loads(message)
+                except Exception:
+                    return await ctx.send(_("{0} Your sent dict is invalid. Please "
                                             "use <https://embedbuilder.nadekobot.me/> to create an embed dict and then paste that code.").format(self.bot.settings['emojis']['misc']['warn']))
-                await self.bot.db.execute("UPDATE leavemessage SET message = $1 WHERE guild_id = $2", message, ctx.guild.id)
-                self.bot.leavemessage[ctx.guild.id]['message'] = message
-                plainText = '' if 'plainText' not in jsonify else _("\n**Plain Text:** {0}").format(jsonify['plainText'])
-                await ctx.send(content=_("**Here is your new leave member embed message:**{0}").format(plainText), embed=leaving_embed)
+            else:
+                jsonify = self.bot.settings['default']['leave_message_embed']
+
+            if leavemessage['message'] == message:
+                return await ctx.send(_("{0} Your current leave message is the same as the new one.").format(self.bot.settings['emojis']['misc']['warn']))
+
+            leaving_embed = discord.Embed.from_dict(jsonify)
+            if not leaving_embed:
+                return await ctx.send(_("{0} Your embed seems to be empty. Please "
+                                        "use <https://embedbuilder.nadekobot.me/> to create an embed dict and then paste that code.").format(self.bot.settings['emojis']['misc']['warn']))
+            await self.bot.db.execute("UPDATE leavemessage SET message = $1 WHERE guild_id = $2", message, ctx.guild.id)
+            self.bot.leavemessage[ctx.guild.id]['message'] = message
+            plainText = '' if 'plainText' not in jsonify else _("\n**Plain Text:** {0}").format(jsonify['plainText'])
+            await ctx.send(content=_("**Here is your new leave member embed message:**{0}").format(plainText), embed=leaving_embed)
 
     @leaving.command(name='toggle',
                      brief=_("Toggle leaving messages type"))
@@ -794,17 +781,16 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                     "without having them toggled on? To enable them run `{1}leaving channel [#channel]`").format(self.bot.settings['emojis']['misc']['warn'],
                                                                                                                                  ctx.prefix))
 
-        elif leavemessage:
-            if leavemessage['embedded']:
-                await self.bot.db.execute("UPDATE leavemessage SET embedded = $1, message = $2 WHERE guild_id = $3", False, None, ctx.guild.id)
-                self.bot.leavemessage[ctx.guild.id]['embedded'] = False
-                self.bot.leavemessage[ctx.guild.id]['message'] = None
-                await ctx.send(_("{0} Leave messages will no longer be sent in embeds.").format(self.bot.settings['emojis']['misc']['white-mark']))
-            elif not leavemessage['embedded']:
-                await self.bot.db.execute("UPDATE leavemessage SET embedded = $1, message = $2 WHERE guild_id = $3", True, None, ctx.guild.id)
-                self.bot.leavemessage[ctx.guild.id]['embedded'] = True
-                self.bot.leavemessage[ctx.guild.id]['message'] = None
-                await ctx.send(_("{0} Leave messages will now be sent in embeds.").format(self.bot.settings['emojis']['misc']['white-mark']))
+        if leavemessage['embedded']:
+            await self.bot.db.execute("UPDATE leavemessage SET embedded = $1, message = $2 WHERE guild_id = $3", False, None, ctx.guild.id)
+            self.bot.leavemessage[ctx.guild.id]['embedded'] = False
+            self.bot.leavemessage[ctx.guild.id]['message'] = None
+            await ctx.send(_("{0} Leave messages will no longer be sent in embeds.").format(self.bot.settings['emojis']['misc']['white-mark']))
+        else:
+            await self.bot.db.execute("UPDATE leavemessage SET embedded = $1, message = $2 WHERE guild_id = $3", True, None, ctx.guild.id)
+            self.bot.leavemessage[ctx.guild.id]['embedded'] = True
+            self.bot.leavemessage[ctx.guild.id]['message'] = None
+            await ctx.send(_("{0} Leave messages will now be sent in embeds.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
     @leaving.command(name='bots',
                      brief=_("Toggle bot leaving"),
@@ -823,15 +809,14 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                     "without having them toggled on? To enable them run `{1}leaving channel [#channel]`").format(self.bot.settings['emojis']['misc']['warn'],
                                                                                                                                  ctx.prefix))
 
-        elif leavemessage:
-            if leavemessage['log_bots']:
-                await self.bot.db.execute("UPDATE leavemessage SET log_bots = $1 WHERE guild_id = $2", False, ctx.guild.id)
-                self.bot.leavemessage[ctx.guild.id]['log_bots'] = False
-                await ctx.send(_("{0} Bot leave messages have been turned off.").format(self.bot.settings['emojis']['misc']['white-mark']))
-            elif not leavemessage['log_bots']:
-                await self.bot.db.execute("UPDATE leavemessage SET log_bots = $1 WHERE guild_id = $2", True, ctx.guild.id)
-                self.bot.leavemessage[ctx.guild.id]['log_bots'] = True
-                await ctx.send(_("{0} Bot leave messages have been turned on.").format(self.bot.settings['emojis']['misc']['white-mark']))
+        if leavemessage['log_bots']:
+            await self.bot.db.execute("UPDATE leavemessage SET log_bots = $1 WHERE guild_id = $2", False, ctx.guild.id)
+            self.bot.leavemessage[ctx.guild.id]['log_bots'] = False
+            await ctx.send(_("{0} Bot leave messages have been turned off.").format(self.bot.settings['emojis']['misc']['white-mark']))
+        else:
+            await self.bot.db.execute("UPDATE leavemessage SET log_bots = $1 WHERE guild_id = $2", True, ctx.guild.id)
+            self.bot.leavemessage[ctx.guild.id]['log_bots'] = True
+            await ctx.send(_("{0} Bot leave messages have been turned on.").format(self.bot.settings['emojis']['misc']['white-mark']))
 
     @commands.group(name='joinrole',
                     brief=_("Toggle role on join"),
@@ -854,7 +839,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     @commands.cooldown(1, 10, commands.BucketType.member)
     @commands.guild_only()
     @locale_doc
-    async def joinrole_people(self, ctx, role: discord.Role = None):
+    async def joinrole_people(self, ctx):
         _(""" Choose what role will be given to new users """)
 
         await ctx.send_help(ctx.command)
@@ -868,6 +853,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
     @commands.guild_only()
     @locale_doc
     async def joinrole_people_add(self, ctx, *, role: discord.Role):
+        # sourcery skip: remove-redundant-if, remove-unnecessary-else
         _(""" Add a role to role on join for people """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
@@ -906,19 +892,17 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         _(""" Remove a role from role on join for people """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
-        mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
-        admin_role = self.bot.cache.get(self.bot, 'admin_role', ctx.guild.id)
 
         if not joinrole:
             return await ctx.send(_("{0} Role on is not enabled in this server, please use "
                                     "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
-        elif joinrole:
-            if role.id not in joinrole['people']:
-                return await ctx.send(_("{0} That role is not added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
-            await self.bot.db.execute("DELETE FROM joinrole WHERE guild_id = $1 AND role = $2", ctx.guild.id, role.id)
-            joinrole['people'].remove(role.id)
 
-            await ctx.send(_("{0} Removed {1} from join role for people.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+        if role.id not in joinrole['people']:
+            return await ctx.send(_("{0} That role is not added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
+        await self.bot.db.execute("DELETE FROM joinrole WHERE guild_id = $1 AND role = $2", ctx.guild.id, role.id)
+        joinrole['people'].remove(role.id)
+
+        await ctx.send(_("{0} Removed {1} from join role for people.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @joinrole_people.command(name='list',
                              brief=_("See all the roles on join for people"),
@@ -935,7 +919,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         if not joinrole:
             return await ctx.send(_("{0} Role on is not enabled in this server, please use "
                                     "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
-        elif joinrole and joinrole['people']:
+        elif joinrole['people']:
             list_of_roles = []
             for num, role in enumerate(joinrole['people'], start=1):
                 the_role = ctx.guild.get_role(role)
@@ -945,14 +929,12 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             paginator = Pages(ctx,
                               title=_("Role on join for people"),
                               entries=list_of_roles,
-                              thumbnail=None,
                               per_page=15,
                               embed_color=self.bot.settings['colors']['embed_color'],
-                              show_entry_count=True,
                               author=ctx.author)
             await paginator.paginate()
 
-        elif joinrole and not joinrole['people']:
+        else:
             return await ctx.send(_("{0} There are no role on join roles for people set.").format(self.bot.settings['emojis']['misc']['warn']))
 
     @joinrole.group(name='bots',
@@ -987,22 +969,22 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         if not joinrole:
             return await ctx.send(_("{0} Role on is not enabled in this server, please use "
                                     "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
-        elif joinrole:
-            if role and role.id in (mod_role, admin_role):
-                return await ctx.send(_("{0} You cannot set that role as it is configured as mod or admin role").format(self.bot.settings['emojis']['misc']['warn']))
-            if role.position >= ctx.guild.me.top_role.position:
-                return await ctx.send(_("{0} The role you're trying to setup is higher in role hierarchy and I cannot access it.").format(
-                    self.bot.settings['emojis']['misc']['warn']
-                ))
-            if role.id in joinrole['bots']:
-                return await ctx.send(_("{0} That role is already added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
-            await self.bot.db.execute("INSERT INTO joinrole(guild_id, botrole) VALUES($1, $2)", ctx.guild.id, role.id)
-            if joinrole['bots']:
-                joinrole['bots'].append(role.id)
-            elif not joinrole['bots']:
-                joinrole['bots'] = [role.id]
 
-            await ctx.send(_("{0} Added {1} to join role for bots.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+        if role and role.id in (mod_role, admin_role):
+            return await ctx.send(_("{0} You cannot set that role as it is configured as mod or admin role").format(self.bot.settings['emojis']['misc']['warn']))
+        if role.position >= ctx.guild.me.top_role.position:
+            return await ctx.send(_("{0} The role you're trying to setup is higher in role hierarchy and I cannot access it.").format(
+                self.bot.settings['emojis']['misc']['warn']
+            ))
+        if role.id in joinrole['bots']:
+            return await ctx.send(_("{0} That role is already added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
+        await self.bot.db.execute("INSERT INTO joinrole(guild_id, botrole) VALUES($1, $2)", ctx.guild.id, role.id)
+        if joinrole['bots']:
+            joinrole['bots'].append(role.id)
+        else:
+            joinrole['bots'] = [role.id]
+
+        await ctx.send(_("{0} Added {1} to join role for bots.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @joinrole_bots.command(name='remove',
                            brief=_("Remove a role on join for bots"),
@@ -1016,19 +998,17 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         _(""" Remove a role from role on join for bots """)
 
         joinrole = self.bot.cache.get(self.bot, 'joinrole', ctx.guild.id)
-        mod_role = self.bot.cache.get(self.bot, 'mod_role', ctx.guild.id)
-        admin_role = self.bot.cache.get(self.bot, 'admin_role', ctx.guild.id)
 
         if not joinrole:
             return await ctx.send(_("{0} Role on is not enabled in this server, please use "
                                     "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
-        elif joinrole:
-            if role.id not in joinrole['bots']:
-                return await ctx.send(_("{0} That role is not added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
-            await self.bot.db.execute("DELETE FROM joinrole WHERE guild_id = $1 AND botrole = $2", ctx.guild.id, role.id)
-            joinrole['bots'].remove(role.id)
 
-            await ctx.send(_("{0} Removed {1} from join role for bots.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
+        if role.id not in joinrole['bots']:
+            return await ctx.send(_("{0} That role is not added to role on join list.").format(self.bot.settings['emojis']['misc']['warn']))
+        await self.bot.db.execute("DELETE FROM joinrole WHERE guild_id = $1 AND botrole = $2", ctx.guild.id, role.id)
+        joinrole['bots'].remove(role.id)
+
+        await ctx.send(_("{0} Removed {1} from join role for bots.").format(self.bot.settings['emojis']['misc']['white-mark'], role.mention))
 
     @joinrole_bots.command(name='list',
                            brief=_("See all the roles on join for bots"),
@@ -1046,7 +1026,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         if not joinrole:
             return await ctx.send(_("{0} Role on is not enabled in this server, please use "
                                     "`{1}joinrole toggle` to enable it.").format(self.bot.settings['emojis']['misc']['warn'], ctx.prefix))
-        elif joinrole and joinrole['bots']:
+        elif joinrole['bots']:
             list_of_roles = []
             for num, role in enumerate(joinrole['bots'], start=1):
                 the_role = ctx.guild.get_role(role)
@@ -1056,14 +1036,12 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
             paginator = Pages(ctx,
                               title=_("Role on join for bots"),
                               entries=list_of_roles,
-                              thumbnail=None,
                               per_page=15,
                               embed_color=self.bot.settings['colors']['embed_color'],
-                              show_entry_count=True,
                               author=ctx.author)
             await paginator.paginate()
 
-        elif joinrole and not joinrole['bots']:
+        else:
             return await ctx.send(_("{0} There are no role on join roles for bots set.").format(self.bot.settings['emojis']['misc']['warn']))
 
     @joinrole.command(name='toggle',
@@ -1108,7 +1086,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await self.bot.db.execute("DELETE FROM muterole WHERE guild_id = $1", ctx.guild.id)
                 self.bot.mute_role.pop(ctx.guild.id)
                 await ctx.send(_("{0} The mute role has been reset.").format(self.bot.settings['emojis']['misc']['white-mark']))
-            elif arg == "reset" and not mute_role:
+            elif arg == "reset":
                 await ctx.send(_("{0} You do not have a mute role set up.").format(self.bot.settings['emojis']['misc']['warn']))
             else:
                 return await ctx.send(_("{0} That role was not found! If you're trying to reset the mute role, you can use `reset` as the argument.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -1123,7 +1101,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await self.bot.db.execute("INSERT INTO muterole(guild_id, role_id) VALUES($1, $2)", ctx.guild.id, arg.id)
                 self.bot.mute_role[ctx.guild.id] = arg.id
                 await ctx.send(_("{0} Set the muted role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
-            elif mute_role:
+            else:
                 await self.bot.db.execute("UPDATE muterole SET role_id = $1 WHERE guild_id = $2", arg.id, ctx.guild.id)
                 self.bot.mute_role[ctx.guild.id] = arg.id
                 await ctx.send(_("{0} Updated the muted role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
@@ -1147,7 +1125,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await self.bot.db.execute("DELETE FROM modrole WHERE guild_id = $1", ctx.guild.id)
                 self.bot.mod_role.pop(ctx.guild.id)
                 await ctx.send(_("{0} Successfully reset the moderator role.").format(self.bot.settings['emojis']['misc']['white-mark']))
-            elif arg == "reset" and not mod_role:
+            elif arg == "reset":
                 await ctx.send(_("{0} You don't have a custom moderator role setup.").format(self.bot.settings['emojis']['misc']['warn']))
             else:
                 return await ctx.send(_("{0} Role was not found, if you're trying to reset the "
@@ -1163,7 +1141,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await self.bot.db.execute("INSERT INTO modrole(guild_id, role) VALUES($1, $2)", ctx.guild.id, arg.id)
                 self.bot.mod_role[ctx.guild.id] = arg.id
                 await ctx.send(_("{0} Set a custom moderator role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
-            elif mod_role:
+            else:
                 await self.bot.db.execute("UPDATE modrole SET role = $1 WHERE guild_id = $2", arg.id, ctx.guild.id)
                 self.bot.mod_role[ctx.guild.id] = arg.id
                 await ctx.send(_("{0} Changed a custom moderator role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
@@ -1187,7 +1165,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await self.bot.db.execute("DELETE FROM adminrole WHERE guild_id = $1", ctx.guild.id)
                 self.bot.admin_role.pop(ctx.guild.id)
                 await ctx.send(_("{0} I've reset your admin role.").format(self.bot.settings['emojis']['misc']['white-mark']))
-            elif arg == "reset" and not admin_role:
+            elif arg == "reset":
                 await ctx.send(_("{0} You don't have a custom admin role setup.").format(self.bot.settings['emojis']['misc']['warn']))
             else:
                 return await ctx.send(_("{0} Role was not found, if you're trying to reset the "
@@ -1203,7 +1181,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await self.bot.db.execute("INSERT INTO adminrole(guild_id, role) VALUES($1, $2)", ctx.guild.id, arg.id)
                 self.bot.admin_role[ctx.guild.id] = arg.id
                 await ctx.send(_("{0} Set a custom admin role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
-            elif admin_role:
+            else:
                 await self.bot.db.execute("UPDATE adminrole SET role = $1 WHERE guild_id = $2", arg.id, ctx.guild.id)
                 self.bot.admin_role[ctx.guild.id] = arg.id
                 await ctx.send(_("{0} Changed a custom admin role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
@@ -1232,15 +1210,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
 
         if command.parent:
             if not command.name:
-                self.bot.guild_disabled[f"{str(command.parent)}, {ctx.guild.id}"] = str(command.parent)
+                self.bot.guild_disabled[f"{command.parent}, {ctx.guild.id}"] = str(command.parent)
                 await self.bot.db.execute("INSERT INTO guild_disabled(guild_id, command) VALUES($1, $2)", ctx.guild.id, str(command.parent))
                 await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent}` and its corresponding subcommands were successfully disabled")
-            elif command.name:
-                self.bot.guild_disabled[f"{str(f'{command.parent} {command.name}')}, {ctx.guild.id}"] = str(commands.parent)
+            else:
+                self.bot.guild_disabled[f'{command.parent} {command.name}, {ctx.guild.id}'] = str(commands.parent)
                 await self.bot.db.execute("INSERT INTO guild_disabled(guild_id, command) VALUES($1, $2)", ctx.guild.id, str(f"{command.parent} {command.name}"))
                 await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent} {command.name}` and its corresponding subcommands were successfully disabled")
-        elif not command.parent:
-            self.bot.guild_disabled[f"{str(command)}, {ctx.guild.id}"] = str(command.name)
+        else:
+            self.bot.guild_disabled[f'{command}, {ctx.guild.id}'] = str(command.name)
             await self.bot.db.execute("INSERT INTO guild_disabled(guild_id, command) VALUES($1, $2)", ctx.guild.id, str(command.name))
             await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command}` was successfully disabled")
 
@@ -1268,15 +1246,15 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
 
         if command.parent:
             if not command.name:
-                self.bot.guild_disabled.pop(f"{str(command.parent)}, {ctx.guild.id}")
+                self.bot.guild_disabled.pop(f"{command.parent}, {ctx.guild.id}")
                 await self.bot.db.execute("DELETE FROM guild_disabled WHERE command = $1 AND guild_id = $2", str(command.parent), ctx.guild.id)
                 await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent}` and its corresponding subcommands were successfully re-enabled")
-            elif command.name:
-                self.bot.guild_disabled.pop(f"{str(f'{command.parent} {command.name}')}, {ctx.guild.id}")
+            else:
+                self.bot.guild_disabled.pop(f"{command.parent} {command.name}, {ctx.guild.id}")
                 await self.bot.db.execute("DELETE FROM guild_disabled WHERE command = $1 AND guild_id = $2", str(f"{command.parent} {command.name}"), ctx.guild.id)
                 await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command.parent} {command.name}` and its corresponding subcommands were successfully re-enabled")
-        elif not command.parent:
-            self.bot.guild_disabled.pop(f"{str(command)}, {ctx.guild.id}")
+        else:
+            self.bot.guild_disabled.pop(f'{command}, {ctx.guild.id}')
             await self.bot.db.execute("DELETE FROM guild_disabled WHERE command = $1 AND guild_id = $2", str(command), ctx.guild.id)
             await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} | `{command}` was successfully re-enabled")
 
@@ -1301,10 +1279,10 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         if cog.qualified_name in cant_disable:
             return await ctx.send(_("{0} You can't disable that category!").format(self.bot.settings['emojis']['misc']['warn']))
 
-        if self.bot.cache.get(self.bot, 'cog_disabled', f"{str(ctx.guild.id)}, {str(cog.qualified_name)}"):
+        if self.bot.cache.get(self.bot, 'cog_disabled', f"{ctx.guild.id}, {cog.qualified_name}"):
             return await ctx.send(_("{0} That category is already disabled.").format(self.bot.settings['emojis']['misc']['warn']))
 
-        self.bot.cog_disabled[f"{str(ctx.guild.id)}, {str(cog.qualified_name)}"] = str(cog.qualified_name)
+        self.bot.cog_disabled[f"{ctx.guild.id}, {cog.qualified_name}"] = str(cog.qualified_name)
         await self.bot.db.execute("INSERT INTO cog_disabled(guild_id, cog) VALUES($1, $2)", ctx.guild.id, cog.qualified_name)
         await ctx.send(_("{0} Category {1} was successfully disabled").format(
             self.bot.settings['emojis']['misc']['white-mark'], cog.qualified_name
@@ -1327,10 +1305,10 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 self.bot.settings['emojis']['misc']['warn'], category.title()
             ))
 
-        if not self.bot.cache.get(self.bot, 'cog_disabled', f"{str(ctx.guild.id)}, {str(cog.qualified_name)}"):
+        if not self.bot.cache.get(self.bot, 'cog_disabled', f"{ctx.guild.id}, {cog.qualified_name}"):
             return await ctx.send(_("{0} That category is not disabled.").format(self.bot.settings['emojis']['misc']['warn']))
 
-        self.bot.cog_disabled.pop(f"{str(ctx.guild.id)}, {str(cog.qualified_name)}")
+        self.bot.cog_disabled.pop(f"{ctx.guild.id}, {cog.qualified_name}")
         await self.bot.db.execute("DELETE FROM cog_disabled WHERE cog = $1 AND guild_id = $2", cog.qualified_name, ctx.guild.id)
         await ctx.send(_("{0} Category {1} was successfully re-enabled").format(
             self.bot.settings['emojis']['misc']['white-mark'], cog.qualified_name
@@ -1353,7 +1331,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                             aliases=['add'])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True, manage_messages=True)
-    @commands.max_concurrency(1, commands.cooldowns.BucketType.guild, wait=False)
+    @commands.max_concurrency(1, commands.cooldowns.BucketType.guild)
     @commands.guild_only()
     @locale_doc
     async def reaction_roles_add(self, ctx):
@@ -1408,7 +1386,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                         return await msg1.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
                     try:
                         channel = await commands.TextChannelConverter().convert(ctx, channel_response.content)
-                        if not channel.can_send:
+                        if not channel.can_send:  # type: ignore
                             await msg2.edit(content=_("I can't send messages in that channel, please give me permissions to send messages in that channel or choose another channel."))
                         elif embed and not channel.permissions_for(ctx.guild.me).embed_links:
                             await msg2.edit(content=_("I can't embed links in that channel, please give me permissions to embed links there or choose another channel in which I can embed links."))
@@ -1482,7 +1460,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                         await msg3.delete()
                                     else:
                                         await msg3.edit(content=_("The role you've provided is higher in the role hierarchy, please make sure I can access the role."))
-                            except Exception as e:
+                            except Exception:
                                 await msg3.edit(content=_("Invalid role, try again."))
 
                     if role_part == 1:
@@ -1538,7 +1516,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                 else:
                                     the_role, the_role_loop, the_role_part = role.id, False, 1
                                     await msg6.delete()
-                            except Exception as e:
+                            except Exception:
                                 await msg6.edit(content=_("Invalid role, try again."))
                     else:
                         pass
@@ -1555,7 +1533,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                                 num = int(is_continue.content)
                                 max_roles, max_roles_loop = num, False
                                 await msg7.edit(content=_("Set the max number of roles to **{0}**").format(num))
-                            except Exception as e:
+                            except Exception:
                                 await msg7.edit(content=_("Answer must be a number or `cancel` to cancel."))
                     if first_part == 1:
                         if embed_part == 1:
@@ -1615,9 +1593,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         if not check:
             raise commands.BadArgument(_("No reaction roles are setup in this server."))
 
-        list_of_messageids = []
-        for data in check:
-            list_of_messageids.append(data['message_id'])
+        list_of_messageids = [data["message_id"] for data in check]
 
         list_of_reactionroles = []
         for messageid in list_of_messageids:
@@ -1627,9 +1603,7 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 await self.bot.db.execute("DELETE FROM reactionroles WHERE message_id = $1", messageid)
                 continue
 
-            roles = []
-            for role in cache['dict']:
-                roles.append(ctx.guild.get_role(cache['dict'][role]))
+            roles = [ctx.guild.get_role(cache['dict'][role]) for role in cache["dict"]]
 
             channel = ctx.guild.get_channel(cache['channel'])
             message = messageid
@@ -1637,10 +1611,10 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
                 msg = await channel.fetch_message(messageid)
                 message = _("[Jump URL]({0})").format(msg.jump_url)
 
-            roles = ', '.join([x.mention if x else str(x) for x in roles][:10]) + f" (+{len(roles) - 10})" if len(roles) > 10 else ', '.join([x.mention if x else str(x) for x in roles])
+            roles = ', '.join([x.mention if x else str(x) for x in roles][:10]) + f" (+{len(roles) - 10})" if len(roles) > 10 else ', '.join(x.mention if x else str(x) for x in roles)
 
-            list_of_reactionroles.append(_("**Message:** {0}\n**Channel:** {1}\n**Reactions:** {2}\n**Roles:** {3}\n**Roles limit:** {4}\n**Required role:** {5}\n\n").format(
-                message, channel.mention if channel else _('Deleted'), ', '.join([x for x in cache['dict']][:10]) + f" (+{len(cache['dict']) - 10})" if len(cache['dict']) > 10 else ', '.join([x for x in cache['dict']]),
+            list_of_reactionroles.append(_("**Message:** {0}\n**Channel:** {1}\n**Reactions:** {2}\n**Roles:** {3}\n**Roles limit:** {4}\n**Required role:** {5}\n\n").format(  # sourcery skip
+                message, channel.mention if channel else _('Deleted'), ', '.join([x for x in cache['dict']][:10]) + f" (+{len(cache['dict']) - 10})" if len(cache['dict']) > 10 else ', '.join(x for x in cache['dict']),
                 roles, cache['max_roles'],
                 ctx.guild.get_role(cache['required_role']).mention if ctx.guild.get_role(cache['required_role']) else None
             ))
@@ -1648,10 +1622,8 @@ class Manage(commands.Cog, name='Management', aliases=['Manage']):
         paginator = Pages(ctx,
                           title=_("Reaction roles in {0}").format(ctx.guild.name),
                           entries=list_of_reactionroles,
-                          thumbnail=None,
                           per_page=2,
                           embed_color=self.bot.settings['colors']['embed_color'],
-                          show_entry_count=True,
                           author=ctx.author)
         await paginator.paginate()
 

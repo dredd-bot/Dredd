@@ -17,10 +17,66 @@ import asyncio
 import discord
 from discord.ext.commands import Paginator as CommandPaginator
 from discord.ext import commands
+from utils.checks import buttons_disable
+from contextlib import suppress
+from utils import i18n
 
 
 class CannotPaginate(Exception):
     pass
+
+
+# noinspection PyUnusedLocal
+class ButtonPaginator(discord.ui.View):
+    def __init__(self, pages):
+        super().__init__(timeout=300)
+        self.value = None
+        self.pages = pages
+
+    async def interaction_check(self, interaction) -> bool:
+        if interaction.user and interaction.user.id == self.pages.author.id or await self.pages.bot.is_owner(interaction.user):
+            return True
+        await interaction.response.send_message(_('This pagination menu cannot be controlled by you, sorry!'), ephemeral=True)
+        return False
+
+    async def on_timeout(self) -> None:
+        for item in self.children:
+            item.disabled = True
+        with suppress(Exception):
+            await self.pages.message.edit(view=self)
+
+    @discord.ui.button(label="First", style=discord.ButtonStyle.green, disabled=True, row=0)
+    async def to_first(self, button, interaction):
+        i18n.current_locale.set(self.pages.bot.translations.get(interaction.guild.id, 'en_US'))
+        self.children = buttons_disable(current_page=self.pages.current_page, max_pages=self.pages.maximum_pages, buttons=self)
+        await self.pages.first_page()
+
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.green, row=0)
+    async def one_back(self, button, interaction):
+        i18n.current_locale.set(self.pages.bot.translations.get(interaction.guild.id, 'en_US'))
+        self.children = buttons_disable(current_page=self.pages.current_page, max_pages=self.pages.maximum_pages, buttons=self)
+        await self.pages.previous_page()
+
+    @discord.ui.button(label="Stop", style=discord.ButtonStyle.red, row=0)
+    async def stop(self, button, interaction):
+        await self.pages.stop_pages()
+
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.green, row=0)
+    async def one_forward(self, button, interaction):
+        i18n.current_locale.set(self.pages.bot.translations.get(interaction.guild.id, 'en_US'))
+        self.children = buttons_disable(current_page=self.pages.current_page, max_pages=self.pages.maximum_pages, buttons=self)
+        await self.pages.next_page()
+
+    @discord.ui.button(label="Last", style=discord.ButtonStyle.green, disabled=True, row=0)
+    async def to_last(self, button, interaction):
+        i18n.current_locale.set(self.pages.bot.translations.get(interaction.guild.id, 'en_US'))
+        self.children = buttons_disable(current_page=self.pages.current_page, max_pages=self.pages.maximum_pages, buttons=self)
+        await self.pages.last_page()
+
+    @discord.ui.button(label="Home", style=discord.ButtonStyle.blurple)
+    async def show_help(self, button, interaction):
+        i18n.current_locale.set(self.pages.bot.translations.get(interaction.guild.id, 'en_US'))
+        await self.pages.help_command.send_bot_help(self.pages.help_command.get_bot_mapping())
 
 
 class Pages:
@@ -48,20 +104,23 @@ class Pages:
     permissions: discord.Permissions
         Our permissions for the channel.
     """
-    def __init__(self, ctx, *, entries, per_page=12, show_entry_count=True, embed_color=discord.Color.blurple(), title=None, thumbnail=None, footericon=None, footertext=None, author=None, delete_after=None, embed_author=None, home=None):
+    def __init__(self, ctx, *, entries, per_page=12, show_entry_count=True, embed_color=discord.Color.blurple(), title=None, thumbnail=None, footericon=None, footertext=None, author=None, delete_after=None, embed_author=None,
+                 home=None, use_dropdown=None, options=None, **kwargs):
         self.bot = ctx.bot
         self.entries = entries
         self.message = ctx.message
         self.channel = ctx.channel
         self.context = ctx
-        self.author = author if author else ctx.author
+        self.use_dropdown = use_dropdown
+        self.options = options
+        self.author = author or ctx.author
         self.thumbnail = thumbnail
         self.footericon = footericon
         self.footertext = footertext
         self.home = home
         self.title = title
         self.embed_author = embed_author
-        self.delete_after = 300
+        self.delete_after = delete_after or 300
         self.per_page = per_page
         pages, left_over = divmod(len(self.entries), self.per_page)
         if left_over:
@@ -70,15 +129,8 @@ class Pages:
         self.embed = discord.Embed(colour=embed_color)
         self.paginating = True
         self.show_entry_count = show_entry_count
-        self.reaction_emojis = [
-            ('<:arrowleft:820332901559173150>', self.first_page),
-            ('<:arrleft:820332933893586985>', self.previous_page),
-            ('<:stop:820332883470319637>', self.stop_pages),
-            ('<:arrright:820332951518445619>', self.next_page),
-            ('<:arrowright:820332915795034123>', self.last_page),
-            ('\U0001f3d8', self.main_help)
-            # ('<:python:682881809649762358>', self.show_help)
-        ]
+        self.children = None
+        self.help_command = kwargs.get("help_command", None)
 
         if ctx.guild is not None:
             self.permissions = self.channel.permissions_for(ctx.guild.me)
@@ -89,15 +141,7 @@ class Pages:
             raise commands.BotMissingPermissions(['embed_links'])
 
         if not self.permissions.send_messages:
-            raise commands.BotMissingPermissions('Bot cannot send messages.')
-
-        if self.paginating:
-            # verify we can actually use the pagination session
-            if not (self.permissions.add_reactions or self.permissions.use_external_emojis):
-                raise commands.BotMissingPermissions('I do not have permissions to add reactions.')
-
-            if not self.permissions.read_message_history:
-                raise commands.BotMissingPermissions('I do not have permissions to Read Message History.')
+            return
 
     def get_page(self, page):
         base = (page - 1) * self.per_page
@@ -111,15 +155,13 @@ class Pages:
         return self.embed
 
     def prepare_embed(self, entries, page, *, first=False):
-        p = []
-        for index, entry in enumerate(entries, 1 + ((page - 1) * self.per_page)):
-            p.append(f'{entry}')
+        p = [f'{entry}' for index, entry in enumerate(entries, 1 + ((page - 1) * self.per_page))]
 
         if self.maximum_pages > 1 and not self.footertext:
             if self.show_entry_count:
-                text = f'Showing page {page}/{self.maximum_pages} ({len(self.entries)} entries)'
+                text = _('Showing page {page}/{maximum_pages} ({entries} entries)').format(page=page, maximum_pages=self.maximum_pages, entries=len(self.entries))
             else:
-                text = f'Showing page {page}/{self.maximum_pages}'
+                text = _('Showing page {page}/{maximum_pages}').format(page=page, maximum_pages=self.maximum_pages)
 
             self.embed.set_footer(text=text)
 
@@ -134,32 +176,34 @@ class Pages:
         if self.thumbnail:
             self.embed.set_thumbnail(url=self.thumbnail)
         if self.embed_author:
-            self.embed.set_author(icon_url=self.author.avatar_url, name=self.embed_author)
+            self.embed.set_author(icon_url=self.author.avatar.url, name=self.embed_author)
 
     async def show_page(self, page, *, first=False):
         self.current_page = page
         entries = self.get_page(page)
         content = self.get_content(entries, page, first=first)
         embed = self.get_embed(entries, page, first=first)
+        if not self.use_dropdown or len(self.options) > 25:
+            buttons = ButtonPaginator(self)
+            buttons.children = buttons_disable(current_page=page, max_pages=self.maximum_pages, buttons=buttons)
+            if not self.home:
+                buttons.remove_item(buttons.show_help)  # type: ignore
+            if self.maximum_pages <= 2:
+                buttons.remove_item(buttons.to_first)  # type: ignore
+                buttons.remove_item(buttons.to_last)  # type: ignore
+            if self.maximum_pages == 1:
+                buttons.remove_item(buttons.one_back)  # type: ignore
+                buttons.remove_item(buttons.one_forward)  # type: ignore
+        else:
+            from utils import components
+            buttons = components.DropdownView(self.context,
+                                              _("Please choose an option..."),
+                                              [discord.SelectOption(label=e, value=x) for x, e in enumerate(self.options, start=1)],  # type: ignore
+                                              cls=self)
 
         if not first:
-            await self.message.edit(content=content, embed=embed)
-            return
-
-        self.message = await self.channel.send(content=content, embed=embed)
-        for (reaction, _) in self.reaction_emojis:
-            if self.maximum_pages == 2 and reaction in ('<:arrowleft:820332901559173150>', '<:arrowright:820332915795034123>'):
-                # no |<< or >>| buttons if we only have two pages
-                # we can't forbid it if someone ends up using it but remove
-                # it from the default set
-                continue
-            if not self.home and reaction in ('\U0001f3d8'):
-                continue
-
-            if self.maximum_pages == 1 and reaction in ('<:arrowleft:820332901559173150>', '<:arrowright:820332915795034123>', '<:arrleft:820332933893586985>', '<:arrright:820332951518445619>'):
-                continue
-
-            await self.message.add_reaction(reaction)
+            return await self.message.edit(content=content, embed=embed, view=buttons)
+        self.message = await self.context.send(content=content, embed=embed, view=buttons)
 
     async def checked_show_page(self, page):
         if page != 0 and page <= self.maximum_pages:
@@ -192,8 +236,7 @@ class Pages:
 
     async def numbered_page(self):
         """lets you type a page number to go to"""
-        to_delete = []
-        to_delete.append(await self.channel.send('What page do you want to go to?'))
+        to_delete = [await self.channel.send('What page do you want to go to?')]
 
         def message_check(m):
             return m.author == self.author and \
@@ -221,9 +264,8 @@ class Pages:
 
     async def show_help(self):
         """shows this message"""
-        messages = ['Welcome to the interactive paginator!\n']
-        messages.append('This interactively allows you to see pages of text by navigating with '
-                        'reactions. They are as follows:\n')
+        messages = ['Welcome to the interactive paginator!\n', 'This interactively allows you to see pages of text by navigating with '
+                                                               'reactions. They are as follows:\n']
 
         embed = self.embed.copy()
         embed.clear_fields()
@@ -239,45 +281,13 @@ class Pages:
 
     async def stop_pages(self):
         """stops the interactive pagination session"""
-        await self.message.delete()
+        with suppress(Exception):
+            await self.message.delete()
         self.paginating = False
-
-    def react_check(self, reaction, user):
-        if user is None or user.id != self.author.id and user.id != 345457928972533773:
-            return False
-
-        if reaction.message.id != self.message.id:
-            return False
-
-        for (emoji, func) in self.reaction_emojis:
-            if str(reaction.emoji) == emoji:
-                self.match = func
-                return True
-        return False
 
     async def paginate(self):
         """Actually paginate the entries and run the interactive loop if necessary."""
-        first_page = self.show_page(1, first=True)
-        # allow us to react to reactions right away if we're paginating
-        self.bot.loop.create_task(first_page)
-
-        while self.paginating:
-            try:
-                reaction, user = await self.bot.wait_for('reaction_add', check=self.react_check, timeout=self.delete_after)
-            except asyncio.TimeoutError:
-                self.paginating = False
-                try:
-                    await self.message.delete()
-                except Exception:
-                    pass
-                finally:
-                    break
-            try:
-                await self.message.remove_reaction(reaction, user)
-            except Exception:
-                pass  # can't remove it so don't bother doing so
-
-            await self.match()
+        await self.show_page(1, first=True)
 
 
 class FieldPages(Pages):
@@ -296,10 +306,7 @@ class FieldPages(Pages):
         self.embed.title = self.title
 
         if self.maximum_pages > 1:
-            if self.show_entry_count:
-                text = f' ({page}/{self.maximum_pages})'
-            else:
-                text = f' ({page}/{self.maximum_pages})'
+            text = f' ({page}/{self.maximum_pages})'
             self.embed.title = self.title + text
 
         self.embed.set_footer(icon_url=self.footericon, text=self.footertext)
@@ -309,12 +316,12 @@ class FieldPages(Pages):
 class TextPages(Pages):
     """Uses a commands.Paginator internally to paginate some text."""
 
-    def __init__(self, ctx, text, *, prefix='```ml', suffix='```', max_size=2000):
+    def __init__(self, ctx, text, *, prefix='```ml', suffix='```', max_size=2000, **kwargs):
         paginator = CommandPaginator(prefix=prefix, suffix=suffix, max_size=max_size - 200)
         for line in text.split('\n'):
             paginator.add_line(line)
 
-        super().__init__(ctx, entries=paginator.pages, per_page=1, show_entry_count=False)
+        super().__init__(ctx, entries=paginator.pages, per_page=1, show_entry_count=False, **kwargs)
 
     def get_page(self, page):
         return self.entries[page - 1]
@@ -325,4 +332,20 @@ class TextPages(Pages):
     def get_content(self, entry, page, *, first=False):
         if self.maximum_pages > 1:
             return f'{entry}\nPage {page}/{self.maximum_pages}'
+        return entry
+
+
+class ListPages(Pages):
+    def __init__(self, ctx, items, use_dropdown=True, options=None):
+        super().__init__(ctx, entries=items, use_dropdown=use_dropdown, options=options, per_page=1)
+
+    def get_page(self, page):
+        return self.entries[page - 1]
+
+    def get_embed(self, entries, page, *, first=False):
+        return None
+
+    def get_content(self, entry, page, *, first=False):
+        if self.maximum_pages > 1 and len(self.options) > 25:
+            return _("{0}\n\nPage {1}/{2}").format(entry, page, self.maximum_pages)
         return entry

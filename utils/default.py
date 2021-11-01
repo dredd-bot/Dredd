@@ -20,17 +20,15 @@ import traceback
 import json
 import aiohttp
 import db.cache
-import urllib
-import wavelink
 
 from discord.ext import commands
-
-from utils.Nullify import clean
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from utils.publicflags import UserFlags, BotFlags
-from discord.utils import escape_markdown
-from utils.btime import human_timedelta, FutureTime
+from utils.btime import FutureTime
 from contextlib import suppress
+from utils import logger
+from json.decoder import JSONDecodeError
+from typing import Union
 
 
 def timeago(target):
@@ -115,12 +113,8 @@ async def public_flags(ctx, user):
         'certified_mod': f"{bot.settings['emojis']['badges']['certified-mod']}"
     }
 
-    badge_list = []
     flag_vals = UserFlags((await ctx.bot.http.get_user(user.id))['public_flags'])
-    for i in badges.keys():
-        if i in [*flag_vals]:
-            badge_list.append(badges[i])
-
+    badge_list = [value for i, value in badges.items() if i in [*flag_vals]]
     return " ".join(badge_list)
 
 
@@ -147,15 +141,15 @@ def region_flags(ctx):
         return f"{str(ctx.guild.region).title()}"
 
 
+# noinspection PyUnboundLocalVariable
 async def medias(ctx, user):
     medias = []
     for media in await ctx.bot.db.fetch("SELECT * FROM media WHERE user_id = $1", user.id):
         try:
-            if not media['type']:
-                icon = ctx.bot.settings['emojis']['social'][media['media_type']]
-                title = media['media_type'].title()
-            else:
+            if media['type']:
                 raise Exception()  # so the except statement triggers.
+            icon = ctx.bot.settings['emojis']['social'][media['media_type']]
+            title = media['media_type'].title()
         except Exception:
             title = media['media_type']
             tp = media['type']
@@ -180,7 +174,7 @@ async def medias(ctx, user):
 
     if len(medias) > 10:
         medias = medias[10]
-        medias.append('limit reached (10)')
+        medias.append('limit reached (10)')  # type: ignore
 
     return ''.join(medias)
 
@@ -219,20 +213,17 @@ def bot_acknowledgements(ctx, result, simple=False):
         "blocked": f"{ctx.bot.settings['emojis']['ranks']['blocked']} ",
         "duck": "🦆"
     }
-    if badges:
-        badge = []
-        flags = BotFlags(badges)
-        if not simple:
-            for i in yes_badges.keys():
-                if i in [*flags]:
-                    badge.append(yes_badges[i] + "\n")
-        else:
-            for i in yes_badges.keys():
-                if i in [*flags]:
-                    badge.append(no_badges[i])
-    else:
+    if not badges:
         return
 
+    badge = []
+    flags = BotFlags(badges)
+    for i, value in yes_badges.items():
+        if i in [*flags]:
+            if not simple:
+                badge.append(value + "\n")
+            else:
+                badge.append(no_badges[i])
     return ''.join(badge)
 
 
@@ -247,19 +238,17 @@ def server_badges(ctx, result):
     }
 
     if badges:
-        badge = []
         flags = BotFlags(badges)
-        for i in the_badges.keys():
-            if i in [*flags]:
-                badge.append(the_badges[i])
+        badge = [value for i, value in the_badges.items() if i in [*flags]]
     else:
         return
 
     return '\n'.join(badge)
 
 
-def badge_values(ctx) -> dict:
-    values = {
+# noinspection PyUnusedLocal
+def badge_values(ctx=None) -> dict:
+    return {
         'bot_owner': 1,
         'bot_admin': 2,
         'bot_partner': 4,
@@ -277,18 +266,13 @@ def badge_values(ctx) -> dict:
         'all': -1
     }
 
-    return values
 
-
+# noinspection PyUnusedLocal
 def permissions_converter(ctx, permissions):
-    to_return = []
     if not permissions:
         return None
 
-    for permission in permissions:
-        to_return.append(permission.replace('_', ' ').title())
-
-    return to_return
+    return [permission.replace('_', ' ').title() for permission in permissions]
 
 
 async def execute_temporary(ctx, action, user, mod, guild, role, duration, reason):
@@ -300,14 +284,14 @@ async def execute_temporary(ctx, action, user, mod, guild, role, duration, reaso
                                  mod.id, role.id, reason)
         if duration:
             ctx.bot.temp_mutes[f"{user.id}, {guild.id}"] = {'time': duration, 'reason': reason, 'role': role.id, 'moderator': mod.id}
-        elif not duration:
+        else:
             ctx.bot.mutes[f"{user.id}, {guild.id}"] = {'reason': reason, 'role': role.id, 'moderator': mod.id}
     elif action == 2:
         await ctx.bot.db.execute("INSERT INTO modactions(time, user_id, action, guild_id, mod_id, role_id, reason) VALUES($1, $2, $3, $4, $5, $6, $7)", None if duration is None else duration, user.id, action, guild.id,
                                  mod.id, None, reason)
         if duration:
             ctx.bot.temp_bans[f"{user.id}, {guild.id}"] = {'time': duration, 'reason': reason, 'moderator': mod.id}
-        elif not duration:
+        else:
             ctx.bot.bans[f"{user.id}, {guild.id}"] = {'reason': reason, 'moderator': mod.id}
 
 
@@ -321,8 +305,9 @@ async def execute_untemporary(ctx, action, user, guild):
         ctx.bot.bans.pop(f"{user.id}, {guild.id}", None)
 
 
+# noinspection PyUnboundLocalVariable,PyUnusedLocal
 async def get_muterole(ctx, guild, error=False):
-    custom = db.cache.CacheManager.get(ctx.bot, 'mute_role', guild.id)
+    custom = guild.data.muterole
 
     if custom:
         muterole = guild.get_role(custom)
@@ -339,22 +324,23 @@ async def get_muterole(ctx, guild, error=False):
     return muterole
 
 
-def server_logs(ctx, server, simple=True):
-    moderation = ctx.bot.cache.get(ctx.bot, 'moderation', server.id)
-    memberlog = ctx.bot.cache.get(ctx.bot, 'memberlog', server.id)
-    joinlog = ctx.bot.cache.get(ctx.bot, 'joinlog', server.id)
-    leavelog = ctx.bot.cache.get(ctx.bot, 'leavelog', server.id)
-    joinmsg = ctx.bot.cache.get(ctx.bot, 'joinmessage', server.id)
-    leavemsg = ctx.bot.cache.get(ctx.bot, 'leavemessage', server.id)
-    guildlog = ctx.bot.cache.get(ctx.bot, 'guildlog', server.id)
-    msgedits = ctx.bot.cache.get(ctx.bot, 'messageedits', server.id)
-    msgdeletes = ctx.bot.cache.get(ctx.bot, 'messagedeletes', server.id)
-    antihoist = ctx.bot.cache.get(ctx.bot, 'antihoist', server.id)
-    automod = ctx.bot.cache.get(ctx.bot, 'automod', server.id)
-    raidmode = ctx.bot.cache.get(ctx.bot, 'raidmode', server.id)
+def server_logs(ctx, server, simple=True):  # sourcery no-metrics
+    server_data: db.cache.DreddGuild = server.data
+    moderation = server_data.moderation  # ctx.bot.cache.get(ctx.bot, 'moderation', server.id)
+    memberlog = server_data.memberlog  # ctx.bot.cache.get(ctx.bot, 'memberlog', server.id)
+    joinlog = server_data.joinlog  # ctx.bot.cache.get(ctx.bot, 'joinlog', server.id)
+    leavelog = server_data.leavelog  # ctx.bot.cache.get(ctx.bot, 'leavelog', server.id)
+    joinmsg = server_data.joinmessage  # ctx.bot.cache.get(ctx.bot, 'joinmessage', server.id)
+    leavemsg = server_data.leavemessage  # ctx.bot.cache.get(ctx.bot, 'leavemessage', server.id)
+    guildlog = server_data.guildlog  # ctx.bot.cache.get(ctx.bot, 'guildlog', server.id)
+    msgedits = server_data.messageedit  # ctx.bot.cache.get(ctx.bot, 'messageedits', server.id)
+    msgdeletes = server_data.messagedelete  # ctx.bot.cache.get(ctx.bot, 'messagedeletes', server.id)
+    antihoist = server_data.antihoist  # ctx.bot.cache.get(ctx.bot, 'antihoist', server.id)
+    automod = server_data.automod  # ctx.bot.cache.get(ctx.bot, 'automod', server.id)
+    raidmode = server_data.raidmode  # ctx.bot.cache.get(ctx.bot, 'raidmode', server.id)
     disabled = ctx.bot.settings['emojis']['misc']['disabled']
     enabled = ctx.bot.settings['emojis']['misc']['enabled']
-    joinrole = ctx.bot.cache.get(ctx.bot, 'joinrole', server.id)
+    joinrole = server_data.joinrole  # ctx.bot.cache.get(ctx.bot, 'joinrole', server.id)
 
     logs = _("{0} Edited messages\n").format(f'{disabled}' if msgedits is None else f'{enabled}')
     logs += _("{0} Deleted messages\n").format(f'{disabled}' if msgdeletes is None else f'{enabled}')
@@ -367,15 +353,15 @@ def server_logs(ctx, server, simple=True):
         logs += _("{0} Raid mode\n").format(f'{disabled}' if raidmode is None else f'{enabled}')
         logs += _("{0} Welcoming messages\n").format(f'{disabled}' if joinmsg is None else f'{enabled}')
         logs += _("{0} Leaving messages\n").format(f'{disabled}' if leavemsg is None else f'{enabled}')
-        logs += _("{0} Role on Join\n").format(f'{disabled}' if joinrole is None else f'{enabled}')
+        logs += _("{0} Role on Join\n").format(f'{disabled}' if joinrole is False else f'{enabled}')
         logs += _("{0} Dehoisting\n").format(f'{disabled}' if antihoist is None else f'{enabled}')
         logs += _("{0} Automod\n").format(f'{disabled}' if automod is None else f'{enabled}')
         return logs
-    elif not simple:
+    else:
         settings = _("{0} Raid mode\n").format(f'{disabled}' if raidmode is None else f'{enabled}')
         settings += _("{0} Welcoming messages\n").format(f'{disabled}' if joinmsg is None else f'{enabled}')
         settings += _("{0} Leaving messages\n").format(f'{disabled}' if leavemsg is None else f'{enabled}')
-        settings += _("{0} Role on Join\n").format(f'{disabled}' if joinrole is None else f'{enabled}')
+        settings += _("{0} Role on Join\n").format(f'{disabled}' if joinrole is False else f'{enabled}')
         settings += _("{0} Dehoisting\n").format(f'{disabled}' if antihoist is None else f'{enabled}')
         settings += _("{0} Automod\n").format(f'{disabled}' if automod is None else f'{enabled}')
         return {'logs': logs, 'settings': settings}
@@ -383,7 +369,7 @@ def server_logs(ctx, server, simple=True):
 
 async def admin_tracker(ctx):
     e = discord.Embed(color=ctx.bot.settings['colors']['embed_color'], timestamp=datetime.now(timezone.utc))
-    e.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+    e.set_author(name=ctx.author, icon_url=ctx.author.avatar.url)
     e.title = "Admin command used"
     e.description = f"""
 **Command:**\n{ctx.message.content}
@@ -406,7 +392,7 @@ async def auto_guild_leave(ctx, abusive_user, guild):
     moksej = ctx.bot.get_user(345457928972533773)
 
     e = discord.Embed(color=ctx.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc))
-    e.set_author(name="Left guild forcefully", icon_url=guild.icon_url)
+    e.set_author(name="Left guild forcefully", icon_url=guild.icon.url)
     e.description = f"""
 Hey {guild.owner}!
 Just wanted to let you know that I left your server: **{guild.name}** ({guild.id}) as one of your members ({abusive_user} - {abusive_user.id}) was abusing my commands in a channel I can't send messages in.
@@ -497,13 +483,13 @@ async def global_cooldown(ctx) -> None:
         ctx.bot.badges[ctx.author.id] = 2048
         await ctx.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)", ctx.author.id, 1, ctx.bot.user.id, reason, datetime.now(), 2, 0)
         e = discord.Embed(color=ctx.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
-        e.set_author(name=ctx.author, icon_url=ctx.author.avatar_url)
+        e.set_author(name=ctx.author, icon_url=ctx.author.avatar.url)
         e.description = f"Hey!\nI'm sorry, but your blacklist state was updated and you won't be able to use my commands anymore!\n**Reason:** {reason}" \
                         f"\nIf you wish to appeal, you can [join the support server]({ctx.bot.support})"
         with suppress(Exception):
             await ctx.author.send(embed=e)
         await blacklist_log(ctx, 0, 0, ctx.author, reason)
-    elif not counter or counter < 3:
+    else:
         ctx.bot.counter.update({ctx.author.id})
         ch = ctx.bot.get_channel(ctx.bot.settings['channels']['cooldowns'])
         await ch.send(f"{ctx.author} hit the global cooldown limit. They're now at {ctx.bot.counter[ctx.author.id]} hit(s)")
@@ -511,7 +497,7 @@ async def global_cooldown(ctx) -> None:
 
 async def dm_reply(ctx, message):
     if len(message) < 3:
-        message = message + ('⠀' * (3 - len(message)))
+        message += '⠀' * (3 - len(message))
     elif len(message) > 60:
         message = message[:60]
     try:
@@ -519,12 +505,12 @@ async def dm_reply(ctx, message):
         return res.text
     except Exception as e:
         ctx.bot.dispatch('silent_error', ctx, e)
-        ctx.bot.auto_creply = False
+        ctx.bot.auto_reply = False
         message = "Chat bot would've replied to you but looks like he has ran away"
         return message
 
 
-def automod_values(value):
+def automod_values(value) -> dict:
     values = {
         1: _('mute'),
         2: _('temp-mute'),
@@ -536,59 +522,72 @@ def automod_values(value):
     return values[value]
 
 
-async def spotify_support(ctx, spotify, search_type, spotify_id, Track, Player) -> None:
-    player = ctx.bot.wavelink.get_player(guild_id=ctx.guild.id, cls=Player, context=ctx)
-    spotify_client = spotify.Client(ctx.bot.config.SPOTIFY_CLIENT, ctx.bot.config.SPOTIFY_SECRET)
-    spotify_http_client = spotify.HTTPClient(ctx.bot.config.SPOTIFY_CLIENT, ctx.bot.config.SPOTIFY_SECRET)
+# noinspection PyUnboundLocalVariable
+async def spotify_support(ctx, spotify, search_type, spotify_id, Track, queue: bool = True) -> Union[None, list]:  # sourcery no-metrics
+    with suppress(ConnectionResetError, AttributeError, JSONDecodeError):
+        player = ctx.voice_client
+        spotify_client = spotify.Client(ctx.bot.config.SPOTIFY_CLIENT, ctx.bot.config.SPOTIFY_SECRET)
+        spotify_http_client = spotify.HTTPClient(ctx.bot.config.SPOTIFY_CLIENT, ctx.bot.config.SPOTIFY_SECRET)
 
-    if search_type == "playlist":
-        results = spotify.Playlist(client=spotify_client, data=await spotify_http_client.get_playlist(spotify_id))
-        try:
-            search_tracks = await results.get_all_tracks()
-        except Exception:
-            return await ctx.send(_("I was not able to find this playlist! Please try again or use a different link."))
+        if search_type == "playlist":
+            try:
+                results = spotify.Playlist(client=spotify_client, data=await spotify_http_client.get_playlist(spotify_id))
+                search_tracks = await results.get_all_tracks()
+            except Exception:
+                return await ctx.send(_("I was not able to find this playlist! Please try again or use a different link."))
 
-    elif search_type == "album":
-        results = await spotify_client.get_album(spotify_id=spotify_id)
-        try:
-            search_tracks = await results.get_all_tracks()
-        except Exception:
-            return await ctx.send(_("I was not able to find this album! Please try again or use a different link."))
+        elif search_type == "album":
+            try:
+                results = await spotify_client.get_album(spotify_id=spotify_id)
+                search_tracks = await results.get_all_tracks()
+            except Exception:
+                return await ctx.send(_("I was not able to find this album! Please try again or use a different link."))
 
-    elif search_type == 'track':
-        results = await spotify_client.get_track(spotify_id=spotify_id)
-        search_tracks = [results]
+        elif search_type == 'track':
+            results = await spotify_client.get_track(spotify_id=spotify_id)
+            search_tracks = [results]
 
-    tracks = [
-        Track('spotify',
-              {
-                  'title': track.name or 'Unknown', 'author': ', '.join(artist.name for artist in track.artists) or 'Unknown',
-                  'length': track.duration or 0, 'identifier': track.id or 'Unknown', 'uri': track.url or 'spotify',
-                  'isStream': False, 'isSeekable': False, 'position': 0, 'thumbnail': track.images[0].url if track.images else None
-              },
-              requester=ctx.author,
-              ) for track in search_tracks
-    ]
+        tracks = [
+            Track('spotify',
+                  {
+                      'title': track.name or 'Unknown', 'author': ', '.join(artist.name for artist in track.artists) or 'Unknown',
+                      'length': track.duration or 0, 'identifier': track.id or 'Unknown', 'uri': track.url or 'spotify',
+                      'isStream': False, 'isSeekable': False, 'position': 0,
+                  },
+                  requester=ctx.author,
+                  ) for track in search_tracks
+        ]
+        if queue:
+            await logger.new_log(ctx.bot, time.time(), 4, len(tracks))
+            if not tracks:
+                return await ctx.send(_("The URL you put is either not valid or doesn't exist!"))
 
-    if not tracks:
-        return await ctx.send(_("The URL you put is either not valid or doesn't exist!"))
+            if search_type == "playlist":
+                for track in tracks:
+                    player.queue.put_nowait(track)
 
-    if search_type == "playlist":
-        for track in tracks:
-            player.queue.put_nowait(track)
+                await ctx.send(_('{0} Added the playlist **{1}**'
+                                 ' with {2} songs to the queue!').format('🎶', results.name, len(tracks)), delete_after=15)
+            elif search_type == "album":
+                for track in tracks:
+                    player.queue.put_nowait(track)
 
-        await ctx.send(_('{0} Added the playlist **{1}**'
-                         ' with {2} songs to the queue!').format('🎶', results.name, len(tracks)), delete_after=15)
-    elif search_type == "album":
-        for track in tracks:
-            player.queue.put_nowait(track)
+                await ctx.send(_('{0} Added the album **{1}**'
+                                 ' with {2} songs to the queue!').format('🎶', results.name, len(tracks)), delete_after=15)
+            else:
+                if player.is_playing():
+                    await ctx.send(_('{0} Added **{1}** to the Queue!').format('🎶', tracks[0].title), delete_after=15)
+                player.queue.put_nowait(tracks[0])
 
-        await ctx.send(_('{0} Added the album **{1}**'
-                         ' with {2} songs to the queue!').format('🎶', results.name, len(tracks)), delete_after=15)
-    else:
-        if player.is_playing:
-            await ctx.send(_('{0} Added **{1}** to the Queue!').format('🎶', tracks[0].title), delete_after=15)
-        player.queue.put_nowait(tracks[0])
+        await spotify_client.close()
+        await spotify_http_client.close()
+        if not queue:
+            return tracks
+        if not player.is_playing():
+            await player.do_next()
 
-    if not player.is_playing:
-        await player.do_next()
+
+def printRAW(*Text):
+    with open(1, 'w', encoding='utf8', closefd=False) as RAWOut:
+        print(*Text, file=RAWOut)
+        RAWOut.flush()

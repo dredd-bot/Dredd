@@ -14,12 +14,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import discord
-import aiohttp
 
 from discord.ext import commands
-from db.cache import CacheManager as CM
-from datetime import datetime, timezone, timedelta
-from cogs import music
+
+from time import time
+from datetime import datetime, timezone
+from db.cache import Voted
 
 
 class admin_only(commands.CheckFailure):
@@ -51,60 +51,51 @@ class DisabledCommand(commands.CheckFailure):
     pass
 
 
-def add_vote(bot, user, time=datetime.utcnow(), voted=True):
-    bot.voted[user] = {"voted": voted, "expire": time + timedelta(hours=12) if voted else time + timedelta(seconds=10)}
+def add_vote(bot, user, timestamp=int(time()), voted=True):
+    bot.voted[user] = {"voted": voted, "expire": timestamp}
 
 
 def has_voted():
     async def predicate(ctx):
         if await ctx.bot.is_booster(ctx.author):
             return True
-        elif ctx.guild.id == 709521003759403063:
+        elif ctx.guild.data.beta:
+            return True
+        elif not ctx.bot.require_vote:
             return True
         else:
-            get_vote = ctx.bot.cache.get(ctx.bot, "voted", ctx.author.id)
-            if get_vote:
-                time = (get_vote["expire"] - datetime.utcnow()).total_seconds()
-                if get_vote["voted"] and time > 0:
+            current_time = int(time())
+            voted: Voted = ctx.author.data.voted
+            if voted:
+                if voted.voted and voted.expire > current_time:
                     return True
-                elif get_vote["voted"] and time <= 0:
+                elif voted.voted and voted.expire < current_time:
                     ctx.bot.voted.pop(ctx.author.id)
                     pass
-                elif not get_vote["voted"] and time > 0:
+                elif not voted.voted and voted.expire > current_time:
+                    ctx.bot.voted.pop(ctx.author.id)
+                    pass
+                else:
                     raise not_voted()
-                elif not get_vote["voted"] and time <= 0:
-                    ctx.bot.voted.pop(ctx.author.id)
-                    pass
+
             try:
-                try:
-                    if await ctx.bot.dblpy.get_user_vote(ctx.author.id):
-                        add_vote(ctx.bot, ctx.author.id, True)
+                auth = {'Authorization': ctx.bot.config.DREDD_API_TOKEN}
+                async with ctx.bot.session.get(f'https://dredd-bot.xyz/api/upvotes/{ctx.author.id}', headers=auth) as r:
+                    if 500 % (r.status + 1) == 500:
+                        return await ctx.send(_("Oops!\nError occured while fetching your vote: {0}").format('Status Code 500'))
+                    result = await r.json()
+                    if result["voted"]:
+                        add_vote(ctx.bot, ctx.author.id, timestamp=result["expire"])
                         return True
-                except Exception:
-                    pass
-                async with aiohttp.ClientSession() as session:
-                    auth = {'Authorization': ctx.bot.config.STAT_TOKEN}
-                    async with session.get(f'https://api.statcord.com/v3/667117267405766696/votes/{ctx.author.id}?days=0.5', headers=auth) as r:
-                        js = await r.json()
-                        color = ctx.bot.settings['colors']
-                        e = discord.Embed(color=color['deny_color'], title='Something failed')
-                        e.set_author(name=f"Hey {ctx.author}!", icon_url=ctx.author.avatar_url)
-                        if js['error'] is False and js['didVote'] is False:
-                            add_vote(ctx.bot, ctx.author.id, voted=False)
-                            raise not_voted()
-                        elif js['error'] is False and js['didVote'] is True:
-                            add_vote(ctx.bot, ctx.author.id, time=datetime.utcfromtimestamp(js['data'][0]['timestamp']))
-                            return True
-                        elif js['error'] is True:
-                            ctx.bot.dispatch('silent_error', ctx, js['message'], trace_error=False)
-                            e.description = _("Oops!\nError occured while fetching your vote: {0}").format(js['message'])
-                            await ctx.send(embed=e)
-                            return False
+                    else:
+                        add_vote(ctx.bot, ctx.author.id, timestamp=current_time + 10, voted=False)  # +10 seconds
+                        raise not_voted()
             except not_voted:
                 raise not_voted()
             except Exception as e:
                 ctx.bot.dispatch('silent_error', ctx, e)
                 raise commands.BadArgument(_("Error occured when trying to fetch your vote, sent the detailed error to my developers.\n```py\n{0}```").format(e))
+
     return commands.check(predicate)
 
 
@@ -114,6 +105,7 @@ def is_guild(ID):
             return True
         elif ctx.guild.id != ID and not await ctx.bot.is_owner(ctx.author):
             return False
+
     return commands.check(predicate)
 
 
@@ -122,6 +114,7 @@ def is_booster():
         if await ctx.bot.is_booster(ctx.author):
             return True
         raise booster_only()
+
     return commands.check(predicate)
 
 
@@ -130,6 +123,7 @@ def is_owner():
         if await ctx.bot.is_owner(ctx.author):
             return True
         raise commands.NotOwner()
+
     return commands.check(predicate)
 
 
@@ -138,6 +132,7 @@ def is_admin():
         if await ctx.bot.is_admin(ctx.author):
             return True
         raise admin_only()
+
     return commands.check(predicate)
 
 
@@ -146,6 +141,7 @@ def moderator(**perms):
     if check_invalid:
         raise invalid_permissions_flag()
 
+    # noinspection PyProtectedMember
     async def predicate(ctx):
         role = ctx.bot.cache.get(ctx.bot, 'mod_role', ctx.guild.id)
         admin_role = ctx.bot.cache.get(ctx.bot, 'admin_role', ctx.guild.id)
@@ -172,7 +168,8 @@ def moderator(**perms):
             raise commands.MissingPermissions(missing_perms)
         elif mod_role in ctx.author.roles:
             return True
-    return commands.check(predicate)
+
+    return commands.check(predicate, required_permissions=perms)
 
 
 def admin(**perms):
@@ -200,7 +197,8 @@ def admin(**perms):
             raise commands.MissingPermissions(missing_perms)
         elif admin_role in ctx.author.roles:
             return True
-    return commands.check(predicate)
+
+    return commands.check(predicate, required_permissions=perms)
 
 
 def test_command():  # update this embed
@@ -216,6 +214,7 @@ def test_command():  # update this embed
         elif not await ctx.bot.is_admin(ctx.author) and cache:
             return True
         return False
+
     return commands.check(predicate)
 
 
@@ -225,6 +224,7 @@ def removed_command():  # The command is getting removed slowly
             ctx.bot.support
         ))
         return False
+
     return commands.check(predicate)
 
 
@@ -233,109 +233,109 @@ async def lockdown(ctx):
         e = discord.Embed(color=ctx.bot.settings['colors']['deny_color'],
                           description=_("Hello!\nWe're currently under the maintenance and the bot is unavailable for use."
                                         " You can join the [support server]({0}) or subscribe to our [status page]({1}) to know when we'll be available again!").format(
-            ctx.bot.support, ctx.bot.statuspage
-        ), timestamp=datetime.now(timezone.utc))
-        e.set_author(name=_("Dredd is under the maintenance!"), icon_url=ctx.bot.user.avatar_url)
-        e.set_thumbnail(url=ctx.bot.user.avatar_url)
+                              ctx.bot.support, ctx.bot.statuspage
+                          ), timestamp=datetime.now(timezone.utc))
+        e.set_author(name=_("Dredd is under the maintenance!"), icon_url=ctx.bot.user.avatar.url)
+        e.set_thumbnail(url=ctx.bot.user.avatar.url)
         await ctx.send(embed=e)
         return True
     return False
 
 
-async def guild_disabled(ctx):
+async def guild_disabled(ctx):  # sourcery skip
     if ctx.guild:
         if ctx.command.parent:
-            if CM.get(ctx.bot, 'guild_disabled', f"{str(ctx.command.parent)}, {ctx.guild.id}"):
+            if ctx.bot.cache.get(ctx.bot, 'guild_disabled', f"{str(ctx.command.parent)}, {ctx.guild.id}"):
                 return True
-            elif CM.get(ctx.bot, 'guild_disabled', f"{str(f'{ctx.command.parent} {ctx.command.name}')}, {ctx.guild.id}"):
+            elif ctx.bot.cache.get(ctx.bot, 'guild_disabled', f"{str(f'{ctx.command.parent} {ctx.command.name}')}, {ctx.guild.id}"):
                 return True
             else:
                 return False
         else:
-            if CM.get(ctx.bot, 'guild_disabled', f"{str(ctx.command.name)}, {ctx.guild.id}"):
+            if ctx.bot.cache.get(ctx.bot, 'guild_disabled', f"{str(ctx.command.name)}, {ctx.guild.id}"):
                 return True
             else:
                 return False
 
 
-async def cog_disabled(ctx, cog_name: str):
+async def cog_disabled(ctx, cog_name: str):  # sourcery skip
     if ctx.guild:
-        if ctx.bot.get_cog(CM.get(ctx.bot, 'cog_disabled', f"{str(ctx.guild.id)}, {str(cog_name)}")) == ctx.bot.get_cog(cog_name) and not await ctx.bot.is_admin(ctx.author):
+        if ctx.bot.get_cog(ctx.bot.cache.get(ctx.bot, 'cog_disabled', f"{str(ctx.guild.id)}, {str(cog_name)}")) == ctx.bot.get_cog(cog_name) and not await ctx.bot.is_admin(ctx.author):
             return True
         else:
             return False
     return False
 
 
-async def bot_disabled(ctx):
+async def bot_disabled(ctx):  # sourcery skip
     if ctx.command.parent:
-        if CM.get(ctx.bot, 'disabled_commands', str(ctx.command.parent)):
-            ch = CM.get(ctx.bot, 'disabled_commands', str(ctx.command.parent))
+        if ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(ctx.command.parent)):
+            ch = ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(ctx.command.parent))
             raise DisabledCommand(_("{0} | `{1}` and its corresponding subcommands are currently disabled for: `{2}`").format(ctx.bot.settings['emojis']['misc']['warn'], ctx.command.parent, ch['reason']))
-        elif CM.get(ctx.bot, 'disabled_commands', str(f"{ctx.command.parent} {ctx.command.name}")):
-            ch = CM.get(ctx.bot, 'disabled_commands', str(f"{ctx.command.parent} {ctx.command.name}"))
+        elif ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(f"{ctx.command.parent} {ctx.command.name}")):
+            ch = ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(f"{ctx.command.parent} {ctx.command.name}"))
             raise DisabledCommand(_("{0} | `{1} {2}` is currently disabled for: `{3}`").format(
                 ctx.bot.settings['emojis']['misc']['warn'], ctx.command.parent, ctx.command.name, ch['reason']
             ))
         else:
             return False
     else:
-        if CM.get(ctx.bot, 'disabled_commands', str(ctx.command.name)):
-            ch = CM.get(ctx.bot, 'disabled_commands', str(ctx.command.name))
+        if ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(ctx.command.name)):
+            ch = ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(ctx.command.name))
             raise DisabledCommand(_("{0} | `{1}` is currently disabled for: `{2}`").format(ctx.bot.settings['emojis']['misc']['warn'], ctx.command.name, ch['reason']))
         else:
             return False
 
 
-async def is_disabled(ctx, command):
+async def is_disabled(ctx, command):  # sourcery skip
     if ctx.guild:
         try:
             if command.parent:
-                if CM.get(ctx.bot, 'guild_disabled', f"{str(command.parent)}, {ctx.guild.id}"):
+                if ctx.bot.cache.get(ctx.bot, 'guild_disabled', f"{str(command.parent)}, {ctx.guild.id}"):
                     return True
-                elif CM.get(ctx.bot, 'disabled_commands', str(command.parent)):
+                elif ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(command.parent)):
                     return True
-                elif CM.get(ctx.bot, 'guild_disabled', f"{str(f'{command.parent} {command.name}')}, {ctx.guild.id}"):
+                elif ctx.bot.cache.get(ctx.bot, 'guild_disabled', f"{str(f'{command.parent} {command.name}')}, {ctx.guild.id}"):
                     return True
-                elif CM.get(ctx.bot, 'disabled_commands', str(f"{command.parent} {command.name}")):
+                elif ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(f"{command.parent} {command.name}")):
                     return True
                 else:
                     return False
             elif not command.parent:
-                if CM.get(ctx.bot, 'guild_disabled', f"{str(command.name)}, {ctx.guild.id}"):
+                if ctx.bot.cache.get(ctx.bot, 'guild_disabled', f"{str(command.name)}, {ctx.guild.id}"):
                     return True
-                elif CM.get(ctx.bot, 'disabled_commands', str(command.name)):
+                elif ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(command.name)):
                     return True
                 else:
                     return False
         except Exception:
-            if CM.get(ctx.bot, 'disabled_commands', str(command)):
+            if ctx.bot.cache.get(ctx.bot, 'disabled_commands', str(command)):
                 return True
 
 
-async def is_guild_disabled(ctx, command):
+async def is_guild_disabled(ctx, command):  # sourcery skip
     if ctx.guild:
         try:
             if command.parent:
-                if CM.get(ctx.bot, 'guild_disabled', f"{str(command.parent)}, {ctx.guild.id}"):
+                if ctx.bot.cache.get(ctx.bot, 'guild_disabled', f"{str(command.parent)}, {ctx.guild.id}"):
                     return True
-                elif CM.get(ctx.bot, 'guild_disabled', f"{str(f'{command.parent} {command.name}')}, {ctx.guild.id}"):
+                elif ctx.bot.cache.get(ctx.bot, 'guild_disabled', f"{str(f'{command.parent} {command.name}')}, {ctx.guild.id}"):
                     return True
                 else:
                     return False
             elif not command.parent:
-                if CM.get(ctx.bot, 'guild_disabled', f"{str(command.name)}, {ctx.guild.id}"):
+                if ctx.bot.cache.get(ctx.bot, 'guild_disabled', f"{str(command.name)}, {ctx.guild.id}"):
                     return True
                 else:
                     return False
-        except Exception as e:
-            if CM.get(ctx.bot, 'guild_commands', f"{str(command.name)}, {ctx.guild.id}"):
+        except Exception:
+            if ctx.bot.cache.get(ctx.bot, 'guild_commands', f"{str(command.name)}, {ctx.guild.id}"):
                 return True
 
 
 def check_music(author_channel=False, bot_channel=False, same_channel=False, verify_permissions=False, is_playing=False, is_paused=False):
     async def predicate(ctx):
-        player = ctx.bot.wavelink.get_player(ctx.guild.id, cls=music.Player, context=ctx)
+        player = ctx.guild.voice_client
         author_voice = getattr(ctx.author.voice, 'channel', None)
         bot_voice = getattr(ctx.guild.me.voice, 'channel', None)
         if author_channel and not getattr(ctx.author.voice, 'channel', None):
@@ -346,14 +346,15 @@ def check_music(author_channel=False, bot_channel=False, same_channel=False, ver
             raise music_error(_("{0} You need to be in the same voice channel with me.").format(ctx.bot.settings['emojis']['misc']['warn']))
         if verify_permissions and not ctx.author.voice.channel.permissions_for(ctx.guild.me).speak or not ctx.author.voice.channel.permissions_for(ctx.guild.me).connect:
             raise music_error(_("{0} I'm missing permissions in your voice channel. Make sure you have given me the correct permissions!").format(ctx.bot.settings['emojis']['misc']['warn']))
-        if is_playing and not player.is_playing:
+        if is_playing and not player.is_playing():
             raise music_error(_("{0} I'm not playing anything.").format(ctx.bot.settings['emojis']['misc']['warn']))
-        if is_paused and not player.is_paused and ctx.command.name == 'resume':
+        if is_paused and not player.is_paused() and ctx.command.name == 'resume':
             raise music_error(_("{0} Player is not paused.").format(ctx.bot.settings['emojis']['misc']['warn']))
-        if is_paused and player.is_paused and ctx.command.name == 'pause':
+        if is_paused and player.is_paused() and ctx.command.name == 'pause':
             raise music_error(_("{0} Player is already paused.").format(ctx.bot.settings['emojis']['misc']['warn']))
-        dj_voice = getattr(player.dj.voice, 'channel', None)
+        # dj_voice = getattr(player.dj.voice, 'channel', None)
         return True
+
     return commands.check(predicate)
 
 
@@ -393,47 +394,64 @@ class CooldownByContent(commands.CooldownMapping):
         return (message.channel.id, message.content)
 
 
+# noinspection PyUnboundLocalVariable
 class AutomodGlobalStates(commands.Converter):
     async def convert(self, ctx, argument):
         states_list = ['chill', 'strict']
         if argument.isdigit() or argument not in states_list:
             raise commands.BadArgument(_("Valid options are {0}").format('`' + '`, `'.join(states_list) + '`'))
-        else:
-            if argument.lower() == 'chill':
-                values = {
-                    'spam': 2,
-                    'massmention': 2,
-                    'links': 2,
-                    'masscaps': 2,
-                    'invites': 3,
-                    'time': '12h'
-                }
-            elif argument.lower() == 'strict':
-                values = {
-                    'spam': 4,
-                    'massmention': 3,
-                    'links': 4,
-                    'masscaps': 3,
-                    'invites': 4,
-                    'time': '24h'
-                }
-            return values
+        if argument.lower() == 'chill':
+            values = {
+                'spam': 2,
+                'massmention': 2,
+                'links': 2,
+                'masscaps': 2,
+                'invites': 3,
+                'time': '12h'
+            }
+        elif argument.lower() == 'strict':
+            values = {
+                'spam': 4,
+                'massmention': 3,
+                'links': 4,
+                'masscaps': 3,
+                'invites': 4,
+                'time': '24h'
+            }
+        return values
 
 
 class AutomodValues(commands.Converter):
-    async def convert(self, ctx, argument):
+    async def convert(self, ctx, argument) -> dict:
         values_list = ['kick', 'mute', 'temp-mute', 'ban', 'temp-ban', 'disable']
         if argument not in values_list:
             raise commands.BadArgument(_("Valid values are {0}").format('`' + '`, `'.join(values_list) + '`'))
-        elif argument in values_list:
-            values_dict = {
-                'kick': 3,
-                'mute': 1,
-                'temp-mute': 2,
-                'ban': 4,
-                'temp-ban': 5,
-                'disable': 0
-            }
+        values_dict = {
+            'disable': 0,
+            'mute': 1,
+            'temp-mute': 2,
+            'kick': 3,
+            'ban': 4,
+            'temp-ban': 5,
+        }
 
-            value = {'action': values_dict[argument], 'time': '12h'}
-            return value
+        return {'action': values_dict[argument], 'time': '12h'}
+
+
+def buttons_disable(current_page: int, max_pages: int, buttons=None):
+    for button in buttons.children:
+        if (
+                max_pages == 1
+                and str(button.label) not in ["Stop", 'Home']
+        ):
+            button.disabled = True
+        if current_page == 1 and max_pages != 1 and str(button.label) in ['Previous', 'First', ]:
+            button.disabled = True
+        if max_pages >= 2:
+            if (current_page + 1) != max_pages and str(button.label) == 'Last':
+                button.disabled = False
+            if current_page > 2 and str(button.label) == 'First':
+                button.disabled = False
+        if current_page == max_pages and str(button.label) in ['Next', 'Last']:
+            button.disabled = True
+    return buttons.children
