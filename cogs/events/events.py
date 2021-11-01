@@ -50,8 +50,8 @@ class Events(commands.Cog):
         if ctx.bot.user.id == 663122720044875796 and ctx.guild.data.beta:  # type: ignore
             return True
 
-        if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author) or not ctx.guild.data.beta:  # type: ignore
-            return False
+        # if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author) or not ctx.guild.data.beta:  # type: ignore
+        #     return False
 
         blacklist = await ctx.bot.is_blacklisted(ctx.author)
         if blacklist and blacklist['type'] == 2:
