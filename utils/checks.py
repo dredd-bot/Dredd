@@ -72,7 +72,7 @@ def has_voted():
                 elif voted.voted and voted.expire < current_time:
                     ctx.bot.voted.pop(ctx.author.id)
                     pass
-                elif not voted.voted and voted.expire > current_time:
+                elif not voted.voted and voted.expire < current_time:
                     ctx.bot.voted.pop(ctx.author.id)
                     pass
                 else:
