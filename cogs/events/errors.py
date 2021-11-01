@@ -127,7 +127,7 @@ class CommandError(commands.Cog, name="CommandError",
             e.description = _("Thank you for using me! Unfortunately this command is vote locked and you'll need to vote for Dredd. You can vote in any of these lists:\n"
                               "{0}\nIf you've voted already, please wait cause the API might be slow."
                               "\n\n*After you vote, you'll be able to use this command, and you will help Dredd gain more servers :D*").format(
-                                  "\n".join(f"`[{num}]` {bot_list}" for num, bot_list in enumerate(self.bot.bot_lists.values(), start=1))
+                                  "\n".join(f"`[{num}]` {bot_list}" for num, bot_list in enumerate(botlist.values(), start=1))
                               )
             return await ctx.send(embed=e)
 

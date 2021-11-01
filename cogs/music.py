@@ -27,7 +27,6 @@ import json
 import spotify as spotify_client
 
 from time import time
-from aiohttp import ClientConnectorError
 from discord.ext import commands
 from wavelink.ext import spotify
 from utils.checks import check_music, is_admin, has_voted
@@ -881,7 +880,7 @@ class Music(commands.Cog):
                 self.bot.settings['emojis']['misc']['warn'], user
             ))
 
-        e = discord.Embed(color=self.bot.settings['colors']['embed_color'], title=_("{user}'s plalists").format(user=user.name) if user != ctx.author else _("Your playlists"))
+        e = discord.Embed(color=self.bot.settings['colors']['embed_color'], title=_("{user}'s playlists").format(user=user.name) if user != ctx.author else _("Your playlists"))
         e.description = "\n".join(_("`[{0}]` **{1}** `({2} songs)`").format(num, pl['playlist_name'], len(pl.get('playlist', ''))) for num, pl in enumerate(playlist, start=1))
         await ctx.send(embed=e)
 
