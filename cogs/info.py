@@ -316,9 +316,9 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         if info:
             e.add_field(name=_("Features"), value=', '.join(info), inline=False)
 
-        if not ctx.guild.icon.is_animated():
+        if ctx.guild.icon and not ctx.guild.icon.is_animated():
             e.set_thumbnail(url=ctx.guild.icon.with_format("png").url)
-        elif ctx.guild.icon.is_animated():
+        elif ctx.guild.icon and ctx.guild.icon.is_animated():
             e.set_thumbnail(url=ctx.guild.icon.with_format("gif").url)
         if ctx.guild.banner:
             e.set_image(url=ctx.guild.banner.with_format("png").url)
