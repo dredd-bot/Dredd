@@ -324,7 +324,7 @@ class Events(commands.Cog):
         ratio = f'{int(100 / guild.member_count * bots)}'
         owner = guild.owner
         e = discord.Embed(timestamp=datetime.now(timezone.utc))
-        e.set_author(name=guild.name, icon_url=guild.icon.url or self.bot.user.display_avatar.url)
+        e.set_author(name=guild.name, icon_url=guild.icon.url if guild.icon else self.bot.user.display_avatar.url)
         chan = self.bot.get_channel(self.bot.settings['channels']['joins-leaves'])
         e.color = self.bot.settings['colors']['approve_color']  # type: ignore
         e.title = 'I\'ve joined a new guild'
@@ -335,7 +335,7 @@ class Events(commands.Cog):
 **Members:** {len(guild.humans)} users and {bots} bots (Total: {guild.member_count})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice
-**Icon url:** [Click here]({guild.icon.url})
+**Icon url:** [Click here]({guild.icon.url if guild.icon else self.bot.user.display_avatar.urll})
 """
         e.set_footer(text=f"I'm in {len(self.bot.guilds)} guilds now")
         msg = await chan.send(embed=e)
@@ -373,7 +373,7 @@ class Events(commands.Cog):
         else:
             ratio = f'{int(100 / len(guild.members) * bots)}'
         e = discord.Embed(timestamp=datetime.now(timezone.utc))
-        e.set_author(name=guild.name, icon_url=guild.icon.url or self.bot.user.display_avatar.url)
+        e.set_author(name=guild.name, icon_url=guild.icon.url if guild.icon else self.bot.user.display_avatar.url)
         with suppress(Exception):
             head = {"Authorization": self.bot.config.DREDD_API_TOKEN, "Client": self.bot.config.DREDD_API_CLIENT}
             body = {"guilds": len(self.bot.guilds), "users": sum(x.member_count for x in self.bot.guilds)}
@@ -393,7 +393,7 @@ class Events(commands.Cog):
 **Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count if hasattr(guild, 'member_count') else len(guild.members)})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice
-**Icon url:** [Click here]({guild.icon.url})
+**Icon url:** [Click here]({guild.icon.url if guild.icon else self.bot.user.display_avatar.url})
 """
             e.add_field(name='Blacklist info:', value=f"Blacklisted by **{mod}** {btime.human_timedelta(check['issued'], source=datetime.now())}.\n**Reason:** {reason}\n**Liftable:** {lift}")
             chan = self.bot.get_channel(self.bot.settings['channels']['joins-leaves'])
@@ -404,7 +404,7 @@ class Events(commands.Cog):
 **Guild:** {guild.name} ({guild.id})
 **Members:** {len(guild.humans)} users and {len(guild.bots)} bots (Total: {guild.member_count if hasattr(guild, 'member_count') else len(guild.members)})
 **Users/Bots ratio:** {ratio}%
-**Icon url:** [Click here]({guild.icon.url})
+**Icon url:** [Click here]({guild.icon.url if guild.icon else self.bot.user.display_avatar.url})
 """
             chan = self.bot.get_channel(self.bot.settings['channels']['joins-leaves'])
             all_mentions = discord.AllowedMentions(users=True, everyone=False, roles=False)
