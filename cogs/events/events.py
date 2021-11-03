@@ -320,7 +320,9 @@ class Events(commands.Cog):
         bots = len(guild.bots)
         tch = len(guild.text_channels)
         vch = len(guild.voice_channels)
-        ratio = f'{int(100 / guild.member_count * bots)}'
+        ratio = 'Unknown'
+        with suppress(Exception):
+            ratio = f'{int(100 / guild.member_count * bots)}'
         owner = guild.owner
         e = discord.Embed(timestamp=datetime.now(timezone.utc))
         e.set_author(name=guild.name, icon_url=guild.icon.url if guild.icon else self.bot.user.display_avatar.url)
@@ -334,7 +336,7 @@ class Events(commands.Cog):
 **Members:** {len(guild.humans)} users and {bots} bots (Total: {guild.member_count})
 **Users/Bots ratio:** {ratio}%
 **Channels:** {tch} text / {vch} voice
-**Icon url:** [Click here]({guild.icon.url if guild.icon else self.bot.user.display_avatar.urll})
+**Icon url:** [Click here]({guild.icon.url if guild.icon else self.bot.user.display_avatar.url})
 """
         e.set_footer(text=f"I'm in {len(self.bot.guilds)} guilds now")
         msg = await chan.send(embed=e)
@@ -366,10 +368,12 @@ class Events(commands.Cog):
         bots = len(guild.bots)
         tch = len(guild.text_channels)
         vch = len(guild.voice_channels)
-        if hasattr(guild, 'member_count'):
-            ratio = f'{int(100 / guild.member_count * bots)}'
-        else:
-            ratio = f'{int(100 / len(guild.members) * bots)}'
+        ratio = 'Unknown'
+        with suppress(Exception):
+            if hasattr(guild, 'member_count'):
+                ratio = f'{int(100 / guild.member_count * bots)}'
+            else:
+                ratio = f'{int(100 / len(guild.members) * bots)}'
         e = discord.Embed(timestamp=datetime.now(timezone.utc))
         e.set_author(name=guild.name, icon_url=guild.icon.url if guild.icon else self.bot.user.display_avatar.url)
         with suppress(Exception):
