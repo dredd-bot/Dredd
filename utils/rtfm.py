@@ -180,7 +180,7 @@ async def do_rtfm(self, ctx, key, obj):
         return await ctx.send(_('I could not find anything, sorry.'))
     v = discord.__version__
     if page_types[key] == page_types['latest']:
-        e.set_author(name=_('enhanced discord.py {0}').format(v), icon_url=ctx.author.avatar.url, url=page_types[key])
+        e.set_author(name=_('enhanced discord.py {0}').format(v), icon_url=ctx.author.display_avatar.url, url=page_types[key])
         e.set_footer(text=_("Keep in mind this is NOT the original d.py; certain things may be different"))
     e.title = _('**Search query:** `{0}`\n\n').format(obj.lower())
 
