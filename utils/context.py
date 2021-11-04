@@ -29,7 +29,7 @@ class EditingContext(commands.Context):
     interaction: Optional[Interaction] = None
 
     async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=discord.AllowedMentions(users=False, roles=False, everyone=False, replied_user=True),
-                   view=None, ephemeral=False, return_message=None):
+                   view=None, ephemeral=False, return_message=None, reference=None):
         # sourcery no-metrics
 
         reply = None
@@ -59,6 +59,6 @@ class EditingContext(commands.Context):
                 send = self.interaction.response.send_message
             else:
                 send = self.interaction.response.edit_message
-            msg = await send(content, ephemeral=ephemeral, **kwargs)  # type: ignore
+            msg = await send(content, ephemeral=ephemeral, reference=reference, **kwargs)  # type: ignore
         self.bot.cmd_edits[self.message.id] = msg
         return msg
