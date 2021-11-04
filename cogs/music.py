@@ -881,7 +881,7 @@ class Music(commands.Cog):
             ))
 
         e = discord.Embed(color=self.bot.settings['colors']['embed_color'], title=_("{user}'s playlists").format(user=user.name) if user != ctx.author else _("Your playlists"))
-        e.description = "\n".join(_("`[{0}]` **{1}** `({2} songs)`").format(num, pl['playlist_name'], len(pl.get('playlist', ''))) for num, pl in enumerate(playlist, start=1))
+        e.description = "\n".join(_("`[{0}]` **{1}** `({2} songs)`").format(num, pl['playlist_name'], len('' if not pl.get('playlist') else pl.get('playlist'))) for num, pl in enumerate(playlist, start=1))
         await ctx.send(embed=e)
 
     @playlist.command(brief=_("Manage your playlist(s)"), name="manage")
