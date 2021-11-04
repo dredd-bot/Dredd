@@ -176,7 +176,7 @@ class Misc(commands.Cog, name='Miscellaneous'):
             e = discord.Embed(color=self.bot.settings['colors']['embed_color'],
                               title=f"New suggestion from {ctx.author.name} #{len(ids) + 1}",
                               description=f"> {suggestion}", timestamp=discord.utils.utcnow())
-            e.set_author(name=ctx.author, icon_url=ctx.author.avatar.url)
+            e.set_author(name=ctx.author, icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
             msg = await logchannel.send(embed=e)
             await msg.add_reaction(f"{self.bot.settings['emojis']['misc']['white-mark']}")
             await msg.add_reaction(f"{self.bot.settings['emojis']['misc']['red-mark']}")
