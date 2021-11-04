@@ -27,6 +27,7 @@ class LogType(Enum):
     logs_sent = 7  # all logs in cogs/events/logs.py
     automod_action = 8
     message_sent = 9  # might get changed
+    backup_created = 10
 
     @classmethod
     def has_value(cls, value):

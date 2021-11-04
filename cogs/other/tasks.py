@@ -18,17 +18,21 @@ import asyncio
 import gmailpy
 import subprocess
 import os
+import logging
 
 from discord.ext import commands, tasks
 from discord.errors import NotFound
 from io import BytesIO
+from time import time
 
-from utils import default
+from utils import default, logger
 from datetime import datetime, timedelta
 from db.cache import CacheManager as cm
 from cogs.music import Player
 from contextlib import suppress
 from colorama import Fore as print_color
+
+dredd_logger = logging.getLogger("dredd")
 
 
 class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
@@ -196,6 +200,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         if not backup:
             return await ch.send(f"{self.bot.get_user(345457928972533773).mention} Backup `{name}.sql` is empty!", allowed_mentions=discord.AllowedMentions(users=True))
         await self.client.send(receiver, content, subject="Database Backup", attachment_bytes=backup.read(), attachment_name=f"{name}.sql")
+        await logger.new_log(self.bot, time(), 10, 1)
         return await ch.send(f"Created backup `{name}.sql`")
 
     @tasks.loop(hours=24)
@@ -203,7 +208,8 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         now = datetime.now()
         days = timedelta(days=90)
         time = now - days
-        await self.bot.db.execute("DELETE FROM nicknames WHERE time < $1", time)
+        total = await self.bot.db.execute("DELETE FROM nicknames WHERE time < $1", time)
+        dredd_logger.info(f"[NICKNAMES] Deleted {total} nicknames from database.")
 
     @tasks.loop(hours=1)
     async def del_member_count(self):

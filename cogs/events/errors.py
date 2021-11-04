@@ -16,6 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 import traceback
 import mystbin
+import logging as log
 
 from discord.ext import commands
 from datetime import datetime, timezone
@@ -25,6 +26,8 @@ from time import time
 from utils import logger as logging
 from utils.default import admin_tracker, permissions_converter, auto_guild_leave, global_cooldown, printRAW
 from utils.checks import not_voted, admin_only, booster_only, CooldownByContent, invalid_permissions_flag, music_error, DisabledCommand
+
+dredd_commands = log.getLogger("dredd_commands")
 
 
 class CommandError(commands.Cog, name="CommandError",
@@ -63,9 +66,13 @@ class CommandError(commands.Cog, name="CommandError",
                 await ctx.guild.chunk(cache=True)
             printRAW(f"{datetime.now().__format__('%a %d %b %y, %H:%M')} - {ctx.guild.name} | {ctx.author}"
                      f"> {ctx.message.clean_content}")
+            dredd_commands.info(f"{datetime.now().__format__('%a %d %b %y, %H:%M')} - {ctx.guild.name} | {ctx.author}"
+                                f"> {ctx.message.clean_content}")
         else:
             printRAW(f"{datetime.now().__format__('%a %d %b %y, %H:%M')} - DM channel | {ctx.author}"
                      f"> {ctx.message.content}")
+            dredd_commands.info(f"{datetime.now().__format__('%a %d %b %y, %H:%M')} - DM channel | {ctx.author}"
+                                f"> {ctx.message.content}")
 
         if not await ctx.bot.is_owner(ctx.author):
             await logging.new_log(self.bot, time(), 5, 1)
@@ -306,7 +313,7 @@ class CommandError(commands.Cog, name="CommandError",
                                                                   f"**Author:** {ctx.author} **ID:** {ctx.author.id}"))
             msg = await log.send(embed=log_embed)
             await self.bot.db.execute("INSERT INTO errors VALUES($1, $2, $3, $4, $5, $6, $7)", str(tb), msg.jump_url, str(ctx.command), 0, datetime.now(), error_id + 1, str(exc))
-            await logging.new_log(self.bot, time(), 5, 1)
+            await logging.new_log(self.bot, time(), 6, 1)
             e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc),
                               title=_("{0} Unknown error | #{1}").format(self.bot.settings['emojis']['misc']['error'], error_id + 1),
                               description=_("Command `{0}` raised an error, which I reported to my developer(s).\n"
@@ -325,7 +332,7 @@ class CommandError(commands.Cog, name="CommandError",
                                                                   f"**Original error:** {error_jump}"))
             log_embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url if ctx.author.avatar else ctx.author.display_avatar.url)
             await log.send(embed=log_embed)
-            await logging.new_log(self.bot, time(), 5, 1)
+            await logging.new_log(self.bot, time(), 6, 1)
             e = discord.Embed(color=self.bot.settings['colors']['error_color'], timestamp=datetime.now(timezone.utc),
                               title=_("{0} Known error | #{1}").format(self.bot.settings['emojis']['misc']['error'], error[0]['error_id']),
                               description=_("Command `{0}` raised an error that has already reported to my developer(s).\n"

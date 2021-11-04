@@ -54,7 +54,7 @@ class staff(commands.Cog, name="Staff", command_attrs={"slash_command": False}):
         e = discord.Embed(color=color, title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
         if not user:  # server doesn't have an owner
             return
-        e.set_author(name=user, icon_url=user.avatar.url)
+        e.set_author(name=user, icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
 
         if blacklist:
             bslash = '\n\n'

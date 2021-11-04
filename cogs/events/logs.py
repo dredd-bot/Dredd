@@ -368,7 +368,7 @@ class Logging(commands.Cog):
                 await default.background_error(self, '`guild afk channel update`', e, before, channels)
                 return
         embed.title = f"{self.bot.settings['emojis']['logs']['guildedit']}"
-        if before.icon_url != after.icon_url:
+        if before.icon.url != after.icon.url:
             embed.title += _(" Guild icon changed")
             embed.description = _("**Before:** [Click here]({0})\n**After:** [Click here]({1})").format(before.icon_url, after.icon_url)
             embed.set_thumbnail(url=after.icon_url)

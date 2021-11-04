@@ -369,7 +369,7 @@ def server_logs(ctx, server, simple=True):  # sourcery no-metrics
 
 async def admin_tracker(ctx):
     e = discord.Embed(color=ctx.bot.settings['colors']['embed_color'], timestamp=datetime.now(timezone.utc))
-    e.set_author(name=ctx.author, icon_url=ctx.author.avatar.url)
+    e.set_author(name=ctx.author, icon_url=ctx.author.display_avatar.url)
     e.title = "Admin command used"
     e.description = f"""
 **Command:**\n{ctx.message.content}
@@ -483,7 +483,7 @@ async def global_cooldown(ctx) -> None:
         ctx.bot.badges[ctx.author.id] = 2048
         await ctx.bot.db.execute("INSERT INTO bot_history(_id, action, dev, reason, issued, type, liftable) VALUES($1, $2, $3, $4, $5, $6, $7)", ctx.author.id, 1, ctx.bot.user.id, reason, datetime.now(), 2, 0)
         e = discord.Embed(color=ctx.bot.settings['colors']['deny_color'], title='Blacklist state updated!', timestamp=datetime.now(timezone.utc))
-        e.set_author(name=ctx.author, icon_url=ctx.author.avatar.url)
+        e.set_author(name=ctx.author, icon_url=ctx.author.display_avatar.url)
         e.description = f"Hey!\nI'm sorry, but your blacklist state was updated and you won't be able to use my commands anymore!\n**Reason:** {reason}" \
                         f"\nIf you wish to appeal, you can [join the support server]({ctx.bot.support})"
         with suppress(Exception):

@@ -192,7 +192,7 @@ class fun(commands.Cog, name="Fun"):
 
         member = member or ctx.author
         owner = self.bot.get_user(345457928972533773)
-        if member == owner and not bypass and ctx.message.content.lower().endswith(self.bot.settings['bypass']['owner-bypass']):
+        if member == owner and not bypass and not ctx.message.content.lower().endswith(self.bot.settings['bypass']['owner-bypass']):
             return await ctx.send(_("You can't roast Moksej! I'll drop you a hint, though."
                                     " There's a bypass that you can use to roast him ;)"))
 
@@ -212,7 +212,7 @@ class fun(commands.Cog, name="Fun"):
         """ A *~~hidden~~* duck image command.\nPowered by random-d.uk | Not secretly added by Duck <a:BongoCoding:806396390103187526> """
 
         embed = discord.Embed(title='Quack Quack :duck:', color=discord.Color.orange())
-        embed.set_author(name=ctx.author, icon_url=ctx.author.avatar.url)
+        embed.set_author(name=ctx.author, icon_url=ctx.author.display_avatar.url)
         embed.set_footer(text='Powered by random-d.uk', icon_url="https://cdn.discordapp.com/avatars/426787835044036610/795ed0c0b2da8d6c37c071dc61e0c77f.png")
         file = random.choice(['jpg', 'gif'])
         if file == 'jpg':

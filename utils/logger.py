@@ -32,6 +32,19 @@ handler = RotatingFileHandler(  # type: ignore
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 dredd_logger.addHandler(handler)
 
+dredd_commands = logging.getLogger("dredd_commands")
+dredd_commands.setLevel(logging.DEBUG)
+handler = RotatingFileHandler(  # type: ignore
+    filename='logs/commands.log',
+    encoding='utf-8',
+    mode='w',
+    maxBytes=10 * 1024 * 1024,
+    backupCount=5,
+    delay=0
+)
+handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
+dredd_commands.addHandler(handler)
+
 wavelink_logger = logging.getLogger('wavelink.player')
 wavelink_logger.setLevel(logging.DEBUG)
 handler = RotatingFileHandler(  # type: ignore
@@ -74,12 +87,11 @@ discord_logger.addHandler(handler)
 async def new_log(bot, timestamp: time, type: int, value: int):
     if not LogType.has_value(type):
         type = -1
-        dredd_logger.warning(f"{LogType(type)} - unknown log type, tried adding {value}")
-    else:
-        dredd_logger.info(f"{LogType(type)} - added {value}")
+        return dredd_logger.warning(f"{LogType(type)} - unknown log type, tried adding {value}")
+    dredd_logger.info(f"{LogType(type)} - added {value}")
     query = "SELECT time FROM logging WHERE type = $1 and time > extract(epoch from now())::int - 86400"
     check = await bot.db.fetchval(query, type)  # keep adding +(value) if there are results in the last 24 hours
-    if not check:
+    if not check or type in {1, 2, 6, } and type != 10:
         await bot.db.execute("INSERT INTO logging VALUES($1, $2, $3)", timestamp, type, value)
     else:
         await bot.db.execute("UPDATE logging SET value = value + $1 WHERE type = $2 AND time = $3", value, type, check)

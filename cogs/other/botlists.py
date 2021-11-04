@@ -99,7 +99,7 @@ class ShitGG(commands.Cog):
         e = discord.Embed(title='Upvote received',
                           url="https://top.gg/bot/667117267405766696/vote",
                           color=0x5E82AC)
-        e.set_author(name=user, icon_url=user.avatar.url)
+        e.set_author(name=user, icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
         e.description = f"**{user}** has test voted for me on {datetime.now().__format__('%c')}"
         e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
         e.set_footer(text=f'User ID: {user.id}')
@@ -114,7 +114,7 @@ class ShitGG(commands.Cog):
         e = discord.Embed(title='Upvote received',
                           url="https://top.gg/bot/667117267405766696/vote",
                           color=0x5E82AC)
-        e.set_author(name=user, icon_url=user.avatar.url)
+        e.set_author(name=user, icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
         e.description = f"**{user}** has voted for me on {datetime.now().__format__('%c')}"
         e.set_thumbnail(url="https://cdn.discordapp.com/attachments/638902095520464908/659611283443941376/upvote.png")
         e.set_footer(text=f'User ID: {user.id}')
