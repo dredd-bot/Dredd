@@ -38,7 +38,7 @@ class EditingContext(commands.Context):
 
         if self.interaction is None or (self.interaction.response.responded_at is not None and discord.utils.utcnow() - self.interaction.response.responded_at >= timedelta(minutes=15)):
             if file or files:
-                return await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view)
+                return await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view, reference=reference)
             if reply:
                 try:
                     return await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions, view=view)
@@ -48,7 +48,7 @@ class EditingContext(commands.Context):
             if reference and isinstance(reference.resolved, discord.Message):
                 msg = await reference.resolved.reply(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view)
             else:
-                msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view)
+                msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view, reference=reference)
         else:
             if return_message or self.interaction.response.is_done() or file or files or allowed_mentions:
                 if not self.interaction.response.is_done():
@@ -59,6 +59,6 @@ class EditingContext(commands.Context):
                 send = self.interaction.response.send_message
             else:
                 send = self.interaction.response.edit_message
-            msg = await send(content, ephemeral=ephemeral, reference=reference, **kwargs)  # type: ignore
+            msg = await send(content, ephemeral=ephemeral, **kwargs)  # type: ignore
         self.bot.cmd_edits[self.message.id] = msg
         return msg
