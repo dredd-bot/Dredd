@@ -221,7 +221,7 @@ class HelpCommand(commands.HelpCommand):
             return await self.send_error_message(await self.command_not_found(group.name))
 
         if group.cog_name in self.booster_cogs and not await self.context.bot.is_booster(self.context.author):
-            return await self.send_error_message(self.command_not_found(group.name))  # type: ignore
+            return await self.send_error_message(await self.command_not_found(group.name))  # type: ignore
 
         sub_cmd_list = ""
         for num, group_command in enumerate(group.commands, start=1):
