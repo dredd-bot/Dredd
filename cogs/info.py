@@ -96,7 +96,7 @@ class Info(commands.Cog, name='Information'):
         totcmd = xd - ts
 
         mems = sum(x.member_count for x in self.bot.guilds)
-        website = 'https://dredd-bot.xyz/'
+        website = 'https://dreddbot.xyz/'
         Moksej = self.bot.get_user(345457928972533773)
 
         embed = discord.Embed(color=self.bot.settings['colors']['embed_color'])

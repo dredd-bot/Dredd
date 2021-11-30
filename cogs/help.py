@@ -115,7 +115,7 @@ class HelpCommand(commands.HelpCommand):
         s = _("Support")
         i = _("Bot invite")
         boats = "[discord.boats](https://discord.boats/bot/667117267405766696/vote)"
-        privacy = "[Privacy Policy](https://dredd-bot.xyz/privacy)"
+        privacy = "[Privacy Policy](https://dreddbot.xyz/privacy)"
 
         emb = discord.Embed(color=self.context.bot.settings['colors']['embed_color'])
         emojis = self.context.bot.settings['emojis']

@@ -128,15 +128,15 @@ class Bot(commands.AutoShardedBot):
         self.process = psutil.Process()
         self.ctx = EditingContext
 
-        self.website = 'https://dredd-bot.xyz'
+        self.website = 'https://dreddbot.xyz'
         self.support = 'https://discord.gg/f3MaASW'
-        self.invite = 'https://dredd-bot.xyz/invite'
-        self.privacy = 'https://dredd-bot.xyz/privacy-policy'
+        self.invite = 'https://dreddbot.xyz/invite'
+        self.privacy = 'https://dreddbot.xyz/privacy-policy'
         self.license = '<https://github.com/TheMoksej/Dredd/blob/master/LICENSE>'
         self.gif_pfp = 'https://cdn.discordapp.com/attachments/667077166789558288/747132112099868773/normal_3.gif'
         self.vote = '<https://discord.boats/bot/667117267405766696/vote>'
         self.source = '<https://github.com/dredd-bot/Dredd/>'
-        self.statuspage = '<https://status.dredd-bot.xyz>'
+        self.statuspage = '<https://status.dreddbot.xyz>'
         self.require_vote: bool = True
         self.bot_lists = {'dbots': "[Discord Bot Labs](https://dbots.cc/dredd 'bots.discordlabs.org')", 'dboats': "[Discord Boats](https://discord.boats/bot/667117267405766696/vote 'discord.boats')",
                           'dbl': "[Discord Bot list](https://discord.ly/dredd/upvote 'discordbotlist.com')", 'shitgg': "[Top.GG](https://top.gg/bot/667117267405766696/vote 'top.gg')",

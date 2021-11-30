@@ -80,7 +80,7 @@ def has_voted():
 
             try:
                 auth = {'Authorization': ctx.bot.config.DREDD_API_TOKEN}
-                async with ctx.bot.session.get(f'https://dredd-bot.xyz/api/upvotes/{ctx.author.id}', headers=auth) as r:
+                async with ctx.bot.session.get(f'https://dreddbot.xyz/api/upvotes/{ctx.author.id}', headers=auth) as r:
                     if 500 % (r.status + 1) == 500:
                         return await ctx.send(_("Oops!\nError occured while fetching your vote: {0}").format('Status Code 500'))
                     result = await r.json()

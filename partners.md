@@ -19,7 +19,7 @@ Dredd is a multipurpose Discord bot that is aiming to become one of the best non
 • Reaction Roles
 • Reminders
 
-**Invite Dredd now** - <https://dredd-bot.xyz/invite>
+**Invite Dredd now** - <https://dreddbot.xyz/invite>
 **Join the support server** - https://discord.gg/f3MaASW```
 
 #### Message must **not** be in a code block.

@@ -1,1 +1,1 @@
-Privacy policy has been moved to https://dredd-bot.xyz/privacy-policy
+Privacy policy has been moved to https://dreddbot.xyz/privacy-policy

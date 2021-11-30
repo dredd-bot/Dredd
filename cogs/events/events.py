@@ -159,7 +159,7 @@ class Events(commands.Cog):
                     message.content = message.content.replace(invite, f"{self.bot.support.split('/')[3]}")
             if links:
                 for link in links:
-                    message.content = message.content.replace(link, '[link](https://cdn.dredd-bot.xyz/iOGRhc)')
+                    message.content = message.content.replace(link, '[link](https://cdn.dreddbot.xyz/iOGRhc)')
 
             msgembed = discord.Embed(
                 description=message.content, color=discord.Color.blurple(), timestamp=datetime.now(timezone.utc))
@@ -276,7 +276,7 @@ class Events(commands.Cog):
         with suppress(Exception):
             head = {"Authorization": self.bot.config.DREDD_API_TOKEN, "Client": self.bot.config.DREDD_API_CLIENT}
             body = {"guilds": len(self.bot.guilds), "users": sum(x.member_count for x in self.bot.guilds)}
-            await self.bot.session.post('https://dredd-bot.xyz/api/stats', headers=head, json=body)
+            await self.bot.session.post('https://dreddbot.xyz/api/stats', headers=head, json=body)
             print("Updated the stats - guild join")
 
         prefix = self.bot.settings['default']['prefix']
@@ -360,7 +360,7 @@ class Events(commands.Cog):
         # from my testing on_guild_remove would sometimes
         # get dispatched before on_guild_join. (if server kicks new members immediately)
         # That was basically updating the data in the db and then immediately
-        # deleting it. Ex here: https://cdn.dredd-bot.xyz/tI0o2y
+        # deleting it. Ex here: https://cdn.dreddbot.xyz/tI0o2y
         await asyncio.sleep(3)
 
         check = CM.get(self.bot, 'blacklist', guild.id)
@@ -379,7 +379,7 @@ class Events(commands.Cog):
         with suppress(Exception):
             head = {"Authorization": self.bot.config.DREDD_API_TOKEN, "Client": self.bot.config.DREDD_API_CLIENT}
             body = {"guilds": len(self.bot.guilds), "users": sum(x.member_count for x in self.bot.guilds)}
-            await self.bot.session.post('https://dredd-bot.xyz/api/stats', headers=head, json=body)
+            await self.bot.session.post('https://dreddbot.xyz/api/stats', headers=head, json=body)
             print("Updated the stats - guild leave")
 
         if check and check['type'] == 3:
