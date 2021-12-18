@@ -16,11 +16,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import discord
 
 from discord.ext import commands
-from db.cache import CacheManager as cm, DreddGuild
+from db.cache import CacheManager as cm, DreddGuild, Automod as AutomodType, AutomodActions
 from utils.checks import moderator, admin, AutomodGlobalStates, AutomodValues
 from utils.default import automod_values
 from utils.paginator import Pages
 from utils.i18n import locale_doc
+from utils.components import AutomodTime
 
 
 # noinspection PyUnresolvedReferences
@@ -177,10 +178,10 @@ class Automod(commands.Cog, name='Automoderation'):
             await self.bot.db.execute("UPDATE invites SET level = $1, time = $2 WHERE guild_id = $3", state['invites'], state['time'], ctx.guild.id)
         self.bot.invites[ctx.guild.id] = {'level': state['invites'], 'time': state['time']}
         if not antimentions:
-            await self.bot.db.execute("INSERT INTO massmention(guild_id, level, mentions_limit, time) VALUES($1, $2, $3, $4)", ctx.guild.id, state['massmention'], 5, state['time'])
+            await self.bot.db.execute("INSERT INTO massmention(guild_id, level, mentions_limit, time) VALUES($1, $2, $3, $4)", ctx.guild.id, state['massmention'], 10, state['time'])
         else:
             await self.bot.db.execute("UPDATE massmention SET level = $1, time = $2 WHERE guild_id = $3", state['massmention'], state['time'], ctx.guild.id)
-        self.bot.massmention[ctx.guild.id] = {'level': state['massmention'], 'limit': 5, 'time': state['time']}
+        self.bot.massmention[ctx.guild.id] = {'level': state['massmention'], 'limit': 10, 'time': state['time']}
         if not antilinks:
             await self.bot.db.execute("INSERT INTO links(guild_id, level, time) VALUES($1, $2, $3)", ctx.guild.id, state['links'], state['time'])
         else:
@@ -218,7 +219,7 @@ class Automod(commands.Cog, name='Automoderation'):
 
         the_value = value['action']
         await ctx.send(_("{0} Successfully set anti links punishment type to **{1}** members.{2}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if the_value in [5, 2] else ''
         ))
 
     @automod.command(name='anti-invites', aliases=['antiinvites', 'invites', 'ai'], brief=_("Toggle anti invites on or off"))
@@ -251,7 +252,7 @@ class Automod(commands.Cog, name='Automoderation'):
 
         the_value = value['action']
         await ctx.send(_("{0} Successfully set anti invites punishment type to **{1}** members.{2}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if the_value in [5, 2] else ''
         ))
 
     @automod.command(name='anti-mass-mention', aliases=['antimentions', 'massmentions', 'amm'],
@@ -260,7 +261,7 @@ class Automod(commands.Cog, name='Automoderation'):
     @admin(manage_guild=True)
     @commands.guild_only()
     @locale_doc
-    async def automod_mass_mention(self, ctx, value: AutomodValues, count: int = 5):
+    async def automod_mass_mention(self, ctx, value: AutomodValues, count: int = 10):
         # sourcery skip: use-assigned-variable
         _(""" Toggle anti mass mention on or off and set the mentions limit to whatever number you want """)
 
@@ -272,8 +273,8 @@ class Automod(commands.Cog, name='Automoderation'):
         # if value['action'] != 0:
         #     raise commands.MissingRequiredArgument(self.automod_mass_mention.params['count'])
 
-        if count and not 1 < count < 16:
-            raise commands.BadArgument(_("Mentions limit must be between 2 and 15"))
+        if count and count < 10:
+            raise commands.BadArgument(_("Mentions limit must be over or equal than 10"))
 
         antimentions = cm.get(self.bot, 'massmention', ctx.guild.id)
         if not antimentions and value['action'] != 0:
@@ -291,7 +292,7 @@ class Automod(commands.Cog, name='Automoderation'):
 
         the_value = value['action']  # type: ignore
         await ctx.send(_("{0} Successfully set anti mass mentions punishment type to **{1}** members. Mentions limit - `{2}`.{3}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), count, _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), count, _(" They will be muted/banned for 12 hours by default.") if the_value in [5, 2] else ''
         ))
 
     @automod.command(name='anti-mass-caps', aliases=['anticaps', 'masscaps', 'amc'],
@@ -330,7 +331,7 @@ class Automod(commands.Cog, name='Automoderation'):
 
         the_value = value['action']
         await ctx.send(_("{0} Successfully set anti mass caps punishment type to **{1}** members. Percentage set to - `{2}`.{3}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), percentage, _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), percentage, _(" They will be muted/banned for 12 hours by default.") if the_value in [5, 2] else ''
         ))
 
     @automod.command(name='anti-spam', aliases=['antispam', 'spam', 'as'],
@@ -363,7 +364,7 @@ class Automod(commands.Cog, name='Automoderation'):
 
         the_value = value['action']
         await ctx.send(_("{0} Successfully set anti spam punishment type to **{1}** members.{2}").format(
-            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if the_value['action'] in [5, 2] else ''
+            self.bot.settings['emojis']['misc']['white-mark'], automod_values(the_value), _(" They will be muted/banned for 12 hours by default.") if the_value in [5, 2] else ''
         ))
 
     @automod.command(name='ignore-moderators', aliases=['ignoremoderators', 'ignoremods'],
@@ -409,6 +410,34 @@ class Automod(commands.Cog, name='Automoderation'):
             await self.bot.db.execute("UPDATE automod SET delete_messages = $1 WHERE guild_id = $2", True, ctx.guild.id)
             self.bot.automod[ctx.guild.id]['delete_messages'] = True
             return await ctx.send(_("{0} I will now be deleting messages from now on.").format(self.bot.settings['emojis']['misc']['white-mark']))
+
+    @automod.command(name="temp-time", aliases=["time"], brief=_("Changes the temporary punishment duration."))
+    @admin(manage_guild=True)
+    @commands.guild_only()
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    @locale_doc
+    async def automod_temp_time(self, ctx):
+        _(""" Allows you to change the duration of temporary punishment """)
+
+        automod: AutomodType = ctx.guild.data.automod
+        if not automod:
+            raise commands.BadArgument(_("Automod is disabled in this server, enable it by using `{0}automod toggle` command").format(ctx.prefix))
+
+        options = [
+            discord.SelectOption(label=_("Anti Spam"), value=1) if automod.spam and automod.spam.level in [int(AutomodActions.temp_mute), int(AutomodActions.temp_ban)] else None,  # type: ignore
+            discord.SelectOption(label=_("Anti Mass Caps"), value=2) if automod.masscaps and automod.masscaps.level in [int(AutomodActions.temp_mute), int(AutomodActions.temp_ban)] else None,  # type: ignore
+            discord.SelectOption(label=_("Anti Invites"), value=3) if automod.invites and automod.invites.level in [int(AutomodActions.temp_mute), int(AutomodActions.temp_ban)] else None,  # type: ignore
+            discord.SelectOption(label=_("Anti Mentions"), value=4) if automod.mentions and automod.mentions.level in [int(AutomodActions.temp_mute), int(AutomodActions.temp_ban)] else None,  # type: ignore
+            discord.SelectOption(label=_("Anti Links"), value=5) if automod.links and automod.links.level in [int(AutomodActions.temp_mute), int(AutomodActions.temp_ban)] else None,  # type: ignore
+        ]
+
+        if all(value == options[0] for value in options):
+            return await ctx.send(_("{0} At least one automod value must be set to temp mute or ban.").format(self.bot.settings['emojis']['misc']['warn']))
+
+        options = [value for value in options if value is not None]
+        self.bot.automod_time[(ctx.author.id, ctx.channel.id)] = {"time": None, "options": options}
+        view = AutomodTime(ctx, options)
+        return await ctx.send(_("What should the duration of the punishment be?"), view=view)
 
     @commands.group(name='raid-mode', aliases=['raidmode', 'antiraid'], invoke_without_command=True,
                     brief=_('Manage anti raid mode in the server'))

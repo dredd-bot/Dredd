@@ -19,16 +19,15 @@ import time
 import traceback
 import json
 import aiohttp
-import db.cache
 
 from discord.ext import commands
 from datetime import datetime, timezone
 from utils.publicflags import UserFlags, BotFlags
 from utils.btime import FutureTime
 from contextlib import suppress
-from utils import logger
+from utils import logger, enums
 from json.decoder import JSONDecodeError
-from typing import Union
+from typing import Union, List
 
 
 def timeago(target):
@@ -180,7 +179,7 @@ async def medias(ctx, user):
 
 
 def bot_acknowledgements(ctx, result, simple=False):
-    badges = db.cache.CacheManager.get(ctx.bot, 'badges', result.id)
+    badges = ctx.bot.cache.get(ctx.bot, 'badges', result.id)
 
     yes_badges = {
         "bot_owner": f"{ctx.bot.settings['emojis']['ranks']['bot_owner']} " + _("Owner of Dredd"),
@@ -228,7 +227,7 @@ def bot_acknowledgements(ctx, result, simple=False):
 
 
 def server_badges(ctx, result):
-    badges = db.cache.CacheManager.get(ctx.bot, 'badges', result.id)
+    badges = ctx.bot.cache.get(ctx.bot, 'badges', result.id)
 
     the_badges = {
         'bot_admin': _("{0} Dredd Staff Server").format(ctx.bot.settings['emojis']['ranks']['bot_admin']),
@@ -325,7 +324,7 @@ async def get_muterole(ctx, guild, error=False):
 
 
 def server_logs(ctx, server, simple=True):  # sourcery no-metrics
-    server_data: db.cache.DreddGuild = server.data
+    server_data = server.data
     moderation = server_data.moderation  # ctx.bot.cache.get(ctx.bot, 'moderation', server.id)
     memberlog = server_data.memberlog  # ctx.bot.cache.get(ctx.bot, 'memberlog', server.id)
     joinlog = server_data.joinlog  # ctx.bot.cache.get(ctx.bot, 'joinlog', server.id)
@@ -450,7 +449,7 @@ async def change_theme(ctx, color: int, avatar: str, emoji: str):
         embed.set_thumbnail(url=url)
         with open('db/settings.json', 'w') as f:
             json.dump(data, f, indent=4)
-        LC = db.cache.LoadCache
+        LC = ctx.bot.cache_reload
         await LC.reloadall(ctx.bot)
         await ctx.send(embed=embed)
     except Exception as e:
@@ -591,3 +590,9 @@ def printRAW(*Text):
     with open(1, 'w', encoding='utf8', closefd=False) as RAWOut:
         print(*Text, file=RAWOut)
         RAWOut.flush()
+
+
+def reaction_roles_dict_sorter(payload: List[enums.SelfRoles], message_author: enums.ReactionRolesAuthor, reaction_type: enums.ReactionRolesType) -> List[Union[enums.SelfRoles, dict]]:
+    if message_author == int(enums.ReactionRolesAuthor.bot) and reaction_type == int(enums.ReactionRolesType.new_message):
+        return payload
+    return [{value["reaction"]: value["role"] for value in payload}]

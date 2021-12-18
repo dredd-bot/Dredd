@@ -43,8 +43,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
         self.user_cooldowns = commands.CooldownMapping.from_cooldown(10, 12.0, commands.BucketType.user)  # checks for member spam
         self.invite_cooldown = commands.CooldownMapping.from_cooldown(5, 60.0, commands.BucketType.member)  # checks for invites
         self.link_cooldown = commands.CooldownMapping.from_cooldown(5, 60.0, commands.BucketType.member)
-        self.caps_content = commands.CooldownMapping.from_cooldown(6, 10.0, commands.BucketType.member)  # checks for cpas
-        self.mentions_limit = commands.CooldownMapping.from_cooldown(5, 17.0, commands.BucketType.member)
+        self.caps_content = commands.CooldownMapping.from_cooldown(6, 10.0, commands.BucketType.member)  # checks for caps
 
         self.new_users = commands.CooldownMapping.from_cooldown(30, 35.0, commands.BucketType.channel)
 
@@ -298,7 +297,6 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
                 await self.execute_punishment(antilinks['level'], message, reason, btime.FutureTime(antilinks['time']))
 
     async def anti_mentions(self, message):
-        current = message.created_at.timestamp()
         reason = _('Spamming mentions')
         automod = cm.get(self.bot, 'automod', message.guild.id)
         massmention = cm.get(self.bot, 'massmention', message.guild.id)
@@ -308,15 +306,11 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
 
         limit = massmention['limit']
         mentions = sum(not x.bot and x.id != message.author.id for x in message.mentions)
-        if mentions > limit:
-            content_bucket = self.mentions_limit.get_bucket(message)
-            retry = content_bucket.update_rate_limit(current)
+        if mentions >= limit:
             if automod['delete_messages'] and message.channel.permissions_for(message.guild.me).manage_messages:
                 await message.delete()
 
-            if retry:
-                content_bucket.reset()
-                await self.execute_punishment(massmention['level'], message, reason, btime.FutureTime(massmention['time']))
+            await self.execute_punishment(massmention['level'], message, reason, btime.FutureTime(massmention['time']))
 
     async def anti_raid(self, member):
         raidmode = cm.get(self.bot, 'raidmode', member.guild.id)

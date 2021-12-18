@@ -303,7 +303,7 @@ class Boosters(commands.Cog):
                     elif str(verify_response) == f"{self.bot.settings['emojis']['misc']['red-mark']}":
                         await ctx.channel.send(_("Alright, I will not be removing your social medias."))
                         break
-                except asyncio.TimeoutError:
+                except asyncio.exceptions.TimeoutError:
                     await ctx.send(_("{0} You've waited for too long, canceling the command.").format(self.bot.settings['emojis']['misc']['warn']))
                     break
         else:

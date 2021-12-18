@@ -140,7 +140,7 @@ class staff(commands.Cog, name="Staff", command_attrs={"slash_command": False}):
         await ctx.send_help(ctx.command)
 
     @admin.command()
-    async def manage(self, ctx, thing: Union[discord.User, int], *, reason: str = None):
+    async def manage(self, ctx, thing: Union[discord.User, discord.Guild, int], *, reason: str = None):
         thing: Union[discord.User, discord.Guild, int] = await self.verify_type(ctx, thing)
 
         blacklist_emoji = self.bot.settings['emojis']['ranks']['blocked']
@@ -150,7 +150,7 @@ class staff(commands.Cog, name="Staff", command_attrs={"slash_command": False}):
                                                                         discord.SelectOption(label="Remove badge", emoji="➖", value=13, description="Remove a badge from user or guild"),  # type: ignore
                                                                         discord.SelectOption(label="Cancel", emoji="🟥", value=4, description="Cancel command.")],  # type: ignore
                                            cls=self, reason=reason, thing=thing)
-        return await ctx.send(f"You're managing **{thing}**", view=dropdown)
+        return await ctx.channel.send(f"You're managing **{thing}**", view=dropdown)
 
     @admin.command(name='disable-command', aliases=['discmd', 'disablecmd'])
     async def admin_disable_command(self, ctx, command: str, *, reason: str):

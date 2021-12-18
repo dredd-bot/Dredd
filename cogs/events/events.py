@@ -22,7 +22,7 @@ from discord.ext import commands
 
 from time import time
 from db.cache import CacheManager as CM
-from utils import btime, checks, default, logger as logging
+from utils import btime, checks, default, logger as logging, components
 from datetime import datetime, timedelta, timezone
 from contextlib import suppress
 
@@ -37,6 +37,8 @@ class Events(commands.Cog):
         self.bot = bot
         self.help_icon = ''
 
+        self.persistent_views_added = False
+
         self.cooldown_bot_mentions = commands.CooldownMapping.from_cooldown(1, 10.0, commands.BucketType.channel)
         self.cooldown_afk_mentions = commands.CooldownMapping.from_cooldown(5, 10.0, commands.BucketType.channel)
 
@@ -50,8 +52,8 @@ class Events(commands.Cog):
         if ctx.bot.user.id == 663122720044875796 and ctx.guild.data.beta:  # type: ignore
             return True
 
-        # if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author) or not ctx.guild.data.beta:  # type: ignore
-        #     return False
+        if ctx.bot.user.id == 663122720044875796 and not await ctx.bot.is_owner(ctx.author):  # type: ignore
+            return False
 
         blacklist = await ctx.bot.is_blacklisted(ctx.author)
         if blacklist and blacklist['type'] == 2:
@@ -81,13 +83,15 @@ class Events(commands.Cog):
         await self.bot.change_presence(status='online', activity=discord.Activity(type=discord.ActivityType.playing, name="-help or @Dredd help"))
         dredd_logger.info(f"[BOT] Booted up, boot time - {boot_time}")
 
+        if not self.persistent_views_added:
+            view, _ = components.create_self_roles()
+            self.bot.add_view(view)
+            dredd_logger.info("[BOT] Successfully added reaction roles view.")
+            self.persistent_views_added = True
+
         support_guild = self.bot.get_guild(self.bot.settings['servers']['main'])
         await support_guild.chunk(cache=True)
         print(f"{support_guild} chunked")
-
-        # for guild in self.bot.guilds:
-        #     if guild.id not in self.bot.prefix:
-        #         self.bot.dispatch('guild_join', guild)
 
     @commands.Cog.listener()
     async def on_message(self, message):  # sourcery no-metrics
@@ -361,6 +365,9 @@ class Events(commands.Cog):
         # get dispatched before on_guild_join. (if server kicks new members immediately)
         # That was basically updating the data in the db and then immediately
         # deleting it. Ex here: https://cdn.dreddbot.xyz/tI0o2y
+        if guild.name is None:
+            return
+
         await asyncio.sleep(3)
 
         check = CM.get(self.bot, 'blacklist', guild.id)
@@ -529,6 +536,16 @@ class Events(commands.Cog):
             message.content += _("\n*Sticker* - {0}").format(message.stickers[0].name)
 
         self.bot.snipes[message.channel.id] = {'message': message.content, 'deleted_at': discord.utils.utcnow(), 'author': message.author.id, 'nsfw': message.channel.is_nsfw()}
+
+    @commands.Cog.listener('on_raw_message_delete')
+    async def reaction_roles_delete(self, payload):
+        if self.bot.cache.get_message(self.bot, payload.message_id):
+            await self.bot.db.execute("DELETE FROM reactionroles WHERE message_id = $1", payload.message_id)
+            self.bot.rr.pop(payload.message_id, None)
+
+    @commands.Cog.listener('on_guild_channel_delete')
+    async def reaction_roles_channel_delete(self, channel):
+        await self.bot.db.execute("DELETE FROM reactionroles WHERE channel_id = $1", channel.id)
 
 
 def setup(bot):

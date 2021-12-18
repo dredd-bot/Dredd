@@ -192,7 +192,7 @@ class fun(commands.Cog, name="Fun"):
 
         member = member or ctx.author
         owner = self.bot.get_user(345457928972533773)
-        if member == owner and not bypass and not ctx.message.content.lower().endswith(self.bot.settings['bypass']['owner-bypass']):
+        if member == owner and not bypass or bypass and not ctx.message.content.lower().endswith(self.bot.settings['bypass']['owner-bypass']):
             return await ctx.send(_("You can't roast Moksej! I'll drop you a hint, though."
                                     " There's a bypass that you can use to roast him ;)"))
 

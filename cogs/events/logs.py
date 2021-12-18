@@ -616,7 +616,7 @@ class Logging(commands.Cog):
         if not moderation:
             return
         log_channel = self.bot.get_channel(moderation)
-        time = btime.human_timedelta(duration.dt, source=created_at, suffix=None) if duration else None
+        times = btime.human_timedelta(duration.dt, source=created_at, suffix=None) if duration else None
         reason = reason or "No reason"
 
         ban_list = []
@@ -632,7 +632,7 @@ class Logging(commands.Cog):
         embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) banned").format(self.bot.settings['emojis']['logs']['ban'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list),
-                                                                                                          _("\n**Duration:** {0}").format(time) if time else '',
+                                                                                                          _("\n**Duration:** {0}").format(times) if times else '',
                                                                                                           mod, mod.id, reason)
         embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
@@ -746,8 +746,8 @@ class Logging(commands.Cog):
         if not moderation:
             return
         log_channel = self.bot.get_channel(moderation)
-        time = duration.dt if isinstance(duration, btime.FutureTime) else duration
-        time = btime.human_timedelta(time, source=created_at, suffix=None) if duration else None
+        times = duration.dt if isinstance(duration, btime.FutureTime) else duration
+        times = btime.human_timedelta(times, source=created_at, suffix=None) if duration else None
         reason = reason or "No reason"
 
         ban_list = []
@@ -763,7 +763,7 @@ class Logging(commands.Cog):
         embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) muted").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list),
-                                                                                                          _("\n**Duration:** {0}").format(time) if time else '',
+                                                                                                          _("\n**Duration:** {0}").format(times) if times else '',
                                                                                                           mod, mod.id, reason)
         embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 

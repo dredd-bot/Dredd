@@ -5,7 +5,7 @@
 
 - [Install node.js](https://nodejs.org/en/download/) **Required if you want to use pm2**
 - [Install PostgreSQL](https://www.postgresql.org/download/windows/)
-- [Install Python 3.5+](https://www.python.org/downloads/)
+- [Install Python 3.8+ < 3.10](https://www.python.org/downloads/)
 - [Install pm2](https://pm2.keymetrics.io/docs/usage/quick-start/) **Required if you want to use pm2**
 - Create a PostgreSQL database & all the tables
 - Install all the requirements through pip `pip install -r requirements.txt`
@@ -15,7 +15,7 @@
 
 - [Install node.js](https://nodejs.org/en/download/package-manager/#debian-and-ubuntu-based-linux-distributions) **Required if you want to use pm2**
 - [Install PostgreSQL](https://www.postgresql.org/download/linux/)
-- [Install Python 3.5+](https://opensource.com/article/20/4/install-python-linux)
+- [Install Python 3.8+ < 3.10](https://opensource.com/article/20/4/install-python-linux)
 - [Install pm2](https://pm2.keymetrics.io/docs/usage/quick-start/) **Required if you want to use pm2**
 - Create a PostgreSQL database & all the tables
 - Install all the requirements through pip `pip install -r requirements.txt`

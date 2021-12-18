@@ -22,8 +22,9 @@ import spotify as spotify_client
 
 from typing import List, Any, Union, Optional
 from contextlib import suppress
-from utils import i18n, default, publicflags, logger as logging, paginator
-from utils.enums import PlaylistEnum
+from utils import i18n, default, publicflags, paginator
+from utils.enums import PlaylistEnum, SelfRoles, ReactionRolesComponentDisplay, ReactionRolesEmbed, ReactionRolesMessageType
+from db.cache import ReactionRoles
 
 RURL = re.compile(r'https?://(?:www\.)?.+')
 SPOTIFY_RURL = re.compile(r'https?://open.spotify.com/(?P<type>album|playlist|track)/(?P<id>[a-zA-Z0-9]+)')
@@ -166,6 +167,12 @@ class Dropdown(discord.ui.Select):
                     await self.ctx.bot.db.execute("DELETE FROM badges WHERE _id = $1", instance.id)
                 return await interaction.message.edit(f"Removed {badge} from {instance} badges", view=None)  # type: ignore
 
+        elif self.cls.__class__.__name__ == "Manage":
+            await interaction.message.delete()
+            if int(self.values[0]) == 2:
+                return await interaction.response.send_message(_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+            return await self.cls.interactive_reaction_roles(self.ctx, self.values[0])
+
         return await interaction.response.send_message(f"You chose {self.values[0]}\n**Interaction data:** {interaction.data}\n**Class belongs:** {self.cls}\n**Kwargs** {self.kwargs}", ephemeral=True)
 
 
@@ -218,6 +225,8 @@ class ConfirmationButtons(discord.ui.View):
         self.cls = cls
         self.author = author
         self.from_command = kwargs.get("command", None)
+        self.reaction_roles = kwargs.get("current_setup", None)
+        self.ctx = kwargs.get("ctx", None)
 
         self.kwargs = kwargs
 
@@ -243,11 +252,19 @@ class ConfirmationButtons(discord.ui.View):
     @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
     async def button_yes(self, button, interaction) -> None:
         i18n.current_locale.set(self.bot.translations.get(interaction.guild.id, 'en_US'))
+        self.stop()
+        if self.reaction_roles:
+            await interaction.message.delete()
+            return await self.cls.perform_action(True, interaction, current_setup=self.reaction_roles, ctx=self.ctx)
         await self.cls.perform_action(True, interaction, command=self.from_command or None)
 
     @discord.ui.button(label="No", style=discord.ButtonStyle.red)
     async def button_no(self, button, interaction) -> None:
         i18n.current_locale.set(self.bot.translations.get(interaction.guild.id, 'en_US'))
+        self.stop()
+        if self.reaction_roles:
+            await interaction.message.delete()
+            return await self.cls.perform_action(False, interaction, current_setup=self.reaction_roles, ctx=self.ctx)
         await self.cls.perform_action(False, interaction, command=self.from_command or None)
 
 
@@ -439,7 +456,7 @@ class Playlist(discord.ui.Select):
 
 
 class PlaylistView(discord.ui.View):
-    def __init__(self, ctx, **kwargs):
+    def __init__(self, ctx, **kwargs):  # noqa
         super().__init__(timeout=kwargs.get("timeout", 120))  # defaults at 2 minutes
 
         self.ctx = ctx
@@ -470,3 +487,450 @@ class PlaylistView(discord.ui.View):
             await interaction.followup.send(_('An unknown error occurred, sorry'), ephemeral=True)
         else:
             await interaction.response.send_message(_('An unknown error occurred, sorry'), ephemeral=True)
+
+
+class ReactionRolesView(discord.ui.View):
+    def __init__(self, cls, ctx, **kwargs):  # noqa
+        self.cls = cls
+        self.ctx = ctx
+
+        self.author = ctx.author
+        self.bot = ctx.bot
+
+        super().__init__(timeout=kwargs.get("timeout", 120))
+
+        self.add_item(Dropdown(ctx, kwargs.get("placeholder"), kwargs.get("options"), cls=cls))
+
+    async def interaction_check(self, interaction):
+        i18n.current_locale.set(self.bot.translations.get(interaction.guild.id, 'en_US'))
+        if interaction.user and interaction.user.id == self.author.id or await self.bot.is_owner(interaction.user):
+            return True
+        await interaction.response.send_message(_('This pagination menu cannot be controlled by you, sorry!'), ephemeral=True)
+        return False
+
+    async def on_error(self, error: Exception, item: discord.ui.Item, interaction: discord.Interaction) -> None:
+        print(error)
+
+
+class ReactionRolesConfirmComponents(discord.ui.View):
+    def __init__(self, cls, ctx, timeout, current_setup):
+        self.cls = cls
+        self.ctx = ctx
+
+        self.current_setup = current_setup
+
+        super().__init__(timeout=timeout or 60)
+
+    async def interaction_check(self, interaction):
+        i18n.current_locale.set(self.ctx.bot.translations.get(interaction.guild.id, 'en_US'))
+        if interaction.user and interaction.user.id == self.ctx.author.id or await self.ctx.bot.is_owner(interaction.user):
+            return True
+        await interaction.response.send_message(_('This pagination menu cannot be controlled by you, sorry!'), ephemeral=True)
+        return False
+
+    async def on_timeout(self) -> None:
+        return
+
+    async def on_error(self, error: Exception, item: discord.ui.Item, interaction: discord.Interaction) -> None:
+        print(error)
+
+    @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
+    async def confirm(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.current_setup["use_components"] = True
+        self.stop()
+        await interaction.message.delete()
+        buttons = ReactionRolesComponentsStyle(self.cls, self.ctx, 60, self.current_setup)
+        e = discord.Embed(title="Reaction Roles Setup", color=self.ctx.bot.settings['colors']['embed_color'])
+        e.description = _("Should buttons display label only, emoji only or both? This action is irreversible!")
+        e.image = self.ctx.bot.rr_image
+        return await interaction.response.send_message(embed=e, view=buttons)
+
+    @discord.ui.button(label="No", style=discord.ButtonStyle.red)
+    async def deny(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.current_setup["use_components"] = False
+        self.stop()
+        await interaction.message.delete()
+        return await self.cls.interactive_reaction_roles_2(self.ctx, self.current_setup)
+
+
+class ReactionRolesComponentsStyle(discord.ui.View):
+    def __init__(self, cls, ctx, timeout, current_setup):
+        self.cls = cls
+        self.ctx = ctx
+
+        self.current_setup = current_setup
+
+        super().__init__(timeout=timeout or 60)
+
+    async def interaction_check(self, interaction):
+        i18n.current_locale.set(self.ctx.bot.translations.get(interaction.guild.id, 'en_US'))
+        if interaction.user and interaction.user.id == self.ctx.author.id or await self.ctx.bot.is_owner(interaction.user):
+            return True
+        await interaction.response.send_message(_('This pagination menu cannot be controlled by you, sorry!'), ephemeral=True)
+        return False
+
+    async def on_timeout(self) -> None:
+        return
+
+    async def on_error(self, error: Exception, item: discord.ui.Item, interaction: discord.Interaction) -> None:
+        print(error)
+
+    @discord.ui.button(label="Label only", style=discord.ButtonStyle.primary)
+    async def labelonly(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.current_setup["components_style"] = ReactionRolesComponentDisplay.label_only
+        self.stop()
+        await interaction.message.delete()
+        return await self.cls.interactive_reaction_roles_2(self.ctx, self.current_setup)
+
+    @discord.ui.button(label="Emoji only", style=discord.ButtonStyle.primary)
+    async def emojionly(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.current_setup["components_style"] = ReactionRolesComponentDisplay.emoji_only
+        self.stop()
+        await interaction.message.delete()
+        return await self.cls.interactive_reaction_roles_2(self.ctx, self.current_setup)
+
+    @discord.ui.button(label="Label & Emoji", style=discord.ButtonStyle.primary)
+    async def useboth(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.current_setup["components_style"] = ReactionRolesComponentDisplay.all
+        self.stop()
+        await interaction.message.delete()
+        return await self.cls.interactive_reaction_roles_2(self.ctx, self.current_setup)
+
+
+class ReactionRolesEmbedDropdown(discord.ui.Select):
+    def __init__(self, cls, ctx, current_setup):
+        self.cls = cls
+        self.ctx = ctx
+        self.current_setup = current_setup
+
+        options = [
+            discord.SelectOption(label=_("Title of the embed."), description=_("Let's you change the title of the embed."), value=0),  # type: ignore
+            discord.SelectOption(label=_("Description of the embed."), description=_("Let's you change the description of the embed."), value=1),  # type: ignore
+            discord.SelectOption(label=_("Footer of the embed."), description=_("Let's you change the footer of the embed."), value=2),  # type: ignore
+            discord.SelectOption(label=_("None of the above."), description=_("Let's you customize the whole embed, this requires you to send a whole payload."), value=3)  # type: ignore
+        ]
+        super().__init__(placeholder=_("Select an option..."), options=options, max_values=3)
+
+    async def get_response(self, message, char_limit, validate_payload=False) -> Optional[Union[str, dict]]:
+
+        try:
+            def check(m):
+                return m.author == self.ctx.author and m.channel.id == self.ctx.channel.id
+
+            while True:
+                value = await self.ctx.channel.send(message)
+                get_value = await self.ctx.bot.wait_for('message', check=check, timeout=60.0)
+
+                if get_value.content.lower() == "cancel":
+                    break
+                elif len(get_value.content) > char_limit:
+                    await value.edit(content=_("You've hit the characters limit: {0}/{1}").format(len(get_value.content), char_limit))
+                else:
+                    if not validate_payload:
+                        return get_value.content
+                    try:
+                        payload = json.loads(get_value.content)
+                        return payload
+                    except Exception:
+                        await self.ctx.channel.send(_("{0} Your sent dict is invalid. Please "
+                                                      "use <https://embedbuilder.nadekobot.me/> to create an embed dict, then paste the code here.").format(self.ctx.bot.settings['emojis']['misc']['warn']))
+        except Exception:
+            return None
+
+    async def callback(self, interaction: discord.Interaction):
+        # sourcery no-metrics
+        await interaction.response.defer()
+        await interaction.message.delete()
+
+        title = description = footer = payload = None
+        if str(int(ReactionRolesEmbed.custom)) in self.values:
+            while True:
+                payload = await self.get_response(_("What should the embed look like? Embed builder: <https://embedbuilder.nadekobot.me/>"), 6000, True)
+                if not payload:
+                    break
+                try:
+                    embed = await self.ctx.channel.send(embed=discord.Embed.from_dict(payload))
+                    response = await self.get_response(_("This is how your embed will look like, are you ok with it? `y` or `n`"), 1)
+                    if response.lower() != 'n':
+                        self.current_setup["message_style"]["payload"] = payload
+                        message, values = await self.cls.execute_message(self.ctx, current_setup=self.current_setup)
+                        return await self.ctx.channel.send(_("{0} Successfully created reaction roles setup!").format(self.ctx.bot.settings['emojis']['misc']['white-mark']), delete_after=15)
+                    elif response.lower() == 'cancel':
+                        break
+                    await embed.delete()
+                    await self.ctx.channel.send(_("Okay, let's try again."), delete_after=5)
+                except Exception as e:
+                    await self.ctx.channel.send(_("It seems like the embed was not built correctly, let's retry that."), delete_after=5)
+
+            return await self.ctx.channel.send(_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+        else:
+            for value in self.values:
+                if int(value) == int(ReactionRolesEmbed.title):
+                    title = await self.get_response(_("What should the title of the embed be?"), 256)
+                    if not title:
+                        return await self.ctx.channel.send(_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                    self.current_setup["message_style"]["payload"]["title"] = title
+                elif int(value) == int(ReactionRolesEmbed.description):
+                    description = await self.get_response(_("What should the description of the embed be?"), 4000)
+                    if not description:
+                        return await self.ctx.channel.send(_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                    self.current_setup["message_style"]["payload"]["description"] = description
+                elif int(value) == int(ReactionRolesEmbed.footer):
+                    footer = await self.get_response(_("What should the footer of the embed be?"), 2048)
+                    if not footer:
+                        return await self.ctx.channel.send(_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                    self.current_setup["message_style"]["payload"]["footer"]["text"] = footer
+
+            message, values = await self.cls.execute_message(self.ctx, current_setup=self.current_setup)
+            return await self.ctx.channel.send(_("{0} Successfully created reaction roles setup!").format(self.ctx.bot.settings['emojis']['misc']['white-mark']), delete_after=15)
+
+
+class ReactionRolesEmbedView(discord.ui.View):
+    def __init__(self, cls, ctx, timeout, current_setup):
+        self.cls = cls
+        self.ctx = ctx
+
+        self.current_setup = current_setup
+
+        super().__init__(timeout=timeout or 60)
+
+        self.add_item(ReactionRolesEmbedDropdown(cls, self.ctx, current_setup))
+
+    async def interaction_check(self, interaction):
+        i18n.current_locale.set(self.ctx.bot.translations.get(interaction.guild.id, 'en_US'))
+        if interaction.user and interaction.user.id == self.ctx.author.id or await self.ctx.bot.is_owner(interaction.user):
+            return True
+        await interaction.response.send_message(_('This pagination menu cannot be controlled by you, sorry!'), ephemeral=True)
+        return False
+
+    async def on_timeout(self) -> None:
+        return
+
+
+class ReactionRolesMessage(discord.ui.View):
+    def __init__(self, cls, ctx, timeout, current_setup):
+        self.cls = cls
+        self.ctx = ctx
+
+        self.current_setup = current_setup
+
+        super().__init__(timeout=timeout or 60)
+
+    async def interaction_check(self, interaction):
+        i18n.current_locale.set(self.ctx.bot.translations.get(interaction.guild.id, 'en_US'))
+        if interaction.user and interaction.user.id == self.ctx.author.id or await self.ctx.bot.is_owner(interaction.user):
+            return True
+        await interaction.response.send_message(_('This pagination menu cannot be controlled by you, sorry!'), ephemeral=True)
+        return False
+
+    async def on_timeout(self) -> None:
+        return
+
+    async def on_error(self, error: Exception, item: discord.ui.Item, interaction: discord.Interaction) -> None:
+        print(error)
+
+    def setup_embed_payload(self, payload) -> dict:
+        roles = []
+        for value in payload["payload"]:
+            for emoji in value:
+                roles.append((emoji, value[emoji]))
+        list_of_roles = [f"{emoji} - <@&{role}>\n" for emoji, role in roles]
+        return {
+            "title": "Reaction Roles",
+            "description": f"Interact with the reactions below to get the corresponding role(s).\n{''.join(list_of_roles)}",
+            "color": self.ctx.bot.settings['colors']['embed_color'],
+            "footer": {
+                "text": "Powered by Dredd"
+            }
+        }
+
+    @discord.ui.button(label="Embedded", style=discord.ButtonStyle.primary)
+    async def embedded(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.current_setup["message_style"]["type"] = ReactionRolesMessageType.embed
+        self.current_setup["message_style"]["payload"] = self.setup_embed_payload(self.current_setup)
+        self.stop()
+        await interaction.message.delete()
+        confirm_buttons = ConfirmationButtons(self.ctx.bot, self.cls, self.ctx.author, current_setup=self.current_setup, ctx=self.ctx)
+        return await interaction.response.send_message(_("Would you like to customize the message?"), view=confirm_buttons)
+
+    @discord.ui.button(label="Normal", style=discord.ButtonStyle.primary)
+    async def normal(self, button: discord.ui.Button, interaction: discord.Interaction):
+        self.current_setup["message_style"]["type"] = ReactionRolesMessageType.normal
+        self.current_setup["message_style"]["payload"] = self.setup_embed_payload(self.current_setup)["description"]
+        self.stop()
+        await interaction.message.delete()
+        confirm_buttons = ConfirmationButtons(self.ctx.bot, self.cls, self.ctx.author, current_setup=self.current_setup, ctx=self.ctx)
+        return await interaction.response.send_message(_("Would you like to customize the message?"), view=confirm_buttons)
+
+
+async def selfroles_callback(interaction: discord.Interaction):
+    data: ReactionRoles = interaction.message.rr
+    if not data:
+        return
+
+    button_pressed = data.payload.get(interaction.data["custom_id"])  # type: ignore
+    user = interaction.user
+    author_roles = user._roles  # noqa
+
+    if not author_roles.has(button_pressed):  # type: ignore
+        if data.required_role and not author_roles.has(data.required_role) and interaction.guild.get_role(data.required_role):
+            role = interaction.guild.get_role(data.required_role)
+            return await interaction.response.send_message(_("You must have {role.mention} role in order to access this reaction roles setup.").format(role=role), ephemeral=True)
+
+        if data.max_roles != len(data.payload):
+            total_roles = int(sum(1 for role_id in data.payload.values() if author_roles.has(role_id)))
+            if total_roles >= data.max_roles:
+                return await interaction.response.send_message(_("This reaction roles setup is configured to give a total of {total_available} roles, which you already have.").format(total_available=data.max_roles),
+                                                               ephemeral=True)
+
+        role = interaction.guild.get_role(button_pressed)  # type: ignore
+        if role:
+            await interaction.user.add_roles(role)
+            return await interaction.response.send_message(_("Successfully added {role.mention} to your roles!").format(role=role), ephemeral=True)
+    elif author_roles.has(button_pressed):  # type: ignore
+        role = interaction.guild.get_role(button_pressed)  # type: ignore
+        if role:
+            await interaction.user.remove_roles(role)
+            return await interaction.response.send_message(_("Successfully removed {role.mention} from your roles!").format(role=role), ephemeral=True)
+
+    return await interaction.response.send_message(_("That role doesn't seem to exist anymore!"), ephemeral=True)
+
+
+def create_self_roles(guild: Optional[discord.Guild] = None, button_display: Optional[ReactionRolesComponentDisplay] = None, roles: Optional[Union[List[SelfRoles], Any]] = None):
+    # not the best way, but it works
+    selfrole = {}
+
+    class View(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout=None)
+
+            if not roles:
+                for num, time in enumerate(range(25), start=1):
+                    custom_id = f"dredd_selfrole:role_{num}"
+                    button = discord.ui.Button(style=discord.ButtonStyle.primary, label='ok', custom_id=custom_id)
+                    button.callback = selfroles_callback
+
+                    self.add_item(button)
+            else:
+                for item in roles:
+                    for num, reaction in enumerate(item, start=1):
+                        if reaction.__contains__("dredd_selfrole"):  # don't mess up already existing ones
+                            selfrole[reaction] = item[reaction]  # type: ignore
+                            continue
+                        label: discord.Role = guild.get_role(item[reaction])  # type: ignore
+                        emoji: Optional[Union[discord.Emoji, discord.PartialEmoji]] = reaction if button_display != button_display.label_only else None  # type: ignore
+                        custom_id = f"dredd_selfrole:role_{num}"
+                        selfrole[custom_id] = label.id if label else None
+
+                        button = discord.ui.Button(style=discord.ButtonStyle.primary,
+                                                   label=label.name if button_display != button_display.emoji_only else None,
+                                                   emoji=emoji if emoji else None,
+                                                   custom_id=custom_id)
+                        button.callback = selfroles_callback
+
+                        self.add_item(button)
+
+    return View(), selfrole
+
+
+class AutomodTimeSelect(discord.ui.Select):
+    def __init__(self, ctx, options):
+        self.ctx = ctx
+
+        super().__init__(placeholder=_("Select an option..."), options=options, max_values=len(options))
+
+    async def callback(self, interaction: discord.Interaction):
+        self.view.children[0].disabled = True  # type: ignore
+        await interaction.message.edit(view=self.view)
+        duration = self.ctx.bot.automod_time[(interaction.user.id, interaction.channel.id)]["time"]
+        guild_id = interaction.guild.id
+        for value in self.values:
+            if int(value) == 1:
+                await self.ctx.bot.db.execute("UPDATE antispam SET time = $1 WHERE guild_id = $2", duration, guild_id)
+                self.ctx.bot.spam[guild_id]["time"] = duration
+            elif int(value) == 2:
+                await self.ctx.bot.db.execute("UPDATE masscaps SET time = $1 WHERE guild_id = $2", duration, guild_id)
+                self.ctx.bot.masscaps[guild_id]["time"] = duration
+            elif int(value) == 3:
+                await self.ctx.bot.db.execute("UPDATE invites SET time = $1 WHERE guild_id = $2", duration, guild_id)
+                self.ctx.bot.invites[guild_id]["time"] = duration
+            elif int(value) == 4:
+                await self.ctx.bot.db.execute("UPDATE massmention SET time = $1 WHERE guild_id = $2", duration, guild_id)
+                self.ctx.bot.massmention[guild_id]["time"] = duration
+            elif int(value) == 5:
+                await self.ctx.bot.db.execute("UPDATE links SET time = $1 WHERE guild_id = $2", duration, guild_id)
+                self.ctx.bot.links[guild_id]["time"] = duration
+
+        return await interaction.response.send_message(_("{0} Successfully set the duration to {duration}.").format(self.ctx.bot.settings['emojis']['misc']['white-mark'], duration=duration))
+
+
+class AutomodTimeView(discord.ui.View):
+    def __init__(self, ctx, options):
+        self.ctx = ctx
+
+        super().__init__()
+
+        self.add_item(AutomodTimeSelect(ctx, options))
+
+    async def interaction_check(self, interaction):
+        i18n.current_locale.set(self.ctx.bot.translations.get(interaction.guild.id, 'en_US'))
+        if interaction.user and interaction.user.id == self.ctx.author.id or await self.ctx.bot.is_owner(interaction.user):
+            return True
+        await interaction.response.send_message(_('This pagination menu cannot be controlled by you, sorry!'), ephemeral=True)
+        return False
+
+    async def on_timeout(self) -> None:
+        return
+
+
+class AutomodTime(discord.ui.View):
+    def __init__(self, ctx, options):
+        self.ctx = ctx
+        self.options = options
+
+        super().__init__()
+
+    async def interaction_check(self, interaction):
+        i18n.current_locale.set(self.ctx.bot.translations.get(interaction.guild.id, 'en_US'))
+        if interaction.user and interaction.user.id == self.ctx.author.id or await self.ctx.bot.is_owner(interaction.user):
+            return True
+        await interaction.response.send_message(_('This pagination menu cannot be controlled by you, sorry!'), ephemeral=True)
+        return False
+
+    async def on_timeout(self) -> None:
+        return
+
+    async def send_message(self, interaction: discord.Interaction, time: str):
+        view = AutomodTimeView(self.ctx, self.options)
+        await interaction.response.send_message(_("What actions should temporary mute or ban member for {time}?").format(time=time), view=view)
+        await interaction.message.delete()
+
+    @discord.ui.button(label="12 Hours", style=discord.ButtonStyle.primary)
+    async def twelf_hours(self, button: discord.Button, interaction: discord.Interaction):
+        self.ctx.bot.automod_time[(self.ctx.author.id, self.ctx.channel.id)]["time"] = "12h"
+        self.stop()
+        await self.send_message(interaction, "12h")
+
+    @discord.ui.button(label="24 Hours", style=discord.ButtonStyle.primary)
+    async def tf_hours(self, button: discord.Button, interaction: discord.Interaction):
+        self.ctx.bot.automod_time[(self.ctx.author.id, self.ctx.channel.id)]["time"] = "24h"
+        self.stop()
+        await self.send_message(interaction, "24h")
+
+    @discord.ui.button(label="48 Hours", style=discord.ButtonStyle.primary)
+    async def fe_hours(self, button: discord.Button, interaction: discord.Interaction):
+        self.ctx.bot.automod_time[(self.ctx.author.id, self.ctx.channel.id)]["time"] = "48h"
+        self.stop()
+        await self.send_message(interaction, "48h")
+
+    @discord.ui.button(label="7 Days", style=discord.ButtonStyle.primary)
+    async def sd_hours(self, button: discord.Button, interaction: discord.Interaction):
+        self.ctx.bot.automod_time[(self.ctx.author.id, self.ctx.channel.id)]["time"] = "7d"
+        self.stop()
+        await self.send_message(interaction, "7d")
+
+    @discord.ui.button(label="30 Days", style=discord.ButtonStyle.primary)
+    async def t_hours(self, button: discord.Button, interaction: discord.Interaction):
+        self.ctx.bot.automod_time[(self.ctx.author.id, self.ctx.channel.id)]["time"] = "30d"
+        self.stop()
+        await self.send_message(interaction, "30d")

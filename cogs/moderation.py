@@ -754,7 +754,7 @@ class moderation(commands.Cog, name='Moderation'):
                     except Exception:
                         pass
 
-            except asyncio.TimeoutError:
+            except asyncio.exceptions.TimeoutError:
                 return
 
             except Exception as e:

@@ -245,7 +245,7 @@ class Pages:
 
         try:
             msg = await self.bot.wait_for('message', check=message_check, timeout=30.0)
-        except asyncio.TimeoutError:
+        except asyncio.exceptions.TimeoutError:
             to_delete.append(await self.channel.send('Took too long.'))
             await asyncio.sleep(5)
         else:

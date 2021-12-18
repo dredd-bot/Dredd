@@ -19,7 +19,6 @@ from discord.ext import commands
 
 from time import time
 from datetime import datetime, timezone
-from db.cache import Voted
 
 
 class admin_only(commands.CheckFailure):

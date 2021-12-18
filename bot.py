@@ -27,7 +27,7 @@ import async_cleverbot as ac
 
 from discord.ext import commands
 
-from db.cache import LoadCache, CacheManager, DreddUser, DreddGuild
+from db.cache import LoadCache, CacheManager, DreddUser, DreddGuild, Database as postgres, ReactionRoles
 from utils import i18n
 from collections import Counter
 from typing import Optional, Union, Any
@@ -44,8 +44,7 @@ if sys.version_info < (3, 8, 0) or sys.version_info >= (3, 10, 0):
 async def run():
     description = "A bot written in Python that uses asyncpg to connect to a postgreSQL database."
 
-    # NOTE: 127.0.0.1 is the loopback address. If your db is running on the same machine as the code, this address will work
-    db = await asyncpg.create_pool(**config.DB_CONN_INFO)
+    db = await postgres.connect()
 
     bot = Bot(description=description, db=db)
     if not hasattr(bot, 'uptime'):
@@ -128,6 +127,7 @@ class Bot(commands.AutoShardedBot):
         self.process = psutil.Process()
         self.ctx = EditingContext
 
+        self.rr_image = 'https://moksej.xyz/05zRCwEjkA.png'
         self.website = 'https://dreddbot.xyz'
         self.support = 'https://discord.gg/f3MaASW'
         self.invite = 'https://dreddbot.xyz/invite'
@@ -142,12 +142,14 @@ class Bot(commands.AutoShardedBot):
                           'dbl': "[Discord Bot list](https://discord.ly/dredd/upvote 'discordbotlist.com')", 'shitgg': "[Top.GG](https://top.gg/bot/667117267405766696/vote 'top.gg')",
                           'dservices': "[Discord Services](https://discordservices.net/bot/dredd 'discordservices.net')", 'void': "[Void Bots](https://voidbots.net/bot/667117267405766696/vote 'voidbots.net')",
                           'discords': "[Discords](https://discords.com/bots/bot/667117267405766696/vote 'discords.com')", 'topcord': "[Topcord](https://topcord.xyz/bot/667117267405766696 'topcord.xyz')"}
+
         self.cleverbot = ac.Cleverbot(config.CB_TOKEN)
         self.join_counter = Counter()  # counter for anti raid so the bot would ban the user if they try to join more than 5 times in short time span
         self.counter = Counter()  # Counter for global commands cooldown
         self.automod_counter = Counter()  # Counter for automod logs
 
         self.cache = CacheManager
+        self.cache_reload = LoadCache
         self.cmd_edits = {}
         self.dm = {}
         self.log_dm = True
@@ -224,11 +226,14 @@ class Bot(commands.AutoShardedBot):
         self.reminders = {}
         self.mode247 = {}
         self.catched_errors = Counter()
+        self.rr_setup = {}
+        self.automod_time = {}
 
         # custom stuff
         setattr(discord.TextChannel, "can_send", property(self.send_check))
         setattr(discord.Thread, "can_send", property(self.send_check))
         setattr(discord.Guild, "data", property(self.guild_cache))
+        setattr(discord.Message, "rr", property(self.message_roles))
         setattr(discord.User, "data", property(self.user_cache))
         setattr(discord.Member, "data", property(self.user_cache))
 
@@ -241,6 +246,9 @@ class Bot(commands.AutoShardedBot):
 
     def user_cache(self, u) -> DreddUser:
         return self.cache.get_user(self, u)  # type: ignore
+
+    def message_roles(self, msg) -> ReactionRoles:
+        return self.cache.get_message(self, msg.id)  # type: ignore
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)

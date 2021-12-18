@@ -29,7 +29,7 @@ class EditingContext(commands.Context):
     interaction: Optional[Interaction] = None
 
     async def send(self, content=None, *, tts=False, embed=None, file=None, files=None, delete_after=None, nonce=None, allowed_mentions=discord.AllowedMentions(users=False, roles=False, everyone=False, replied_user=True),
-                   view=None, ephemeral=False, return_message=None, reference=None):
+                   view=None, ephemeral=False, return_message=None, reference=None, edit=True):
         # sourcery no-metrics
 
         reply = None
@@ -39,13 +39,12 @@ class EditingContext(commands.Context):
         if self.interaction is None or (self.interaction.response.responded_at is not None and discord.utils.utcnow() - self.interaction.response.responded_at >= timedelta(minutes=15)):
             if file or files:
                 return await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view, reference=reference)
-            if reply:
+            if reply and edit is True:
                 try:
                     return await reply.edit(content=content, embed=embed, delete_after=delete_after, allowed_mentions=allowed_mentions, view=view)
                 except discord.errors.NotFound:
                     pass
-            reference = self.message.reference
-            if reference and isinstance(reference.resolved, discord.Message):
+            if self.message.reference and isinstance(self.message.reference.resolved, discord.Message):
                 msg = await reference.resolved.reply(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view)
             else:
                 msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view, reference=reference)

@@ -71,7 +71,7 @@ class Player(wavelink.Player):
         self.context = ctx
         self.dj: Optional[discord.Member] = dj
 
-        self.queue = asyncio.Queue()
+        self.queue: asyncio.Queue = asyncio.Queue()
         self.controller = None
         self.loop = 0
         self.volume = 15
@@ -125,7 +125,7 @@ class Player(wavelink.Player):
                         if track.id == "spotify":
                             spotify_track = await self.context.bot.wavelink.get_tracks(query=f"ytsearch:{track.title} {track.author} audio")
                             track = Track(spotify_track[0].id, spotify_track[0].info, requester=track.requester)
-                except asyncio.TimeoutError:
+                except asyncio.exceptions.TimeoutError:
                     # No music has been played for 5 minutes, cleanup and disconnect...
                     if not mode247:
                         return await self.teardown()
@@ -255,10 +255,13 @@ class Music(commands.Cog):
         await player.do_next()
 
     async def cog_command_error(self, ctx, error):
+        print(type(error))
         if isinstance(error, commands.errors.CommandInvokeError) and not self.bot.wavelink.is_connected():
             return await ctx.send(_("{0} Music nodes decided to die at the moment, please try again later.").format(
                 self.bot.settings['emojis']['misc']['warn']
             ))
+        elif isinstance(error, wavelink.errors.LoadTrackError):
+            return await ctx.send(f"{error}")
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -315,6 +318,13 @@ class Music(commands.Cog):
 
         return player.dj == ctx.author or ctx.author.guild_permissions.manage_messages
 
+    @staticmethod
+    def skip_to(player: Player, to: Optional[int]) -> None:
+        if to:
+            track = player.queue._queue[to - 1]  # type: ignore
+            del player.queue._queue[to - 1]  # type: ignore
+            player.queue._queue.appendleft(track)  # type: ignore
+
     def required_votes(self, ctx: commands.Context) -> int:
         player = ctx.guild.voice_client
         channel = self.bot.get_channel(int(player.channel.id))  # type: ignore
@@ -350,51 +360,54 @@ class Music(commands.Cog):
     async def play(self, ctx, *, query: str):
         _(""" Search for and add song(s) to the Queue """)
 
-        player = ctx.voice_client
+        try:
+            player = ctx.voice_client
 
-        if not player:
-            channel = getattr(ctx.author.voice, 'channel')
-            player = await channel.connect(cls=self.bot.wavelink_player(ctx, dj=ctx.author))
-            await asyncio.sleep(0.5)
-            if channel.permissions_for(ctx.guild.me).deafen_members and ctx.guild.me.voice and not ctx.guild.me.voice.deaf:
-                await ctx.guild.me.edit(deafen=True)
+            if not player:
+                channel = getattr(ctx.author.voice, 'channel')
+                player = await channel.connect(cls=self.bot.wavelink_player(ctx, dj=ctx.author))
+                await asyncio.sleep(0.5)
+                if channel.permissions_for(ctx.guild.me).deafen_members and ctx.guild.me.voice and not ctx.guild.me.voice.deaf:
+                    await ctx.guild.me.edit(deafen=True)
 
-        query = query.strip('<>')
-        if not RURL.match(query) and not SPOTIFY_RURL.match(query):
-            query = f'ytsearch:{query}'
-        elif SPOTIFY_RURL.match(query):
-            url_check = SPOTIFY_RURL.match(query)
-            search_type = url_check.group('type')
-            search_id = url_check.group('id')
+            query = query.strip('<>')
+            if not RURL.match(query) and not SPOTIFY_RURL.match(query):
+                query = f'ytsearch:{query}'
+            elif SPOTIFY_RURL.match(query):
+                url_check = SPOTIFY_RURL.match(query)
+                search_type = url_check.group('type')
+                search_id = url_check.group('id')
 
-            self._last_command_channel[ctx.guild.id] = ctx.channel.id
-            return await spotify_support(ctx, spotify=spotify_client, search_type=search_type, spotify_id=search_id, Track=Track)
-        tracks = await self.bot.wavelink.get_tracks(query=query)
-        if not tracks:
-            return await ctx.send(_('No songs were found with that query. Please try again.'), delete_after=15)
+                self._last_command_channel[ctx.guild.id] = ctx.channel.id
+                return await spotify_support(ctx, spotify=spotify_client, search_type=search_type, spotify_id=search_id, Track=Track)
+            tracks = await self.bot.wavelink.get_tracks(query=query)
+            if not tracks:
+                return await ctx.send(_('No songs were found with that query. Please try again.'), delete_after=15)
 
-        if isinstance(tracks, wavelink.abc.Playlist):
-            length = 0
-            for track in tracks.data["tracks"]:  # type: ignore
+            if isinstance(tracks, wavelink.abc.Playlist):
+                length = 0
+                for track in tracks.data["tracks"]:  # type: ignore
+                    await logging.new_log(self.bot, time(), 4, 1)
+                    await player.queue.put(Track(track["track"], track["info"], requester=ctx.author))
+                    length += track["info"]["length"]
+                try:
+                    times = " (`{0}`)".format(str(datetime.timedelta(milliseconds=int(length))))
+                except Exception:
+                    times = ''
+
+                await ctx.send(_('{0} Added the playlist **{1}**'
+                                 ' with {2} songs to the queue!{3}').format('🎶', tracks.data["playlistInfo"]["name"], len(tracks.data["tracks"]), times), delete_after=15)  # type: ignore
+            else:
+                track = Track(tracks[0].id, tracks[0].info, requester=ctx.author)
+                try:
+                    times = " (`{0}`)".format(str(datetime.timedelta(seconds=int(track.length))))
+                except Exception:
+                    times = ''
+                await ctx.send(_('{0} Added **{1}** to the Queue!{2}').format('🎶', track.title, times), delete_after=15)
+                await player.queue.put(track)
                 await logging.new_log(self.bot, time(), 4, 1)
-                await player.queue.put(Track(track["track"], track["info"], requester=ctx.author))
-                length += track["info"]["length"]
-            try:
-                times = " (`{0}`)".format(str(datetime.timedelta(milliseconds=int(length))))
-            except Exception:
-                times = ''
-
-            await ctx.send(_('{0} Added the playlist **{1}**'
-                             ' with {2} songs to the queue!{3}').format('🎶', tracks.data["playlistInfo"]["name"], len(tracks.data["tracks"]), times), delete_after=15)  # type: ignore
-        else:
-            track = Track(tracks[0].id, tracks[0].info, requester=ctx.author)
-            try:
-                times = " (`{0}`)".format(str(datetime.timedelta(seconds=int(track.length))))
-            except Exception:
-                times = ''
-            await ctx.send(_('{0} Added **{1}** to the Queue!{2}').format('🎶', track.title, times), delete_after=15)
-            await player.queue.put(track)
-            await logging.new_log(self.bot, time(), 4, 1)
+        except wavelink.errors.LoadTrackError as error:
+            return await ctx.channel.send(_("{0} Failed to play track: {error}").format(self.bot.settings['emojis']['misc']['warn'], error=error))
 
         self._last_command_channel[ctx.guild.id] = ctx.channel.id
         if not player.is_playing():
@@ -545,15 +558,19 @@ class Music(commands.Cog):
     @commands.cooldown(1, 5, commands.BucketType.member)
     @commands.guild_only()
     @locale_doc
-    async def skip(self, ctx):
-        _(""" Skip the currently playing song. """)
+    async def skip(self, ctx, to: Optional[int]):
+        _(""" Skip the currently playing song. Providing the number of the song you want to skip to, it will skip to that song. """)
 
         player = ctx.voice_client
 
         if player.queue.qsize() == 0:
             return await ctx.send(_("{0} There's nothing to skip to, the queue is empty..").format(self.bot.settings['emojis']['misc']['warn']))
 
+        if to is not None and to > player.queue.qsize():
+            return await ctx.send(_("{0} You can't skip to song that isn't in the queue.").format(self.bot.settings['emojis']['misc']['warn']))
+
         if self.is_dj(ctx):
+            self.skip_to(player, to)
             await ctx.send(_('{0} An admin or DJ has skipped the song.').format(self.bot.settings['emojis']['misc']['white-mark']), delete_after=20)
             return await player.stop()
 
@@ -568,6 +585,7 @@ class Music(commands.Cog):
                 return await ctx.send(_('**{0}** has voted to skip the current song, {1} more votes are needed to skip.').format(ctx.author, self.required_votes(ctx) - len(player.skip_votes)), delete_after=15)
             await ctx.send(_('{0} Vote to skip passed. Skipping the song.').format(self.bot.settings['emojis']['misc']['white-mark']), delete_after=10)
             player.skip_votes.clear()
+            self.skip_to(player, to)
             return await player.stop()
 
     @commands.command(aliases=['disconnect', 'dc'], brief=_("Disconnect the player and controller"))

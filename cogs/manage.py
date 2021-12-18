@@ -12,16 +12,16 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import asyncio
 
 import discord
 import json
 import typing
-import asyncio
 
 from discord.ext import commands
 from discord.utils import escape_markdown
 
-from utils import default, i18n
+from utils import default, i18n, components, enums
 from utils.checks import admin, moderator, is_guild_disabled
 from utils.paginator import Pages
 from contextlib import suppress
@@ -34,6 +34,354 @@ class Manage(commands.Cog, name='Management'):
         self.bot = bot
         self.help_icon = "<:settingss:695707235833085982>"
         self.big_icon = "https://cdn.discordapp.com/emojis/695707235833085982.png?v=1"
+
+    @staticmethod
+    def create_views(ctx, channel, current_setup):
+        view, values = components.create_self_roles(ctx.guild, current_setup["components_style"], current_setup["payload"])
+        return view, values
+
+    @staticmethod
+    async def add_reactions(message, reactions) -> None:
+        for value in reactions:
+            for reaction in value:
+                await message.add_reaction(reaction)
+
+    @staticmethod
+    def make_dict(values) -> dict:
+        raw_dict = {}
+        for item in values:
+            for v in item:
+                raw_dict[v] = item[v]
+
+        return raw_dict
+
+    @staticmethod
+    def message_views(message) -> int:
+        if message and not message.rr:
+            if message.components:
+                return sum(
+                    5 if isinstance(view, discord.components.SelectMenu) else 1
+                    for view in message.components[0].children
+                )
+            return len(message.reactions)
+        return 0
+
+    @staticmethod
+    def message_content(current_setup):
+        if current_setup["message_style"]["type"] == enums.ReactionRolesMessageType.embed:
+            embed = discord.Embed.from_dict(current_setup["message_style"]["payload"])
+            content = current_setup["message_style"]["payload"].get("plainText", None)
+        else:
+            content, embed = current_setup["message_style"]["payload"], None
+
+        return content, embed
+
+    async def execute_message(self, ctx, current_setup: dict, **kwargs):
+        if current_setup["message_type"] == enums.ReactionRolesType.new_message:  # noqa
+            channel = current_setup["channel"]
+            message_content, embed = self.message_content(current_setup)
+            if current_setup["use_components"]:
+                view, values = components.create_self_roles(ctx.guild, current_setup["components_style"], current_setup["payload"])
+                message = await channel.send(message_content, embed=embed, view=view)
+            else:
+                message = await channel.send(message_content, embed=embed)
+                roles = values = current_setup["payload"]
+                await self.add_reactions(message, roles)
+                values = self.make_dict(values)
+
+            raw_dict = self.make_dict(current_setup["payload"])
+            query = "INSERT INTO reactionroles VALUES($1, $2, $3, $4, $5, $6, $7)"
+            await self.bot.db.execute(query, ctx.guild.id, channel.id, message.id, json.dumps(values), current_setup["limits"]["required_role"], current_setup["limits"]["max_roles"], json.dumps(raw_dict))
+            self.bot.rr[message.id] = {'guild': ctx.guild.id, 'channel': channel.id, 'dict': values, 'required_role': current_setup["limits"]["required_role"],
+                                       'max_roles': current_setup["limits"]["max_roles"], 'raw_dict': raw_dict}
+
+        elif current_setup["message_type"] == enums.ReactionRolesType.existing_message:
+            channel = current_setup["channel"]
+            message = current_setup["message"]
+            author = current_setup["author"]
+            if author == enums.ReactionRolesAuthor.user or (current_setup["use_components"] is False and current_setup["using_components"] is False):
+                roles = values = current_setup["payload"]
+                await self.add_reactions(message, roles)
+                values = self.make_dict(values)
+            else:
+                view, values = components.create_self_roles(ctx.guild, current_setup["components_style"], current_setup["payload"])
+                with suppress(Exception):
+                    await message.clear_reactions()
+                await message.edit(view=view)
+
+            if current_setup["message_style"]["edit_old"] is True:
+                message_content, embed = self.message_content(current_setup)
+                await message.edit(message_content, embed=embed)
+
+            raw_dict = self.make_dict(current_setup["payload"])
+            if message.rr:
+                query = "UPDATE reactionroles SET components_dict = $1, raw_dict = $2, required_role_id = $3, max_roles = $4 WHERE message_id = $5"
+                await self.bot.db.execute(query, json.dumps(values), json.dumps(raw_dict), current_setup["limits"]["required_role"], current_setup["limits"]["max_roles"], message.id)
+                self.bot.rr[message.id]['dict'] = values
+                self.bot.rr[message.id]['raw_dict'] = raw_dict
+                self.bot.rr[message.id]['required_role'] = current_setup["limits"]["required_role"]
+                self.bot.rr[message.id]['max_roles'] = current_setup["limits"]["max_roles"]
+            else:
+                query = "INSERT INTO reactionroles VALUES($1, $2, $3, $4, $5, $6, $7)"
+                await self.bot.db.execute(query, ctx.guild.id, channel.id, message.id, json.dumps(values), current_setup["limits"]["required_role"], current_setup["limits"]["max_roles"], json.dumps(raw_dict))
+                self.bot.rr[message.id] = {'guild': ctx.guild.id, 'channel': channel.id, 'dict': values, 'required_role': current_setup["limits"]["required_role"],
+                                           'max_roles': current_setup["limits"]["max_roles"], 'raw_dict': raw_dict}
+
+        return message, values
+
+    async def interactive_reaction_roles(self, ctx, message_type: enums.ReactionRolesType, **kwargs):  # get the channel, determine if to use reactions or components
+
+        def check(m):
+            return m.author == ctx.author and m.channel.id == ctx.channel.id
+
+        try:
+            self.bot.rr_setup[(ctx.author.id, ctx.channel.id)]["message_type"] = enums.ReactionRolesType(int(message_type))
+            if int(message_type) == int(enums.ReactionRolesType.new_message):
+                use_components = None
+                while True:
+                    get_channel = await ctx.channel.send(_("What channel should I send the message to?"))
+                    channel = await self.bot.wait_for('message', check=check, timeout=60.0)
+                    if channel.content.lower() == 'cancel':
+                        return await get_channel.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                    try:
+                        channel = await commands.TextChannelConverter().convert(ctx, channel.content)
+                        if not channel.can_send:  # type: ignore
+                            await get_channel.edit(content=_("I can't send messages in that channel, please give me permissions to send messages in that channel or choose another channel."))
+                        else:
+                            channel = self.bot.rr_setup[(ctx.author.id, ctx.channel.id)]["channel"] = channel
+                            self.bot.rr_setup[(ctx.author.id, ctx.channel.id)]["author"] = enums.ReactionRolesAuthor(0)
+                            break
+                    except Exception:
+                        await get_channel.edit(content=_("Can't find that channel, if that's even a channel."))
+
+                view = components.ReactionRolesConfirmComponents(self, ctx, 60, self.bot.rr_setup.get((ctx.author.id, ctx.channel.id)))
+                return await ctx.channel.send(_("Would you like to use Discord message components (buttons) for the new reaction roles setup? If no, normal reactions will be used instead."), view=view)
+
+            setup_message = using_components = None
+            while True:
+                existing_message_check = await ctx.channel.send(_("Send the link of the message you want to use for reaction roles."))
+                setup_message = await self.bot.wait_for('message', check=check, timeout=60.0)
+                if setup_message.content.lower() == 'cancel':
+                    self.bot.rr_setup.pop((ctx.author.id, ctx.channel.id), None)
+                    return await existing_message_check.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                elif setup_message.content.lower().startswith('https://'):
+                    url = setup_message.content.split('/')
+                    try:
+                        channel = self.bot.rr_setup[(ctx.author.id, ctx.channel.id)]["channel"] = ctx.guild.get_channel(int(url[5]))
+                        message = self.bot.rr_setup[(ctx.author.id, ctx.channel.id)]["message"] = await channel.fetch_message(int(url[6]))
+                        self.bot.rr_setup[(ctx.author.id, ctx.channel.id)]["author"] = enums.ReactionRolesAuthor(0) if message.author == ctx.guild.me else enums.ReactionRolesAuthor(1)
+                        if message.author.bot and message.author == ctx.guild.me:
+                            self.bot.rr_setup[(ctx.author.id, ctx.channel.id)]["using_components"] = using_components = bool(message.components)
+                        break
+                    except Exception as e:
+                        await existing_message_check.edit(content=_("Can't find that message, please make sure the link is valid and I can see the channel, message history."))
+                else:
+                    await existing_message_check.edit(content=_("Invalid answer, try again."))
+
+            if using_components is False:
+                view = components.ReactionRolesConfirmComponents(self, ctx, 60, self.bot.rr_setup.get((ctx.author.id, ctx.channel.id)))
+                return await ctx.channel.send(_("It seems like you're using the old system for reaction roles if any, would you like to switch to a new one using Discord message components (buttons)?"), view=view)
+            elif using_components is True:
+                view = components.ReactionRolesComponentsStyle(self, ctx, 60, self.bot.rr_setup.get((ctx.author.id, ctx.channel.id)))
+                e = discord.Embed(title="Reaction Roles Setup", color=self.bot.settings['colors']['embed_color'])
+                e.description = _("Should buttons display label only, emoji only or both? This action is irreversible!")
+                e.image = self.bot.rr_image
+                return await ctx.channel.send(embed=e, view=view)
+
+            await self.interactive_reaction_roles_2(ctx, self.bot.rr_setup.get((ctx.author.id, ctx.channel.id)))
+
+        except asyncio.exceptions.TimeoutError:
+            return await ctx.channel.send(_("You ran out of time, cancelling command."), delete_after=10)
+
+        except Exception as e:
+            return await ctx.channel.send(_("{0} Command failed with an error, please report this in our support server: `{error}`").format(
+                self.bot.settings['emojis']['misc']['warn'], error=e
+            ))
+
+    async def interactive_reaction_roles_2(self, ctx, current_setup: dict):
+
+        def check(m):
+            return m.author == ctx.author and m.channel.id == ctx.channel.id
+
+        payload = {}
+        if current_setup["message_type"] == enums.ReactionRolesType.existing_message:
+            database_payload = await self.bot.db.fetchval("SELECT raw_dict FROM reactionroles WHERE message_id = $1", current_setup["message"].id)
+            if database_payload:
+                payload = json.loads(database_payload)
+        while True:
+            try:
+                while True:
+                    emoji = cancelled = done = None
+                    get_emoji = await ctx.channel.send(_("Please send a **single** emoji that you'd like to use. If you're done, send `done`"))
+
+                    limit = 25 if current_setup["use_components"] or current_setup["using_components"] else 20
+                    if self.message_views(current_setup["message"]) + len(payload) <= limit:
+                        reaction_to_use = await self.bot.wait_for('message', check=check, timeout=60.0)
+
+                        if reaction_to_use.content.lower() == 'cancel':
+                            cancelled = True
+                            await get_emoji.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                        elif reaction_to_use.content.lower() == "done" and len(payload) != 0:
+                            current_setup["payload"] = [payload]
+                            cancelled = done = True
+                        else:
+                            if payload.get(reaction_to_use.content):
+                                await get_emoji.edit(content=_("That emoji is already being used for reaction roles"))
+                            else:
+                                try:
+                                    await get_emoji.add_reaction(reaction_to_use.content)
+                                    emoji = reaction_to_use.content
+                                    await get_emoji.delete()
+                                except Exception:
+                                    await get_emoji.edit(content=_("Invalid emoji, try again."))
+                    else:
+                        await get_emoji.edit(content=_("You've hit the max limit of reactions/buttons to be used on a message."))
+                        cancelled = done = True
+                        current_setup["payload"] = [payload]
+
+                    if emoji is None and cancelled is not True:
+                        continue
+                    elif emoji is not None:
+                        get_role = await ctx.channel.send(_("Please send a role that you'd like to assign to emoji - {0}").format(emoji))
+                        role_to_use = await self.bot.wait_for('message', check=check, timeout=60.0)
+
+                        if role_to_use.content.lower() == 'cancel':
+                            await get_role.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                            cancelled = True
+                        else:
+                            try:
+                                role: discord.Role = await commands.RoleConverter().convert(ctx, role_to_use.content)
+                                if role.id in payload.values():
+                                    await get_role.edit(content=_("That role is already used in the reaction role, please choose another role."), delete_after=15)
+                                else:
+                                    if role.is_integration() or role.is_bot_managed() or role.is_default():
+                                        await get_role.edit(content=_("Can't use that role."))
+                                    if role.position < ctx.guild.me.top_role.position:
+                                        payload[emoji] = role.id
+                                        current_setup["payload"] = [payload]
+                                        await get_role.delete()
+                                    else:
+                                        await get_role.edit(content=_("The role you've provided is higher in the role hierarchy, please make sure I can access the role."))
+                            except Exception:
+                                await get_role.edit(content=_("Invalid role, try again."))
+
+                    if cancelled is True:
+                        assert True is False
+
+            except asyncio.exceptions.TimeoutError:
+                cancelled, done = True, False
+                return await ctx.channel.send(_("You ran out of time, cancelling command."), delete_after=10)
+
+            except AssertionError:
+                break
+
+            except Exception as e:
+                print(e)
+                cancelled, done = True, False
+                break
+
+        if cancelled and done is not True:
+            return
+
+        try:
+            while True:
+                should_require_role = await ctx.channel.send(_("What role do users need in order to access the reaction roles? `None` if no role should be required."))
+                required_role = await self.bot.wait_for('message', check=check, timeout=60.0)
+
+                if required_role.content.lower() == 'cancel':
+                    return await should_require_role.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                elif required_role.content.lower() == 'none':
+                    break
+                try:
+                    role = await commands.RoleConverter().convert(ctx, required_role.content)
+                    if role.id in payload.values():
+                        await should_require_role.edit(content=_("That role is already used in the reaction role, please choose another role."), delete_after=15)
+                    elif role.is_integration() or role.is_bot_managed() or role.is_default():
+                        await required_role.edit(content=_("Can't use that role."))
+                    else:
+                        current_setup["limits"]["required_role"] = role.id
+                        await should_require_role.delete()
+                        break
+                except Exception:
+                    await should_require_role.edit(content=_("Invalid role, try again."))
+
+            while True:
+                roles_limit_check = await ctx.channel.send(_("How many roles should users be able to get from the reaction role? Send {0} if all.").format(len(payload)))
+                roles_limit = await self.bot.wait_for('message', check=check, timeout=60.0)
+
+                if roles_limit.content.lower() == 'cancel':
+                    return await roles_limit_check.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                try:
+                    num = current_setup["limits"]["max_roles"] = max(min(int(roles_limit.content), len(payload)), 1)  # default at 1 if number is too huge/is negative
+                    await roles_limit_check.edit(content=_("Set the max number of roles to **{0}**").format(num))
+                    break
+                except Exception:
+                    await roles_limit_check.edit(content=_("Answer must be a number or `cancel` to cancel."))
+
+        except asyncio.exceptions.TimeoutError:
+            return await ctx.channel.send(_("You ran out of time, cancelling command."), delete_after=10)
+
+        except Exception as e:
+            return await ctx.channel.send(_("{0} Command failed with an error, please report this in our support server: `{error}`").format(
+                self.bot.settings['emojis']['misc']['warn'], error=e
+            ))
+
+        if current_setup["message_type"] == enums.ReactionRolesType.existing_message:
+            if current_setup["author"] == enums.ReactionRolesAuthor.bot:
+                while True:
+                    should_edit_message = await ctx.channel.send(_("Do you want to edit the reaction roles setup message as well (if current message is fully custom, you will have to recreate it as it is going to be fully "
+                                                                   "re-done)? `y` or `n`"))
+                    edit_message = await self.bot.wait_for('message', check=check, timeout=60.0)
+
+                    if edit_message.content.lower() == 'cancel':
+                        return await should_edit_message.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                    try:
+                        if edit_message.content.lower() == 'n':
+                            break
+                        current_setup["message_style"]["edit_old"] = True
+                        view = components.ReactionRolesMessage(self, ctx, 60, current_setup)
+                        return await ctx.channel.send(_("Would you like me to send a normal or embedded message?"), view=view)
+                    except Exception:
+                        await should_edit_message.edit(content=_("Invalid role, try again."))
+            message, values = await self.execute_message(ctx, current_setup=current_setup)
+            return await ctx.channel.send(_("{0} Successfully created reaction roles setup!").format(ctx.bot.settings['emojis']['misc']['white-mark']), delete_after=15)
+        else:
+            view = components.ReactionRolesMessage(self, ctx, 60, current_setup)
+            return await ctx.channel.send(_("Would you like me to send a normal or embedded message?"), view=view)
+
+    async def perform_action(self, value: bool, interaction: discord.Interaction, current_setup: dict, ctx) -> None:
+
+        def check(m):
+            return m.author == ctx.author and m.channel.id == ctx.channel.id
+
+        if value is True:
+            if current_setup["message_style"]["type"] == enums.ReactionRolesMessageType.embed:
+                view = components.ReactionRolesEmbedView(self, ctx, 60, current_setup)
+                return await ctx.send(_("Customize your embed."), view=view)
+            while True:
+                try:
+                    value = await ctx.channel.send(_("What should the message be?"))
+                    get_value = await ctx.bot.wait_for('message', check=check, timeout=60.0)
+
+                    if get_value.content.lower() == "cancel":
+                        return await value.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
+                    elif len(get_value.content) > 2000:
+                        await value.edit(content=_("You've hit the characters limit: {0}/{1}").format(len(get_value.content), 2000))
+                    else:
+                        current_setup["message_style"]["payload"] = get_value.content
+                        message, values = await self.execute_message(ctx, current_setup=current_setup)
+                        return await ctx.channel.send(_("{0} Successfully created reaction roles setup!").format(ctx.bot.settings['emojis']['misc']['white-mark']), delete_after=15)
+                except asyncio.exceptions.TimeoutError:
+                    return await ctx.channel.send(_("You ran out of time, cancelling command."), delete_after=10)
+        elif value is False:
+            roles = []
+            for value in current_setup["payload"]:
+                for emoji in value:
+                    roles.append((emoji, value[emoji]))
+            list_of_roles = [f"{emoji} - <@&{role}>\n" for emoji, role in roles]
+            current_setup["message_style"]["message"] = f"Interact with the reactions below to get the corresponding role(s).\n{''.join(list_of_roles)}"
+            message, values = await self.execute_message(ctx, current_setup=current_setup)
+            return await ctx.channel.send(_("{0} Successfully created reaction roles setup!").format(self.bot.settings['emojis']['misc']['white-mark']), delete_after=15)
 
     @commands.group(brief=_("Manage bot's prefix in the server"),
                     invoke_without_command=True)
@@ -1326,259 +1674,46 @@ class Manage(commands.Cog, name='Management'):
         _(""" Base command for managing reaction roles """)
         await ctx.send_help(ctx.command)
 
-    @reaction_roles.command(name='new',
-                            brief=_("Create a new reaction role"),
-                            aliases=['add'])
+    @reaction_roles.command(name="setup",
+                            brief=_("Setup the reaction roles in your server."),
+                            aliases=["set"])
     @admin(manage_roles=True)
     @commands.bot_has_permissions(manage_roles=True, manage_messages=True)
     @commands.max_concurrency(1, commands.cooldowns.BucketType.guild)
     @commands.guild_only()
     @locale_doc
-    async def reaction_roles_add(self, ctx):
-        _(""" Start an interactive setup to create reaction roles """)
+    async def reaction_roles_setup(self, ctx):
+        _(""" Interactive setup for reaction roles. """)
+
+        self.bot.rr_setup[(ctx.author.id, ctx.channel.id)] = {
+            "message_type": enums.ReactionRolesType.unknown,
+            "author": enums.ReactionRolesAuthor.unknown,
+            "channel": None,
+            "message": None,
+            "using_components": False,
+            "use_components": False,
+            "components_style": enums.ReactionRolesComponentDisplay.unknown,
+            "limits": {
+                "required_role": None,
+                "max_roles": None
+            },
+            "message_style": {
+                "type": enums.ReactionRolesMessageType.unknown,
+                "payload": None,
+                "edit_old": False
+            },
+            "payload": None
+        }
+
         try:
-            def check(m):
-                return m.author == ctx.author and m.channel.id == ctx.channel.id
-
-            first_loop, first_part, role_dict, channel = True, 0, {}, None
-            while first_loop:
-                msg = await ctx.channel.send(_("Do you want me to use an existing message or a new one? `new` | `existing` | `n` | `e` | `old` | `cancel` *You have 60 seconds*"))
-                first_response = await self.bot.wait_for('message', check=check, timeout=60.0)
-
-                if first_response.content.lower() in ['new', 'n']:
-                    first_part = 1
-                    first_loop = False
-                elif first_response.content.lower() in ['existing', 'e', 'old']:
-                    first_part = 2
-                    first_loop = False
-                elif first_response.content.lower() == 'cancel':
-                    first_loop = False
-                    return await msg.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                else:
-                    first_loop = True
-                    await msg.edit(content=_("Invalid answer, try again."))
-
-            await msg.delete()
-            if first_part == 1:
-                embed_loop, embed_part, embed, second_part = True, 0, False, 0
-                while embed_loop:
-                    msg1 = await ctx.channel.send(_("Should the message be an embed? `yes` | `y` | `no` | `n` | `cancel`"))
-                    second_response = await self.bot.wait_for('message', check=check, timeout=60.0)
-                    if second_response.content.lower() in ['yes', 'y']:
-                        embed_loop, embed = False, True
-                        embed_part = 1
-                    elif second_response.content.lower() in ['no', 'n']:
-                        embed_loop = False
-                        embed_part = 2
-                    elif second_response.content.lower() == 'cancel':
-                        embed_loop = False
-                        return await msg1.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                    else:
-                        embed_loop = True
-                        await msg1.edit(content=_("Invalid answer, try again."))
-                channel_loop = True
-                await msg1.delete()
-                while channel_loop:
-                    msg2 = await ctx.channel.send(_("What channel should I send the message to?"))
-                    channel_response = await self.bot.wait_for('message', check=check, timeout=60.0)
-                    if channel_response.content.lower() == 'cancel':
-                        channel_loop = False
-                        return await msg1.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                    try:
-                        channel = await commands.TextChannelConverter().convert(ctx, channel_response.content)
-                        if not channel.can_send:  # type: ignore
-                            await msg2.edit(content=_("I can't send messages in that channel, please give me permissions to send messages in that channel or choose another channel."))
-                        elif embed and not channel.permissions_for(ctx.guild.me).embed_links:
-                            await msg2.edit(content=_("I can't embed links in that channel, please give me permissions to embed links there or choose another channel in which I can embed links."))
-                        else:
-                            channel_loop = False
-                            second_part = 1
-                    except Exception:
-                        await msg2.edit(content=_("Can't find that channel, if that's even a channel."))
-            elif first_part == 2:
-                embed, message_loop, second_part = False, True, 0
-                while message_loop:
-                    msg1 = await ctx.channel.send(_("Send the link of the message you want to use for reaction roles."))
-                    second_response = await self.bot.wait_for('message', check=check, timeout=60.0)
-                    if second_response.content.lower() == 'cancel':
-                        message_loop = False
-                        return await msg1.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                    elif second_response.content.lower().startswith('https://'):
-                        url = second_response.content.split('/')
-                        try:
-                            channel = ctx.guild.get_channel(int(url[5]))
-                            message = await channel.fetch_message(int(url[6]))
-                            second_part, message_loop = 1, False
-                        except Exception as e:
-                            await msg1.edit(content=_("Can't find that message, please make sure the link is valid and I can see the channel, message history."))
-                    else:
-                        embed_loop = True
-                        await msg1.edit(content=_("Invalid answer, try again."))
-                await msg1.delete()
-            if second_part == 1:
-                reactions_loop = True
-                while reactions_loop:
-                    third_loop, third_part, emoji = True, 0, None
-                    while third_loop:
-                        msg2 = await ctx.channel.send(_("Please send a **single** emoji that you'd like to use."))
-                        third_response = await self.bot.wait_for('message', check=check, timeout=60.0)
-
-                        if third_response.content.lower() == 'cancel':
-                            third_loop, reactions_loop = False, False
-                            return await msg1.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                        else:
-                            if third_response.content in role_dict:
-                                third_loop = True
-                                await msg2.edit(content=_("That emoji is already being used for reaction roles"))
-                            else:
-                                try:
-                                    await msg2.add_reaction(third_response.content)
-                                    emoji, third_part, third_loop = third_response.content, 1, False
-                                    await msg2.delete()
-                                except Exception:
-                                    third_loop = True
-                                    await msg2.edit(content=_("Invalid emoji, try again."))
-
-                    if third_part == 1:
-                        role_loop, role_part, role = True, 0, None
-                        msg3 = await ctx.channel.send(_("Please send a role that you'd like to assign to emoji - {0}").format(emoji))
-                        role_response = await self.bot.wait_for('message', check=check, timeout=60.0)
-                        if role_response.content.lower() == 'cancel':
-                            role_loop, reactions_loop = False, False
-                            return await msg3.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                        else:
-                            try:
-                                role = await commands.RoleConverter().convert(ctx, role_response.content)
-                                if role == ctx.guild.default_role:
-                                    raise Exception()
-                                if str(role.id) in str(role_dict):
-                                    await msg3.edit(content=_("That role is already used in the reaction role, please choose another role."), delete_after=15)
-                                elif not str(role.id) in str(role_dict):
-                                    if role.position < ctx.guild.me.top_role.position:
-                                        role_loop, role_part = False, 1
-                                        role_dict[emoji] = role.id
-                                        await msg3.delete()
-                                    else:
-                                        await msg3.edit(content=_("The role you've provided is higher in the role hierarchy, please make sure I can access the role."))
-                            except Exception:
-                                await msg3.edit(content=_("Invalid role, try again."))
-
-                    if role_part == 1:
-                        continue_roles, continue_part = True, 0
-
-                        if len(role_dict) >= 20:
-                            continue_part, continue_roles, reactions_loop = 1, False, False
-
-                        while continue_roles:
-                            msg4 = await ctx.channel.send(_("Do you wish to add more reaction roles? `yes` | `y` | `n` | `no` | `cancel` to cancel the command"))
-                            is_continue = await self.bot.wait_for('message', check=check, timeout=60.0)
-                            if is_continue.content.lower() in ['yes', 'y']:
-                                continue_roles = False
-                            elif is_continue.content.lower() in ['no', 'n']:
-                                continue_roles, reactions_loop, continue_part = False, False, 1
-                                await msg4.delete()
-                            elif is_continue.content.lower() == 'cancel':
-                                continue_roles, reactions_loop = False, False
-                                return await msg4.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                            else:
-                                continue_roles = True
-                                await msg4.edit(content=_("Invalid answer, try again."))
-                if continue_part == 1:
-                    check_required_role, the_role = True, None
-                    while check_required_role:
-                        required_role, required_part = None, 0
-                        msg5 = await ctx.channel.send(_("Do you only want users with certain roles to access the reaction roles? `yes` | `y` | `n` | `no` | `cancel` to cancel the command"))
-                        is_continue = await self.bot.wait_for('message', check=check, timeout=60.0)
-                        if is_continue.content.lower() in ['yes', 'y']:
-                            check_required_role, required_part = False, 1
-                        elif is_continue.content.lower() in ['no', 'n']:
-                            check_required_role, required_part = False, 0
-                            await msg5.delete()
-                        elif is_continue.content.lower() == 'cancel':
-                            check_required_role = False
-                            return await msg5.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                        else:
-                            continue_roles = True
-                            await msg5.edit(content=_("Invalid answer, try again."))
-                    if required_part == 1:
-                        the_role_loop, the_role_part = True, None
-                        while the_role_loop:
-                            msg6 = await ctx.channel.send(_("What role do users need in order to access the reaction roles?"))
-                            is_continue = await self.bot.wait_for('message', check=check, timeout=60.0)
-
-                            if is_continue.content.lower() == 'cancel':
-                                check_required_role = False
-                                return await msg6.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                            try:
-                                role = await commands.RoleConverter().convert(ctx, is_continue.content)
-                                if str(role.id) in str(role_dict):
-                                    await msg6.edit(content=_("That role is already used in the reaction role, please choose another role."), delete_after=15)
-                                else:
-                                    the_role, the_role_loop, the_role_part = role.id, False, 1
-                                    await msg6.delete()
-                            except Exception:
-                                await msg6.edit(content=_("Invalid role, try again."))
-                    else:
-                        pass
-                    if len(role_dict) > 1:
-                        max_roles_loop, max_roles = True, 0
-                        while max_roles_loop:
-                            msg7 = await ctx.channel.send(_("How many roles should users be able to get from the reaction role? Send {0} if all.").format(len(role_dict)))
-                            is_continue = await self.bot.wait_for('message', check=check, timeout=60.0)
-
-                            if is_continue.content.lower() == 'cancel':
-                                check_required_role = False
-                                return await msg7.edit(content=_("Cancelling the command. Deleting this message in 15 seconds"), delete_after=15)
-                            try:
-                                num = int(is_continue.content)
-                                max_roles, max_roles_loop = num, False
-                                await msg7.edit(content=_("Set the max number of roles to **{0}**").format(num))
-                            except Exception:
-                                await msg7.edit(content=_("Answer must be a number or `cancel` to cancel."))
-                    if first_part == 1:
-                        if embed_part == 1:
-                            embed = discord.Embed(color=self.bot.settings['colors']['embed_color'], title='Reaction Roles')
-                            embed.description = _("**Available Roles:**")
-                            for item in role_dict:
-                                role = ctx.guild.get_role(role_dict[item])
-                                embed.description += f"\n{item} - {role.mention}"
-                            embed.description += _("\n\n*React to the reactions below to get the corresponding roles.*")
-                            message = await channel.send(embed=embed)
-                        elif embed_part == 2:
-                            message = _("**Available Roles:**")
-                            for item in role_dict:
-                                role = ctx.guild.get_role(role_dict[item])
-                                message += f"\n{item} - {role.mention}"
-                            message += _("\n\n*React to the reactions below to get the corresponding roles.*")
-                            message = await channel.send(message)
-
-                    try:
-                        roles_list = []
-                        for reaction in role_dict:
-                            await message.add_reaction(reaction)
-                            roles_list.append(ctx.guild.get_role(role_dict[reaction]))
-                    except Exception as e:
-                        self.bot.dispatch('silent_error', ctx, e)
-                        return await ctx.send(_("{0} Something failed while adding the reactions, did you deleted the message?").format(
-                            self.bot.settings['emojis']['misc']['warn']
-                        ))
-                    q = "INSERT INTO reactionroles(guild_id, channel_id, message_id, the_dict, required_role_id, max_roles) VALUES($1, $2, $3, $4, $5, $6)"
-                    await self.bot.db.execute(q, ctx.guild.id, channel.id, message.id, str(role_dict), the_role, max_roles if len(role_dict) > 1 else None)
-                    self.bot.rr[message.id] = {'guild': ctx.guild.id, 'channel': channel.id, 'dict': role_dict, 'required_role': the_role, 'max_roles': max_roles if len(role_dict) > 1 else None}
-
-                    embed = discord.Embed(color=self.bot.settings['colors']['embed_color'], title=_("Reaction Roles Setup Completed"))
-                    embed.description = _("Reaction roles setup for [**message**]({0}) was successfully completed.\n\n"
-                                          "**Reactions:** {1}\n**Roles:** {2}\n**Roles limit:** {3}\n**Required Role:** {4}").format(
-                                              message.jump_url, ', '.join([x for x in role_dict]), ', '.join([x.mention for x in roles_list]),
-                                              max_roles if len(role_dict) > 1 else len(role_dict), ctx.guild.get_role(the_role)
-                                          )
-
-                    await ctx.channel.send(embed=embed)
-
-        except asyncio.TimeoutError:
-            return await ctx.channel.send(_("Timed out, please re-run the command."))
-        except discord.errors.NotFound:
-            return
+            message_type_view = components.ReactionRolesView(self, ctx, placeholder=_("Select an option..."), options=[
+                discord.SelectOption(label="New message", value=int(enums.ReactionRolesType.new_message), description="Creates a new message for you."),  # type: ignore
+                discord.SelectOption(label="Existing message", value=int(enums.ReactionRolesType.existing_message), description="Adds reaction roles to an already existing message."),  # type: ignore
+                discord.SelectOption(label="Cancel", value=2, description="Cancel the setup.")  # type: ignore
+            ], getting="")
+            await ctx.channel.send(_("Do you want me to use an already existing message or set up a new one?"), view=message_type_view)
+        except Exception as e:
+            return await ctx.send(e)
 
     @reaction_roles.command(name='list', aliases=['l'], brief=_("Get a list of reaction roles in the server"))
     @admin(manage_roles=True)
@@ -1597,15 +1732,15 @@ class Manage(commands.Cog, name='Management'):
 
         list_of_reactionroles = []
         for messageid in list_of_messageids:
-            cache = self.bot.cache.get(self.bot, 'rr', messageid)
+            cache = self.bot.cache.get_message(self.bot, messageid)
 
             if not cache:
                 await self.bot.db.execute("DELETE FROM reactionroles WHERE message_id = $1", messageid)
                 continue
 
-            roles = [ctx.guild.get_role(cache['dict'][role]) for role in cache["dict"]]
+            roles = [ctx.guild.get_role(cache.raw_dict[role]) for role in cache.raw_dict]
 
-            channel = ctx.guild.get_channel(cache['channel'])
+            channel = ctx.guild.get_channel(cache.channel)
             message = messageid
             with suppress(Exception):
                 msg = await channel.fetch_message(messageid)
@@ -1614,15 +1749,15 @@ class Manage(commands.Cog, name='Management'):
             roles = ', '.join([x.mention if x else str(x) for x in roles][:10]) + f" (+{len(roles) - 10})" if len(roles) > 10 else ', '.join(x.mention if x else str(x) for x in roles)
 
             list_of_reactionroles.append(_("**Message:** {0}\n**Channel:** {1}\n**Reactions:** {2}\n**Roles:** {3}\n**Roles limit:** {4}\n**Required role:** {5}\n\n").format(  # sourcery skip
-                message, channel.mention if channel else _('Deleted'), ', '.join([x for x in cache['dict']][:10]) + f" (+{len(cache['dict']) - 10})" if len(cache['dict']) > 10 else ', '.join(x for x in cache['dict']),
-                roles, cache['max_roles'],
-                ctx.guild.get_role(cache['required_role']).mention if ctx.guild.get_role(cache['required_role']) else None
+                message, channel.mention if channel else _('Deleted'), ', '.join([x for x in cache.raw_dict][:10]) + f" (+{len(cache.raw_dict) - 10})" if len(cache.raw_dict) > 10 else ', '.join(x for x in cache.raw_dict),
+                roles, cache.max_roles,
+                ctx.guild.get_role(cache.required_role).mention if ctx.guild.get_role(cache.required_role) else None
             ))
 
         paginator = Pages(ctx,
                           title=_("Reaction roles in {0}").format(ctx.guild.name),
                           entries=list_of_reactionroles,
-                          per_page=2,
+                          per_page=3,
                           embed_color=self.bot.settings['colors']['embed_color'],
                           author=ctx.author)
         await paginator.paginate()
@@ -1651,6 +1786,8 @@ class Manage(commands.Cog, name='Management'):
             try:
                 message = await channel.fetch_message(int(message_id))
                 await message.clear_reactions()
+                if message.author == ctx.guild.me:
+                    await message.edit(view=None)
                 message = f"<{message.jump_url}>"
             except Exception:
                 pass

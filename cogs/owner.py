@@ -52,6 +52,19 @@ class Buttons(discord.ui.View):
 
         super().__init__(timeout=300)
 
+        if self.guild is not None:
+            btn = discord.ui.Button(label="Force Leave", style=discord.ButtonStyle.primary)
+            btn.callback = self.fleave_callback
+
+            self.add_item(btn)
+
+    async def fleave_callback(self, interaction: discord.Interaction):
+        instance: discord.Guild = self.guild
+        await interaction.response.defer()
+        await interaction.followup.send("What is the reason?")
+        reason = await self.bot.wait_for("message", check=lambda m: m.channel.id == interaction.channel.id and m.author.id == interaction.user.id, timeout=30.0)
+        return await self.ctx.invoke(self.bot.get_command("dev fleave"), server=instance, reason=reason)
+
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         i18n.current_locale.set(self.bot.translations.get(interaction.guild.id, 'en_US'))
         if interaction.user and interaction.user.id == self.author.id or await self.bot.is_owner(interaction.user):
@@ -140,6 +153,24 @@ class Buttons(discord.ui.View):
             countmsg += '\n```'
 
         return await interaction.followup.send(countmsg, ephemeral=True)
+
+    @discord.ui.button(label="Blacklist", style=discord.ButtonStyle.red)
+    async def blacklist(self, button: discord.ui.Button, interaction: discord.Interaction):
+        instance: Union[discord.Guild, discord.User] = self.user or self.guild
+        await interaction.response.defer()
+        await interaction.followup.send("What is the reason?")
+        reason = await self.bot.wait_for("message", check=lambda m: m.channel.id == interaction.channel.id and m.author.id == interaction.user.id, timeout=30.0)
+        return await self.ctx.invoke(self.bot.get_command("admin manage"), thing=instance, reason="No reason")
+
+    # @discord.ui.button(label="Force Leave", style=discord.ButtonStyle.blurple)
+    # async def force_leave(self, button: discord.ui.Button, interaction: discord.Interaction):
+    #     instance: Union[discord.Guild, discord.User] = self.user or self.guild
+    #     await interaction.response.defer()
+    #     if isinstance(instance, discord.User):
+    #         return await interaction.followup.send("How is this possible?", ephemeral=True)
+    #     await interaction.followup.send("What is the reason?")
+    #     reason = await self.bot.wait_for("message", check=lambda m: m.channel.id == interaction.channel.id and m.author.id == interaction.user.id, timeout=30.0)
+    #     return await self.ctx.invoke(self.bot.get_command("dev fleave"), server=instance, reason=reason)
 
 
 # noinspection PySimplifyBooleanCheck,PyDunderSlots
@@ -557,6 +588,7 @@ If this will get out of control blacklist will be issued."""
             except Exception:
                 msg += '. Unfortunately I failed to DM the owner of that server'
             await guild.leave()
+            await self.bot.get_channel(self.bot.settings['channels']['blacklist']).send(f"**{ctx.author}** made me forcefully left **{guild.name}** ({guild.id}) for {reason}")
             await ctx.send(f"{self.bot.settings['emojis']['misc']['white-mark']} Successfully left the server{msg}.")
         else:
             return

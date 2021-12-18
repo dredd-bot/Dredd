@@ -25,7 +25,7 @@ import itertools
 import psutil
 
 from discord.ext import commands
-from discord.utils import escape_markdown
+from discord.utils import escape_markdown, snowflake_time
 from collections import Counter
 from datetime import datetime, timezone, timedelta
 from io import BytesIO
@@ -105,7 +105,7 @@ class Info(commands.Cog, name='Information'):
 Dredd is a bot that will help your server with moderation, provide fun to your members, and much more! The bot is currently running on **V{0}** and is currently maintained.
 
 **Developer:** [{1}](https://discord.com/users/345457928972533773)
-**Library & version:** {2} [enhanced discord.py {3}]({17})
+**Library & version:** {2} [enhanced discord.py {3}]({18})
 **Last boot:** {4}
 **Created:** {5} ({6})
 
@@ -844,6 +844,23 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
     async def rtfm_python(self, ctx, *, obj: str = None):
         _(""" Documentation of python """)
         await rtfm.do_rtfm(self, ctx, 'python', obj)
+
+    @commands.command(brief=_("Shows a snowflake information"))
+    @locale_doc
+    @commands.cooldown(1, 5, commands.BucketType.member)
+    async def snowflake(self, ctx, *, snowflake: int):
+        _(""" Shows the information of a Discord snowflake """)
+
+        timestamp = snowflake_time(snowflake)
+        worker_id = (snowflake & 0x3E0000) >> 17
+        process_id = (snowflake & 0x1F000) >> 12
+        increment = snowflake & 0xFFF
+
+        e = discord.Embed(color=self.bot.settings['colors']['embed_color'], title=_("Snowflake information"), url="https://discord.com/developers/docs/reference#snowflakes")
+        e.description = _("**Created at:** {0} ({1})\n**Worker ID:** {2}\n**Process ID:** {3}\n**Increment:** {4}".format(
+            btime.discord_time_format(timestamp), btime.discord_time_format(timestamp, "R"), worker_id, process_id, increment
+        ))
+        await ctx.send(embed=e)
 
 
 def setup(bot):

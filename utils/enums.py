@@ -13,7 +13,10 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+import discord
+
 from enum import Enum
+from typing import TypedDict, Union, Optional
 
 
 class LogType(Enum):
@@ -105,3 +108,71 @@ class PlaylistEnum(Enum):
 
     def __int__(self) -> int:
         return self.value
+
+
+class ReactionRolesAuthor(Enum):
+    unknown = -1
+    bot = 0
+    user = 1
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __int__(self) -> int:
+        return self.value
+
+
+class ReactionRolesType(Enum):
+    unknown = -1
+    new_message = 0
+    existing_message = 1
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __int__(self) -> int:
+        return self.value
+
+
+class ReactionRolesMessageType(Enum):
+    unknown = -1
+    embed = 0
+    normal = 1
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __int__(self) -> int:
+        return self.value
+
+
+class ReactionRolesComponentDisplay(Enum):
+    unknown = -1
+    all = 0
+    label_only = 1
+    emoji_only = 2
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __int__(self) -> int:
+        return self.value
+
+
+class ReactionRolesEmbed(Enum):
+    unknown = -1
+    title = 0
+    description = 1
+    footer = 2
+    custom = 3
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __int__(self) -> int:
+        return self.value
+
+
+class SelfRoles(TypedDict):
+    reaction: Union[discord.Emoji, discord.PartialEmoji]
+    role: int
