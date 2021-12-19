@@ -38,15 +38,17 @@ class staff(commands.Cog, name="Staff", command_attrs={"slash_command": False}):
             raise admin_only()
         return True
 
-    async def verify_type(self, ctx, thing: Union[discord.User, int]) -> Union[discord.User, discord.Guild, int]:
-        if isinstance(thing, discord.User):
+    async def verify_type(self, ctx, thing: Union[discord.User, discord.Guild, int]) -> Union[discord.User, discord.Guild, int]:
+        if isinstance(thing, discord.User) or isinstance(thing, discord.Guild):
             return thing
         elif isinstance(thing, int):
             try:
                 return await ctx.bot.fetch_user(thing)
             except Exception:
                 g = self.bot.get_guild(thing)
-                return g or thing
+                return g or thing 
+        else:
+            return thing
 
     def embed(self, color: int, blacklist: bool, type: int, liftable: int, reason: str, user: discord.User, guild: Optional[Union[discord.Guild, str]] = None) -> Optional[discord.Embed]:
         if type in {0, 1}:
