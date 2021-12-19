@@ -37,9 +37,9 @@ class CommandError(commands.Cog, name="CommandError",
         self._last_result = None
         self.help_icon = ''
         self.big_icon = ''
-        self.anti_spam_commands = CooldownByContent.from_cooldown(17, 15.0, commands.BucketType.member)  # 12 commands per 15 seconds
+        self.anti_spam_commands = CooldownByContent.from_cooldown(17, 15.0, commands.BucketType.member)  # 17 commands per 15 seconds
         self.pre_anti_spam = CooldownByContent.from_cooldown(5, 10, commands.BucketType.member)  # 5 commands per 10 seconds
-        self.global_cooldown = commands.CooldownMapping.from_cooldown(17, 10.0, commands.BucketType.user)
+        self.global_cooldown = commands.CooldownMapping.from_cooldown(17, 15.0, commands.BucketType.user)
         self.mystbin_client = mystbin.Client()
 
     @commands.Cog.listener()
