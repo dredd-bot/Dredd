@@ -335,6 +335,7 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
         phishing_links = PHISHING.search(message.content)
 
         if phishing_links:
+            print(phishing_links)
             agent = {"User-Agent": f"Dredd ({self.bot.website})"}
             body = {"message": f"{phishing_links}"}
             validation = await self.bot.session.post(self.bot.config.PHISHING, headers=agent, json=body)  # The API is private. Credits: Fish Project
@@ -343,8 +344,10 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             result = await validation.json()
             if result.get("match") is False:
                 return
-
+            
+            print(validation)
             await message.delete()  # delete the message
+            print("Deleted")
             await self.execute_punishment(4, message, reason)  # ban
 
     def embed(self, member, reason, action, time=None) -> discord.Embed:
