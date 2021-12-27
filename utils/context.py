@@ -45,7 +45,7 @@ class EditingContext(commands.Context):
                 except discord.errors.NotFound:
                     pass
             if self.message.reference and isinstance(self.message.reference.resolved, discord.Message):
-                msg = await reference.resolved.reply(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view)
+                msg = await self.message.reference.resolved.reply(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view)
             else:
                 msg = await super().send(content=content, tts=tts, embed=embed, file=file, files=files, delete_after=delete_after, nonce=nonce, allowed_mentions=allowed_mentions, view=view, reference=reference)
         else:
