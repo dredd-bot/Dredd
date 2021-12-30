@@ -65,7 +65,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
         self.clear_mode247.cancel()
         self.clear_automod_counter.cancel()
 
-    @tasks.loop(seconds=1)
+    @tasks.loop(seconds=60)
     async def guild_data(self):
         try:
             for guild_id in self.bot.guilds_data:
