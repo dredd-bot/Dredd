@@ -76,8 +76,8 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                     await self.bot.db.execute("DELETE FROM guilds WHERE guild_id = $1", guild_id)
                     cm.clear(self.bot, guild_id)
                     await default.guild_data_deleted(self, guild_id)
-        except Exception:
-            pass
+        except Exception as e:
+            print(e)
 
     @tasks.loop(seconds=1)
     async def temp_ban(self):
