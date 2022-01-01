@@ -148,7 +148,7 @@ async def medias(ctx, user):
             if media['type']:
                 raise Exception()  # so the except statement triggers.
             icon = ctx.bot.settings['emojis']['social'][media['media_type']]
-            title = media['media_type'].title()
+            title = media['media_type']
         except Exception:
             title = media['media_type']
             tp = media['type']
