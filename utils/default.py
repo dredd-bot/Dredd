@@ -81,12 +81,12 @@ def next_level(ctx):
         return txt
 
     if str(ctx.guild.premium_tier) == "1":
-        count = int(15 - ctx.guild.premium_subscription_count)
+        count = int(7 - ctx.guild.premium_subscription_count)
         txt = _('Next level in **{0}** boosts').format(count)
         return txt
 
     if str(ctx.guild.premium_tier) == "2":
-        count = int(30 - ctx.guild.premium_subscription_count)
+        count = int(14 - ctx.guild.premium_subscription_count)
         txt = _('Next level in **{0}** boosts').format(count)
         return txt
 
