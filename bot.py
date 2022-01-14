@@ -71,8 +71,8 @@ async def run():
         await LoadCache.start(bot)  # type: ignore
         bot.session = aiohttp.ClientSession(loop=bot.loop)
         dredd_logger.info("[BOT] Starting bot.")
-        await bot.start(config.DISCORD_TOKEN)
-        # await bot.start(config.MAIN_TOKEN)
+        # await bot.start(config.DISCORD_TOKEN)
+        await bot.start(config.MAIN_TOKEN)
     except KeyboardInterrupt as e:
         dredd_logger.error(f"[Shutting Down] Occured while booting up: {e}.")
         await db.close()
