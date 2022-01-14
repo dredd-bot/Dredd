@@ -1,3 +1,5 @@
+## As of January 15th 2022 Dredd will **NOT** be receiving any updates. Join [the support server](https://dreddbot.xyz/support) if you want to know more.
+
 # Dredd
 ### I would prefer that you don't clone the bot as it's for educational purposes only and to help me push bug fixes, but if you do want to clone it, instructions are below:
 

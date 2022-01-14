@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -63,7 +63,7 @@ class Buttons(discord.ui.View):
         await interaction.response.defer()
         await interaction.followup.send("What is the reason?")
         reason = await self.bot.wait_for("message", check=lambda m: m.channel.id == interaction.channel.id and m.author.id == interaction.user.id, timeout=30.0)
-        return await self.ctx.invoke(self.bot.get_command("dev fleave"), server=instance, reason=reason)
+        return await self.ctx.invoke(self.bot.get_command("dev fleave"), server=instance, reason=reason.content)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         i18n.current_locale.set(self.bot.translations.get(interaction.guild.id, 'en_US'))
@@ -160,7 +160,7 @@ class Buttons(discord.ui.View):
         await interaction.response.defer()
         await interaction.followup.send("What is the reason?")
         reason = await self.bot.wait_for("message", check=lambda m: m.channel.id == interaction.channel.id and m.author.id == interaction.user.id, timeout=30.0)
-        return await self.ctx.invoke(self.bot.get_command("admin manage"), thing=instance, reason="No reason")
+        return await self.ctx.invoke(self.bot.get_command("admin manage"), thing=instance, reason=reason.content)
 
     # @discord.ui.button(label="Force Leave", style=discord.ButtonStyle.blurple)
     # async def force_leave(self, button: discord.ui.Button, interaction: discord.Interaction):

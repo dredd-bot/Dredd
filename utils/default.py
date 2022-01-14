@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -27,7 +27,7 @@ from utils.btime import FutureTime
 from contextlib import suppress
 from utils import logger, enums
 from json.decoder import JSONDecodeError
-from typing import Union, List
+from typing import Union, List, Optional
 
 
 def timeago(target):
@@ -523,7 +523,7 @@ def automod_values(value) -> dict:
 
 # noinspection PyUnboundLocalVariable
 async def spotify_support(ctx, spotify, search_type, spotify_id, Track, queue: bool = True) -> Union[None, list]:  # sourcery no-metrics
-    with suppress(ConnectionResetError, AttributeError, JSONDecodeError):
+    with suppress(ConnectionResetError, AttributeError, JSONDecodeError, discord.HTTPException):
         player = ctx.voice_client
         spotify_client = spotify.Client(ctx.bot.config.SPOTIFY_CLIENT, ctx.bot.config.SPOTIFY_SECRET)
         spotify_http_client = spotify.HTTPClient(ctx.bot.config.SPOTIFY_CLIENT, ctx.bot.config.SPOTIFY_SECRET)
@@ -596,3 +596,99 @@ def reaction_roles_dict_sorter(payload: List[enums.SelfRoles], message_author: e
     if message_author == int(enums.ReactionRolesAuthor.bot) and reaction_type == int(enums.ReactionRolesType.new_message):
         return payload
     return [{value["reaction"]: value["role"] for value in payload}]
+
+
+def get_result(attr) -> Optional[dict]:
+    return {"name": attr.name, "id": attr.id} if attr else None
+
+
+def handle_request(bot, data):
+    guild = bot.get_guild(data["guild_id"])
+    user = guild.get_member(data["user_id"])
+    g: DreddGuild = guild.data  # type: Ignore
+    mod_channel = guild.get_channel(g.moderation)
+    member_log = guild.get_channel(g.memberlog)
+    guild_log = guild.get_channel(g.guildlog)
+    join_log = guild.get_channel(g.joinlog)
+    leave_log = guild.get_channel(g.leavelog)
+    message_edit = guild.get_channel(g.messageedit)
+    message_delete = guild.get_channel(g.messagedelete)
+    mute_role = guild.get_role(g.muterole)
+    mod_role = guild.get_role(g.modrole)
+    admin_role = guild.get_role(g.adminrole)
+    return json.dumps({
+        "prefix": g.prefix,
+        "language": g.language,
+        "moderation": get_result(mod_channel),
+        "member_log": get_result(member_log),
+        "guild_log": get_result(guild_log),
+        "joinlog": get_result(join_log),
+        "leavelog": get_result(leave_log),
+        "msgedit": get_result(message_edit),
+        "msgdelete": get_result(message_delete),
+        "mute_role": get_result(mute_role),
+        "mod_role": get_result(mod_role),
+        "admin_role": get_result(admin_role),
+        "text_channels": [{"name": channel.name, "id": channel.id} for channel in guild.text_channels if channel.can_send],
+        "roles": {
+            "mute_roles": [
+                {"name": role.name, "id": role.id} for role in guild.roles if role.position < guild.me.top_role.position and role.is_assignable()
+                                                                              and not role.permissions.send_messages and role.id != g.joinrole
+            ],
+            "mod_roles": [
+                {"name": role.name, "id": role.id} for role in guild.roles if role.position < guild.me.top_role.position and role.is_assignable()
+                                                                              and role.permissions.manage_messages and role.id != g.joinrole
+            ],
+            "admin_roles": [
+                {"name": role.name, "id": role.id} for role in guild.roles if role.position < guild.me.top_role.position and role.is_assignable()
+                                                                              and role.permissions.ban_members and role.id != g.joinrole
+            ],
+            "join_roles": [
+                {"name": role.name, "id": role.id} for role in guild.roles if role.position < guild.me.top_role.position and role.is_assignable()
+                                                                              and role.id not in [g.modrole, g.adminrole, g.muterole]
+            ]
+        },
+        "user_permissions": dict(user.guild_permissions)
+    })
+
+
+async def handle_database(bot, guild, table_name, attr, data) -> None:
+    attr = getattr(bot, attr)
+    table_name = table_name if table_name not in ["msgedit", "msgdelete"] else "messageedits" if table_name != "msgdelete" else "messagedeletes"
+    insert_query = "INSERT INTO {table} VALUES($1, $2)".format(table=table_name)
+    update_channel_query = "UPDATE {table} SET channel_id = $2 WHERE guild_id = $1".format(table=table_name)
+    update_role_query = "UPDATE {table} SET role = $2 WHERE guild_id = $1".format(table=table_name)
+    delete_query = "DELETE FROM {table} WHERE guild_id = $1".format(table=table_name)
+    update_query = update_channel_query if table_name not in ['muterole', 'modrole', 'adminrole'] else update_role_query
+    if int(data) != 1:
+        query = insert_query if not attr.get(guild.id) else update_query
+        x = await bot.db.execute(query, guild.id, int(data))
+        attr[guild.id] = int(data)
+    else:
+        await bot.db.execute(delete_query, guild.id)
+        attr.pop(guild.id, None)
+
+
+async def handle_update(bot, data):
+    try:
+        g = bot.guild_cache(bot.get_guild(int(data['guild_id'])))
+        correct_values = {
+            "msgedit": "messageedits",
+            "msgdelete": "messagedeletes",
+            "muterole": "mute_role",
+            "modrole": "mod_role",
+            "adminrole": "admin_role"
+        }
+        for value in data:
+            if value == 'prefix' and data['prefix'] != g.prefix:
+                bot.prefix[g.id] = data['prefix']
+                await bot.db.execute("UPDATE guilds SET prefix = $1 WHERE guild_id = $2", data['prefix'], g.id)
+            elif value == 'language' and data['language'] != g.language:
+                bot.translations[g.id] = data['language']
+                await bot.db.execute("UPDATE guilds SET language = $1 WHERE guild_id = $2", data['language'], g.id)
+            elif value not in ['prefix', 'language', 'guild_id']:
+                attr_name = value if not correct_values.get(value) else correct_values.get(value)
+                if data.get(value):
+                    await handle_database(bot, g, value, attr_name, data.get(value))
+    except Exception as e:
+        return json.dumps({"error": "Error occured"})

@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -397,6 +397,26 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
             embed.set_footer(text=_('Huge thanks to {0} for this avatar').format(Zenpa))
         else:
             embed.set_image(url=display)
+        await ctx.send(embed=embed)
+
+    @commands.command(brief=_("Displays user's banner if they have one."))
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    @locale_doc
+    async def banner(self, ctx, user: discord.User = None):
+        _(""" Get user's banner if they have one. """)
+        user = user or ctx.author
+        banner = user.banner or (await self.bot.fetch_user(user.id)).banner
+
+        if not banner:
+            return await ctx.send(_("{0} {1} doesn't have a banner!").format(self.bot.settings['emojis']['misc']['warn'], user))
+
+        embed = discord.Embed(color=self.bot.settings['colors']['embed_color'])
+        embed.set_author(name=_("{0}'s Banner!").format(user), icon_url=user.avatar.url if user.avatar else user.display_avatar.url)
+        png = banner.with_format('png').url
+        jpg = banner.with_format('jpg').url
+        webp = banner.with_format('webp').url
+        embed.description = _("[png]({0}) | [jpg]({1}) | [webp]({2})").format(png, jpg, webp)
+        embed.set_image(url=banner.with_format('png').url)
         await ctx.send(embed=embed)
 
     @commands.command(name='support', brief=_("Get a link to bot's support server"))

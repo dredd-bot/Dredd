@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -24,7 +24,7 @@ import argparse
 from discord.ext import commands
 from discord.utils import escape_markdown
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from utils import default, btime
 from utils.checks import BannedMember, MemberID, moderator, admin
@@ -196,27 +196,27 @@ class moderation(commands.Cog, name='Moderation'):
             if changed and not failed:
                 renamed += _("**I've successfully re-named {0} member(s):**\n").format(success)
                 for num, res in enumerate(changed, start=0):
-                    renamed += f"`[{num+1}]` {res}\n"
+                    renamed += f"`[{num + 1}]` {res}\n"
                 await ctx.send(renamed)
             if changed and failed:
                 renamed += _("**I've successfully re-named {0} member(s):**\n").format(success)
                 not_renamed += _("**However I failed to re-name the following {0} member(s):**\n").format(fail)
                 for num, res in enumerate(changed, start=0):
-                    renamed += f"`[{num+1}]` {res}\n"
+                    renamed += f"`[{num + 1}]` {res}\n"
                 for num, res in enumerate(failed, start=0):
-                    not_renamed += f"`[{num+1}]` {res}\n"
+                    not_renamed += f"`[{num + 1}]` {res}\n"
                 await ctx.send(renamed + not_renamed)
             if not changed and failed:
                 not_renamed += _("**I failed to re-name all the members:**\n")
                 for num, res in enumerate(failed, start=0):
-                    not_renamed += f"`[{num+1}]` {res}\n"
+                    not_renamed += f"`[{num + 1}]` {res}\n"
                 await ctx.send(not_renamed)
         except Exception as e:
             self.bot.dispatch('silent_error', ctx, e)
             return await ctx.send(_("{0} Something failed with sending the message, "
                                     "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                self.bot.settings['emojis']['misc']['warn']
+            ))
 
     @commands.command(brief=_("Dehoist members"))
     @moderator(manage_nicknames=True)
@@ -259,7 +259,7 @@ class moderation(commands.Cog, name='Moderation'):
             if dehoisted and not failed:
                 renamed += _("**I've successfully dehoisted {0} member(s):**\n").format(success)
                 for num, res in enumerate(dehoisted[:20], start=0):
-                    renamed += f"`[{num+1}]` {res}\n"
+                    renamed += f"`[{num + 1}]` {res}\n"
                 if len(dehoisted) > 20:
                     renamed += limit_20
                 await ctx.send(renamed)
@@ -268,9 +268,9 @@ class moderation(commands.Cog, name='Moderation'):
                 renamed += _("**I've successfully dehoisted {0} member(s):**\n").format(success)
                 not_renamed += _("**However I failed to dehoist the following {0} member(s):**\n").format(fail)
                 for num, res in enumerate(dehoisted[:10], start=0):
-                    renamed += f"`[{num+1}]` {res}\n"
+                    renamed += f"`[{num + 1}]` {res}\n"
                 for num, res in enumerate(failed[:10], start=0):
-                    not_renamed += f"`[{num+1}]` {res}\n"
+                    not_renamed += f"`[{num + 1}]` {res}\n"
                 message = _("List is limited to 10.")
                 if len(dehoisted) > 10:
                     renamed += message
@@ -281,7 +281,7 @@ class moderation(commands.Cog, name='Moderation'):
             if not dehoisted and failed:
                 not_renamed += _("**I failed to dehoist all the members:**\n")
                 for num, res in enumerate(failed[:20], start=0):
-                    not_renamed += f"`[{num+1}]` {res}\n"
+                    not_renamed += f"`[{num + 1}]` {res}\n"
                 if len(failed) > 20:
                     not_renamed += limit_20
                 await ctx.send(not_renamed)
@@ -289,8 +289,8 @@ class moderation(commands.Cog, name='Moderation'):
             self.bot.dispatch('silent_error', ctx, e)
             return await ctx.send(_("{0} Something failed with sending the message, "
                                     "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                self.bot.settings['emojis']['misc']['warn']
+            ))
 
     @commands.command(brief=_("Kick member from the server"), aliases=['masskick'])
     @moderator(kick_members=True)
@@ -311,8 +311,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only kick 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -361,29 +361,29 @@ class moderation(commands.Cog, name='Moderation'):
                 if kicked and not failed:
                     booted += _("**I've successfully kicked {0} member(s):**\n").format(success)
                     for num, res in enumerate(kicked, start=0):
-                        booted += f"`[{num+1}]` {res}\n"
+                        booted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(booted)
                     self.bot.dispatch('kick', ctx.guild, ctx.author, success_kick, reason)
                 if kicked and failed:
                     booted += _("**I've successfully kicked {0} member(s):**\n").format(success)
                     not_booted += _("**However, I failed to kick the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(kicked, start=0):
-                        booted += f"`[{num+1}]` {res}\n"
+                        booted += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(failed, start=0):
-                        not_booted += f"`[{num+1}]` {res}\n"
+                        not_booted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(booted + not_booted)
                     self.bot.dispatch('kick', ctx.guild, ctx.author, success_kick, reason)
                 if not kicked and failed:
                     not_booted += _("**I failed to kick all the members:**\n")
                     for num, res in enumerate(failed, start=0):
-                        not_booted += f"`[{num+1}]` {res}\n"
+                        not_booted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_booted)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Ban member from the server"), aliases=['massban', 'tempban'])
     @moderator(ban_members=True)
@@ -404,8 +404,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only ban 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -451,31 +451,33 @@ class moderation(commands.Cog, name='Moderation'):
             try:
                 booted, not_booted = "", ""
                 if banned and not failed:
-                    booted += _("**I've successfully banned {0} member(s){1}:**\n").format(success, _(' for {0}').format(btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else '')
+                    booted += _("**I've successfully banned {0} member(s){1}:**\n").format(success,
+                                                                                           _(' for {0}').format(btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else '')
                     for num, res in enumerate(banned, start=0):
-                        booted += f"`[{num+1}]` {res}\n"
+                        booted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(booted)
                     self.bot.dispatch('ban', ctx.guild, ctx.author, success_ban, duration if duration else None, reason, ctx.message.created_at)
                 if banned and failed:
-                    booted += _("**I've successfully banned {0} member(s){1}:**\n").format(success, _(' for {0}').format(btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else '')
+                    booted += _("**I've successfully banned {0} member(s){1}:**\n").format(success,
+                                                                                           _(' for {0}').format(btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else '')
                     not_booted += _("**However, I failed to ban the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(banned, start=0):
-                        booted += f"`[{num+1}]` {res}\n"
+                        booted += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(failed, start=0):
-                        not_booted += f"`[{num+1}]` {res}\n"
+                        not_booted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(booted + not_booted)
                     self.bot.dispatch('ban', ctx.guild, ctx.author, success_ban, duration if duration else None, reason, ctx.message.created_at)
                 if not banned and failed:
                     not_booted += _("**I failed to ban all the members:**\n")
                     for num, res in enumerate(failed, start=0):
-                        not_booted += f"`[{num+1}]` {res}\n"
+                        not_booted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_booted)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Softban member from the server"), aliases=['soft-ban'])
     @moderator(ban_members=True, manage_messages=True)
@@ -496,8 +498,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only soft-ban 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -545,29 +547,29 @@ class moderation(commands.Cog, name='Moderation'):
                 if banned and not failed:
                     booted += _("**I've successfully soft-banned {0} member(s):**\n").format(success)
                     for num, res in enumerate(banned, start=0):
-                        booted += f"`[{num+1}]` {res}\n"
+                        booted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(booted)
                     self.bot.dispatch('softban', ctx.guild, ctx.author, success_ban, reason)
                 if banned and failed:
                     booted += _("**I've successfully soft-banned {0} member(s):**\n").format(success)
                     not_booted += _("**However, I failed to soft-ban the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(banned, start=0):
-                        booted += f"`[{num+1}]` {res}\n"
+                        booted += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(failed, start=0):
-                        not_booted += f"`[{num+1}]` {res}\n"
+                        not_booted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(booted + not_booted)
                     self.bot.dispatch('softban', ctx.guild, ctx.author, success_ban, reason)
                 if not banned and failed:
                     not_booted += _("**I failed to soft-ban all the members:**\n")
                     for num, res in enumerate(failed, start=0):
-                        not_booted += f"`[{num+1}]` {res}\n"
+                        not_booted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_booted)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Hackban user from the server"), aliases=['hack-ban'])
     @moderator(ban_members=True)
@@ -587,8 +589,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         failed, success, fail_count, suc_count, banned = [], [], 0, 0, []
         await ctx.send(_("Starting the process, this might take a while."))
@@ -625,7 +627,7 @@ class moderation(commands.Cog, name='Moderation'):
             if success and not failed:
                 booted += _("**I've successfully hack-banned {0} member(s):**\n").format(suc_count)
                 for num, res in enumerate(success[:15], start=0):
-                    booted += f"`[{num+1}]` {res}\n"
+                    booted += f"`[{num + 1}]` {res}\n"
                 if len(success) > 15:
                     booted += f"**(+{len(success) - 15})**"
                 await ctx.send(booted)
@@ -634,9 +636,9 @@ class moderation(commands.Cog, name='Moderation'):
                 booted += _("**I've successfully hack-banned {0} member(s):**\n").format(suc_count)
                 not_booted += _("**However, I failed to hack-ban the following {0} member(s):**\n").format(fail_count)
                 for num, res in enumerate(success[:15], start=0):
-                    booted += f"`[{num+1}]` {res}\n"
+                    booted += f"`[{num + 1}]` {res}\n"
                 for num, res in enumerate(failed[:15], start=0):
-                    not_booted += f"`[{num+1}]` {res}\n"
+                    not_booted += f"`[{num + 1}]` {res}\n"
                 if len(success) > 15:
                     booted += f"**(+{len(success) - 15})**"
                 if len(failed) > 15:
@@ -646,7 +648,7 @@ class moderation(commands.Cog, name='Moderation'):
             if not success and failed:
                 not_booted += _("**I failed to hack-ban all the members:**\n")
                 for num, res in enumerate(failed[:15], start=0):
-                    not_booted += f"`[{num+1}]` {res}\n"
+                    not_booted += f"`[{num + 1}]` {res}\n"
                 if len(failed) > 15:
                     not_booted += f"**(+{len(failed) - 15})**"
                 await ctx.send(not_booted)
@@ -654,8 +656,8 @@ class moderation(commands.Cog, name='Moderation'):
             self.bot.dispatch('silent_error', ctx, e)
             return await ctx.send(_("{0} Something failed with sending the message, "
                                     "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                    self.bot.settings['emojis']['misc']['warn']
-                                ))
+                self.bot.settings['emojis']['misc']['warn']
+            ))
 
     @commands.command(brief=_("Unban user from the server"), aliases=['uba'])
     @moderator(ban_members=True)
@@ -671,8 +673,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         try:
             await ctx.guild.unban(banned_user.user, reason=default.responsible(ctx.author, reason))  # type: ignore
@@ -685,8 +687,8 @@ class moderation(commands.Cog, name='Moderation'):
             self.bot.dispatch('silent_error', ctx, e)
             return await ctx.send(_("{0} Something failed with sending the message, "
                                     "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                self.bot.settings['emojis']['misc']['warn']
+            ))
 
     @commands.command(brief=_("Unban everyone from the server"), aliases=['massunban', 'ubaall', 'massuba'])
     @moderator(ban_members=True)
@@ -707,8 +709,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 400
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 400
+            ))
 
         def check(r, u):
             return u.id == ctx.author.id and r.message.id == checkmsg.id
@@ -761,8 +763,8 @@ class moderation(commands.Cog, name='Moderation'):
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Mute member in the server"), aliases=['tempmute'])
     @moderator(manage_roles=True)
@@ -787,8 +789,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only mute 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -796,8 +798,8 @@ class moderation(commands.Cog, name='Moderation'):
         if muterole.position > ctx.guild.me.top_role.position:
             return await ctx.send(_("{0} | The muted role is above me in the role hierarchy, "
                                     "so I cannot access it. Please lower {1}, so I can access the role and mute the member(s).").format(
-                                        self.bot.settings['emojis']['misc']['warn'], muterole.mention
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], muterole.mention
+            ))
 
         if len(set(members)) != 0:
             muted, notmuted, success_mute, success, fail = [], [], [], 0, 0
@@ -854,31 +856,131 @@ class moderation(commands.Cog, name='Moderation'):
             try:
                 mute, not_muted = "", ""
                 if muted and not notmuted:
-                    mute += _("**I've successfully muted {0} member(s){1}:**\n").format(success, _(' for {0}').format(btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else '')
+                    mute += _("**I've successfully muted {0} member(s){1}:**\n").format(success,
+                                                                                        _(' for {0}').format(btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else '')
                     for num, res in enumerate(muted, start=0):
-                        mute += f"`[{num+1}]` {res}\n"
+                        mute += f"`[{num + 1}]` {res}\n"
                     await ctx.send(mute)
                     self.bot.dispatch('mute', ctx.guild, ctx.author, success_mute, duration if duration else None, reason, ctx.message.created_at)
                 if muted and notmuted:
-                    mute += _("**I've successfully muted {0} member(s){1}:**\n").format(success, _(' for {0}').format(btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else '')
+                    mute += _("**I've successfully muted {0} member(s){1}:**\n").format(success,
+                                                                                        _(' for {0}').format(btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else '')
                     not_muted += _("**However, I failed to mute the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(muted, start=0):
-                        mute += f"`[{num+1}]` {res}\n"
+                        mute += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(notmuted, start=0):
-                        not_muted += f"`[{num+1}]` {res}\n"
+                        not_muted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(mute + not_muted)
                     self.bot.dispatch('mute', ctx.guild, ctx.author, success_mute, duration if duration else None, reason, ctx.message.created_at)
                 if not muted and notmuted:
                     not_muted += _("**I failed to mute all the members:**\n")
                     for num, res in enumerate(notmuted, start=0):
-                        not_muted += f"`[{num+1}]` {res}\n"
+                        not_muted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_muted)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
+
+    @commands.command(brief=_("Timeout member(s) from sending any messages"))
+    @moderator(moderate_members=True)
+    @commands.bot_has_permissions(moderate_members=True)
+    @commands.guild_only()
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    @locale_doc
+    async def timeout(self, ctx, members: commands.Greedy[discord.Member], duration: btime.FutureTime, *, reason: commands.clean_content = None):
+        _(""" Timeout member(s) in the server from sending any messages. 
+        Due to API limitation you can only timeout a member for 28 days, consider using `{0}mute` if you want to mute for longer. """)
+
+        if len(set(members)) == 0:
+            return await ctx.send(_("{0} | You're missing an argument - **members**").format(
+                self.bot.settings['emojis']['misc']['warn']
+            ))
+
+        if reason and len(reason) > 450:
+            return await ctx.send(_("{0} Reason can only be 450 characters long."
+                                    " You're {1} characters over.").format(
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
+
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only timeout 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+
+        if discord.utils.utcnow() + timedelta(days=28) < duration.dt:
+            return await ctx.send(_("{0} | Due to API limitation you can only timeout member(s) for 28 days.").format(self.bot.settings['emojis']['misc']['warn']))
+
+        if len(set(members)) != 0:
+            muted, notmuted, success_mute, success, fail = [], [], [], 0, 0
+            for member in set(members):
+                if member == ctx.author:
+                    notmuted.append(_("{0} ({1}) - **You are the member though?**").format(
+                        member.mention, member.id
+                    ))
+                    fail += 1
+                    continue
+                if member.top_role.position >= ctx.guild.me.top_role.position:
+                    notmuted.append(_("{0} ({1}) - **Member is above me in the role hierarchy or has the same role**").format(
+                        member.mention, member.id
+                    ))
+                    fail += 1
+                    continue
+                elif member.top_role.position >= ctx.author.top_role.position:
+                    notmuted.append(_("{0} ({1}) - **Member is above you in the role hierarchy or has the same role**").format(
+                        member.mention, member.id
+                    ))
+                    fail += 1
+                    continue
+                elif member.timed_out:
+                    notmuted.append(_("{0} ({1}) - **Member is already timed out.**"))
+                    fail += 1
+                    continue
+                try:
+                    await member.edit(timeout_until=duration.dt, reason=default.responsible(ctx.author, reason))
+                    muted.append(f"{member.mention} ({member.id})")
+                    success_mute.append(member)
+                    success += 1
+                except Exception as e:
+                    print(e)
+                    notmuted.append(_("{0} ({1}) - **Something failed while trying to timeout.**").format(
+                        member.mention, member.id
+                    ))
+                    fail += 1
+                    continue
+
+            try:
+                mute, not_muted = "", ""
+                if muted and not notmuted:
+                    mute += _("**I've successfully timed out {0} member(s){1}:**\n").format(success,
+                                                                                            _(' for {0}').format(  # noqa
+                                                                                                btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else ''
+                                                                                            )
+                    for num, res in enumerate(muted, start=0):
+                        mute += f"`[{num + 1}]` {res}\n"
+                    await ctx.send(mute)
+                    self.bot.dispatch('timeout', ctx.guild, ctx.author, success_mute, duration if duration else None, reason, ctx.message.created_at)
+                if muted and notmuted:
+                    mute += _("**I've successfully timed out {0} member(s){1}:**\n").format(success,
+                                                                                            _(' for {0}').format(btime.human_timedelta(duration.dt, source=ctx.message.created_at, suffix=None)) if duration is not None else '')
+                    not_muted += _("**However, I failed to timeout the following {0} member(s):**\n").format(fail)
+                    for num, res in enumerate(muted, start=0):
+                        mute += f"`[{num + 1}]` {res}\n"
+                    for num, res in enumerate(notmuted, start=0):
+                        not_muted += f"`[{num + 1}]` {res}\n"
+                    await ctx.send(mute + not_muted)
+                    self.bot.dispatch('timeout', ctx.guild, ctx.author, success_mute, duration if duration else None, reason, ctx.message.created_at)
+                if not muted and notmuted:
+                    not_muted += _("**I failed to timeout all the members:**\n")
+                    for num, res in enumerate(notmuted, start=0):
+                        not_muted += f"`[{num + 1}]` {res}\n"
+                    await ctx.send(not_muted)
+            except Exception as e:
+                self.bot.dispatch('silent_error', ctx, e)
+                return await ctx.send(_("{0} Something failed with sending the message, "
+                                        "I've sent this error to my developers and they should hopefully resolve it soon.").format(
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Unmute member in the server"))
     @moderator(manage_roles=True)
@@ -902,8 +1004,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only unmute 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -911,8 +1013,8 @@ class moderation(commands.Cog, name='Moderation'):
         if muterole.position > ctx.guild.me.top_role.position:
             return await ctx.send(_("{0} | The muted role is above me in the role hierarchy, "
                                     "so I cannot access it. Please lower {1}, so I can access the role and mute the member(s).").format(
-                                        self.bot.settings['emojis']['misc']['warn'], muterole.mention
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], muterole.mention
+            ))
 
         if len(set(members)) != 0:
             notmuted, muted, success_unmute, fail, success = [], [], [], 0, 0
@@ -965,29 +1067,121 @@ class moderation(commands.Cog, name='Moderation'):
                 if muted and not notmuted:
                     unmuted += _("**I've successfully unmuted {0} member(s):**\n").format(success)
                     for num, res in enumerate(muted, start=0):
-                        unmuted += f"`[{num+1}]` {res}\n"
+                        unmuted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(unmuted)
                     self.bot.dispatch('unmute', ctx.guild, ctx.author, success_unmute, reason)
                 if muted and notmuted:
                     unmuted += _("**I've successfully unmuted {0} member(s):**\n").format(success)
                     not_muted += _("**However, I failed to unmute the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(muted, start=0):
-                        unmuted += f"`[{num+1}]` {res}\n"
+                        unmuted += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(notmuted, start=0):
-                        not_muted += f"`[{num+1}]` {res}\n"
+                        not_muted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(unmuted + not_muted)
                     self.bot.dispatch('unmute', ctx.guild, ctx.author, success_unmute, reason)
                 if not muted and notmuted:
                     not_muted += _("**I failed to unmute all the members:**\n")
                     for num, res in enumerate(notmuted, start=0):
-                        not_muted += f"`[{num+1}]` {res}\n"
+                        not_muted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_muted)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
+
+    @commands.command(brief=_("Untimeout member(s) in the server"))
+    @moderator(moderate_members=True)
+    @commands.guild_only()
+    @commands.bot_has_permissions(moderate_members=True)
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    @locale_doc
+    async def untimeout(self, ctx, members: commands.Greedy[discord.Member], *, reason: commands.clean_content = None):  # sourcery no-metrics
+        _(""" Untimeouts member(s) in the server
+            If multiple members are provided, all of them will get unmuted. """)
+
+        if len(set(members)) == 0:
+            return await ctx.send(_("{0} | You're missing an argument - **members**").format(
+                self.bot.settings['emojis']['misc']['warn']
+            ))
+
+        if reason and len(reason) > 450:
+            return await ctx.send(_("{0} Reason can only be 450 characters long."
+                                    " You're {1} characters over.").format(
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
+
+        if len(set(members)) > 15:
+            return await ctx.send(_("{0} | You can only unmute 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
+
+        if len(set(members)) != 0:
+            notmuted, muted, success_unmute, fail, success = [], [], [], 0, 0
+            for member in set(members):
+                if member == ctx.author:
+                    notmuted.append(_("{0} ({1}) - **You are the member though?**").format(
+                        member.mention, member.id
+                    ))
+                    fail += 1
+                    continue
+                if member.top_role.position >= ctx.guild.me.top_role.position:
+                    notmuted.append(_("{0} ({1}) - **Member is above me in the role hierarchy, or they have the same role**").format(
+                        member.mention, member.id
+                    ))
+                    fail += 1
+                    continue
+                elif member.top_role.position >= ctx.author.top_role.position:
+                    notmuted.append(_("{0} ({1}) - **Member is above you in the role hierarchy or has the same role**").format(
+                        member.mention, member.id
+                    ))
+                    fail += 1
+                    continue
+                if not member.timed_out:
+                    notmuted.append(_("{0} ({1}) - **Member doesn't seem to be timed out.**").format(
+                        member.mention, member.id
+                    ))
+                    fail += 1
+                    continue
+                try:
+                    await member.edit(timeout_until=None, reason=default.responsible(ctx.author, reason))
+                    muted.append(f"{member.mention} ({member.id})")
+                    success += 1
+                    success_unmute.append(member)
+                except Exception as e:
+                    notmuted.append(_("{0} ({1}) - **Something failed while trying to untimeout.**").format(
+                        member.mention, member.id
+                    ))
+                    fail += 1
+                    continue
+
+            try:
+                unmuted, not_muted = "", ""
+                if muted and not notmuted:
+                    unmuted += _("**I've successfully untimedout {0} member(s):**\n").format(success)
+                    for num, res in enumerate(muted, start=0):
+                        unmuted += f"`[{num + 1}]` {res}\n"
+                    await ctx.send(unmuted)
+                    self.bot.dispatch('untimeout', ctx.guild, ctx.author, success_unmute, reason)
+                if muted and notmuted:
+                    unmuted += _("**I've successfully untimedout {0} member(s):**\n").format(success)
+                    not_muted += _("**However, I failed to untimeout the following {0} member(s):**\n").format(fail)
+                    for num, res in enumerate(muted, start=0):
+                        unmuted += f"`[{num + 1}]` {res}\n"
+                    for num, res in enumerate(notmuted, start=0):
+                        not_muted += f"`[{num + 1}]` {res}\n"
+                    await ctx.send(unmuted + not_muted)
+                    self.bot.dispatch('untimeout', ctx.guild, ctx.author, success_unmute, reason)
+                if not muted and notmuted:
+                    not_muted += _("**I failed to untimeout all the members:**\n")
+                    for num, res in enumerate(notmuted, start=0):
+                        not_muted += f"`[{num + 1}]` {res}\n"
+                    await ctx.send(not_muted)
+            except Exception as e:
+                self.bot.dispatch('silent_error', ctx, e)
+                return await ctx.send(_("{0} Something failed with sending the message, "
+                                        "I've sent this error to my developers and they should hopefully resolve it soon.").format(
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Voice mute member in the server"), aliases=['vmute'])
     @moderator(mute_members=True)
@@ -1010,8 +1204,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only voice mute 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -1056,29 +1250,29 @@ class moderation(commands.Cog, name='Moderation'):
                 if voice_muted and not notmuted:
                     vmuted += _("**I've successfully voice muted {0} member(s):**\n").format(success)
                     for num, res in enumerate(voice_muted, start=0):
-                        vmuted += f"`[{num+1}]` {res}\n"
+                        vmuted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(vmuted)
                     self.bot.dispatch('voice_mute', ctx.guild, ctx.author, success_vmute, reason)
                 if voice_muted and notmuted:
                     vmuted += _("**I've successfully voice muted {0} member(s):**\n").format(success)
                     not_muted += _("**However, I failed to voice mute the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(voice_muted, start=0):
-                        vmuted += f"`[{num+1}]` {res}\n"
+                        vmuted += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(notmuted, start=0):
-                        not_muted += f"`[{num+1}]` {res}\n"
+                        not_muted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(vmuted + not_muted)
                     self.bot.dispatch('voice_mute', ctx.guild, ctx.author, success_vmute, reason)
                 if not voice_muted and notmuted:
                     not_muted += _("**I failed to voice mute all the members:**\n")
                     for num, res in enumerate(notmuted, start=0):
-                        not_muted += f"`[{num+1}]` {res}\n"
+                        not_muted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_muted)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Voice unmute member in the server"), aliases=['vunmute'])
     @moderator(mute_members=True)
@@ -1101,8 +1295,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only voice unmute 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -1143,29 +1337,29 @@ class moderation(commands.Cog, name='Moderation'):
                 if voice_unmuted and not notmuted:
                     vunmuted += _("**I've successfully voice unmuted {0} member(s):**\n").format(success)
                     for num, res in enumerate(voice_unmuted, start=0):
-                        vunmuted += f"`[{num+1}]` {res}\n"
+                        vunmuted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(vunmuted)
                     self.bot.dispatch('voice_unmute', ctx.guild, ctx.author, success_unvmute, reason)
                 if voice_unmuted and notmuted:
                     vunmuted += _("**I've successfully voice unmuted {0} member(s):**\n").format(success)
                     not_muted += _("**However I failed to voice unmute the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(voice_unmuted, start=0):
-                        vunmuted += f"`[{num+1}]` {res}\n"
+                        vunmuted += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(notmuted, start=0):
-                        not_muted += f"`[{num+1}]` {res}\n"
+                        not_muted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(vunmuted + not_muted)
                     self.bot.dispatch('voice_unmute', ctx.guild, ctx.author, success_unvmute, reason)
                 if not voice_unmuted and notmuted:
                     not_muted += _("**I failed to voice unmute all the members:**\n")
                     for num, res in enumerate(notmuted, start=0):
-                        not_muted += f"`[{num+1}]` {res}\n"
+                        not_muted += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_muted)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Warn a member"), aliases=['addwarn', 'strike'])
     @moderator(manage_messages=True)
@@ -1186,8 +1380,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only warn 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -1233,29 +1427,29 @@ class moderation(commands.Cog, name='Moderation'):
                 if warned and not failed:
                     warn += _("**I've successfully warned {0} member(s):**\n").format(success)
                     for num, res in enumerate(warned, start=0):
-                        warn += f"`[{num+1}]` {res}\n"
+                        warn += f"`[{num + 1}]` {res}\n"
                     await ctx.send(warn)
                     self.bot.dispatch('warn', ctx.guild, ctx.author, success_warn, reason)
                 if warned and failed:
                     warn += _("**I've successfully warned {0} member(s):**\n").format(success)
                     not_warned += _("**However I failed to warn the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(warned, start=0):
-                        warn += f"`[{num+1}]` {res}\n"
+                        warn += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(failed, start=0):
-                        not_warned += f"`[{num+1}]` {res}\n"
+                        not_warned += f"`[{num + 1}]` {res}\n"
                     await ctx.send(warn + not_warned)
                     self.bot.dispatch('warn', ctx.guild, ctx.author, success_warn, reason)
                 if not warned and failed:
                     not_warned += _("**I failed to warn all the members:**\n")
                     for num, res in enumerate(failed, start=0):
-                        not_warned += f"`[{num+1}]` {res}\n"
+                        not_warned += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_warned)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.group(aliases=['clear', 'delete', 'prune'], brief=_("Manage messages in the chat"), invoke_without_command=True)
     @commands.guild_only()
@@ -1273,6 +1467,7 @@ class moderation(commands.Cog, name='Moderation'):
             if not m.pinned:
                 return True
             return False
+
         await self.do_removal(ctx, search, pins)
 
     @purge.command(brief=_("Purge all the messages"))
@@ -1490,8 +1685,8 @@ class moderation(commands.Cog, name='Moderation'):
             self.bot.dispatch('silent_error', ctx, e)
             return await ctx.send(_("{0} Something failed with sending the message, "
                                     "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                self.bot.settings['emojis']['misc']['warn']
+            ))
 
     @commands.command(brief=_("Freeze the server"), aliases=['freeze-server'])
     @moderator(manage_roles=True)
@@ -1596,8 +1791,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only add a role to 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -1657,27 +1852,27 @@ class moderation(commands.Cog, name='Moderation'):
                 if added and not notadded:
                     addedrole += _("**I've successfully added a role to {0} member(s):**\n").format(success)
                     for num, res in enumerate(added, start=0):
-                        addedrole += f"`[{num+1}]` {res}\n"
+                        addedrole += f"`[{num + 1}]` {res}\n"
                     await ctx.send(addedrole)
                 if added and notadded:
                     addedrole += _("**I've successfully added a role to {0} member(s):**\n").format(success)
                     not_added += _("**However, I failed to add the role to the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(added, start=0):
-                        addedrole += f"`[{num+1}]` {res}\n"
+                        addedrole += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(notadded, start=0):
-                        not_added += f"`[{num+1}]` {res}\n"
+                        not_added += f"`[{num + 1}]` {res}\n"
                     await ctx.send(addedrole + not_added)
                 if not added and notadded:
                     not_added += _("**I failed to add a role to all the members:**\n")
                     for num, res in enumerate(notadded, start=0):
-                        not_added += f"`[{num+1}]` {res}\n"
+                        not_added += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_added)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Remove a role to member(s)"), aliases=['rrole', 'removerole'], name='remove-role')
     @moderator(manage_roles=True)
@@ -1695,8 +1890,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         if len(set(members)) > 15:
             return await ctx.send(_("{0} | You can only remove a role from 15 members at once.").format(self.bot.settings['emojis']['misc']['warn']))
@@ -1750,27 +1945,27 @@ class moderation(commands.Cog, name='Moderation'):
                 if removed and not notremoved:
                     rrole += _("**I've successfully removed a role from {0} member(s):**\n").format(success)
                     for num, res in enumerate(removed, start=0):
-                        rrole += f"`[{num+1}]` {res}\n"
+                        rrole += f"`[{num + 1}]` {res}\n"
                     await ctx.send(rrole)
                 if removed and notremoved:
                     rrole += _("**I've successfully removed a role from {0} member(s):**\n").format(success)
                     not_removed += _("**However, I failed to remove the role from the following {0} member(s):**\n").format(fail)
                     for num, res in enumerate(removed, start=0):
-                        rrole += f"`[{num+1}]` {res}\n"
+                        rrole += f"`[{num + 1}]` {res}\n"
                     for num, res in enumerate(notremoved, start=0):
-                        not_removed += f"`[{num+1}]` {res}\n"
+                        not_removed += f"`[{num + 1}]` {res}\n"
                     await ctx.send(rrole + not_removed)
                 if not removed and notremoved:
                     not_removed += _("**I failed to remove a role from all the members:**\n")
                     for num, res in enumerate(notremoved, start=0):
-                        not_removed += f"`[{num+1}]` {res}\n"
+                        not_removed += f"`[{num + 1}]` {res}\n"
                     await ctx.send(not_removed)
             except Exception as e:
                 self.bot.dispatch('silent_error', ctx, e)
                 return await ctx.send(_("{0} Something failed with sending the message, "
                                         "I've sent this error to my developers and they should hopefully resolve it soon.").format(
-                                        self.bot.settings['emojis']['misc']['warn']
-                                    ))
+                    self.bot.settings['emojis']['misc']['warn']
+                ))
 
     @commands.command(brief=_("Edit a reason of a case"), aliases=['editcase', 'editreason'])
     @moderator(manage_messages=True)
@@ -1805,8 +2000,8 @@ class moderation(commands.Cog, name='Moderation'):
         if new_reason and len(new_reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(new_reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(new_reason) - 450
+            ))
 
         if last_cases:
             total_cases = cm.get(self.bot, 'case_num', ctx.guild.id)
@@ -1884,8 +2079,8 @@ class moderation(commands.Cog, name='Moderation'):
         if reason and len(reason) > 450:
             return await ctx.send(_("{0} Reason can only be 450 characters long."
                                     " You're {1} characters over.").format(
-                                        self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
-                                    ))
+                self.bot.settings['emojis']['misc']['warn'], len(reason) - 450
+            ))
 
         case_check = await self.bot.db.fetch("SELECT * FROM modlog WHERE guild_id = $1 AND case_num = $2", ctx.guild.id, case_id)
 
@@ -1904,8 +2099,8 @@ class moderation(commands.Cog, name='Moderation'):
         if not channel:
             await ctx.send(_("{0} Case `#{1}` was successfuly deleted, but I was unable to send a log message to "
                              "the logging channel in which case was logged. *It was most likely deleted*").format(
-                                 self.bot.settings['emojis']['misc']['white-mark'], case_id
-                             ))
+                self.bot.settings['emojis']['misc']['white-mark'], case_id
+            ))
         else:
             message = _("{0} Case `#{1}` was successfully deleted.").format(
                 self.bot.settings['emojis']['misc']['white-mark'], case_id

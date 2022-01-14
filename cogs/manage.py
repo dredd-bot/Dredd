@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -1446,11 +1446,11 @@ class Manage(commands.Cog, name='Management'):
                 return await ctx.send(_("{0} The role you're trying to set as the mute role has the send messages permission.\n"
                                         "You can only set up roles without the send messages permission.").format(self.bot.settings['emojis']['misc']['warn']))
             if not mute_role:
-                await self.bot.db.execute("INSERT INTO muterole(guild_id, role_id) VALUES($1, $2)", ctx.guild.id, arg.id)
+                await self.bot.db.execute("INSERT INTO muterole(guild_id, role) VALUES($1, $2)", ctx.guild.id, arg.id)
                 self.bot.mute_role[ctx.guild.id] = arg.id
                 await ctx.send(_("{0} Set the muted role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
             else:
-                await self.bot.db.execute("UPDATE muterole SET role_id = $1 WHERE guild_id = $2", arg.id, ctx.guild.id)
+                await self.bot.db.execute("UPDATE muterole SET role = $1 WHERE guild_id = $2", arg.id, ctx.guild.id)
                 self.bot.mute_role[ctx.guild.id] = arg.id
                 await ctx.send(_("{0} Updated the muted role to {1}").format(self.bot.settings['emojis']['misc']['white-mark'], arg.mention))
 
@@ -1550,6 +1550,9 @@ class Manage(commands.Cog, name='Management'):
             return await ctx.send(_("{0} {1} command was not found.").format(
                 self.bot.settings['emojis']['misc']['warn'], command
             ))
+
+        if cmd.qualified_name in ['disable-command', 'disable-category']:
+            return await ctx.send(_("{0} You can't disable that command!").format(self.bot.settings['emojis']['misc']['warn']))
 
         if await is_guild_disabled(ctx, cmd):
             return await ctx.send(_("{0} That command is already disabled.").format(self.bot.settings['emojis']['misc']['warn']))

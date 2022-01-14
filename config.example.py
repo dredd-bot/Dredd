@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -68,6 +68,8 @@ DREDD_API_CLIENT = ""
 SENTRY = ""
 
 PHISHING = ""
+
+WEBSOCKET = ('', '', '', 12345)
 
 # PSQL
 DB_CONN_INFO = {

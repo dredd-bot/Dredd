@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -39,7 +39,7 @@ class staff(commands.Cog, name="Staff", command_attrs={"slash_command": False}):
         return True
 
     async def verify_type(self, ctx, thing: Union[discord.User, discord.Guild, int]) -> Union[discord.User, discord.Guild, int]:
-        if isinstance(thing, discord.User) or isinstance(thing, discord.Guild):
+        if isinstance(thing, (discord.User, discord.Guild)):
             return thing
         elif isinstance(thing, int):
             try:

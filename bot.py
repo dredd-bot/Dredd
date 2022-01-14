@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -23,12 +23,14 @@ import psutil
 import sr_api
 import traceback
 import logging
+import websockets
+import json
 import async_cleverbot as ac
 
 from discord.ext import commands
 
 from db.cache import LoadCache, CacheManager, DreddUser, DreddGuild, Database as postgres, ReactionRoles
-from utils import i18n
+from utils import i18n, default
 from collections import Counter
 from typing import Optional, Union, Any
 from utils.checks import is_disabled
@@ -49,13 +51,28 @@ async def run():
     bot = Bot(description=description, db=db)
     if not hasattr(bot, 'uptime'):
         bot.uptime = discord.utils.utcnow()
+
+    async def start_websocket():
+        username, password, realm, port = config.WEBSOCKET
+        async with websockets.serve(
+            bot.handle_websocket,
+            "localhost",
+            port,
+            create_protocol=websockets.basic_auth_protocol_factory(
+                realm=realm, credentials=(username, password)
+            ),
+        ):
+            await asyncio.Future()
+
+    bot.keep_alive = bot.loop.create_task(start_websocket())
+
     try:
         dredd_logger.info("[CACHE] Loading cache.")
         await LoadCache.start(bot)  # type: ignore
         bot.session = aiohttp.ClientSession(loop=bot.loop)
         dredd_logger.info("[BOT] Starting bot.")
-        # await bot.start(config.DISCORD_TOKEN)
-        await bot.start(config.MAIN_TOKEN)
+        await bot.start(config.DISCORD_TOKEN)
+        # await bot.start(config.MAIN_TOKEN)
     except KeyboardInterrupt as e:
         dredd_logger.error(f"[Shutting Down] Occured while booting up: {e}.")
         await db.close()
@@ -252,6 +269,27 @@ class Bot(commands.AutoShardedBot):
 
     def get(self, k, default=None):
         return super().get(k.lower(), default)
+
+    async def handle_websocket(self, connection: websockets.WebSocketClientProtocol):
+        if not self.is_ready():
+            await connection.send(json.dumps({"error": "NOT_READY"}))
+        else:
+            try:
+                async for message in connection:
+                    jsonified = json.loads(message)
+                    event = jsonified.get("event")
+                    if event == "GET_GUILD":
+                        data = default.handle_request(self, jsonified["data"])
+                        await connection.send(data)
+                    elif event == "UPDATE_GUILD":
+                        await default.handle_update(self, jsonified["data"])
+                        print("done")
+                    else:
+                        await connection.send("Unknown code.")
+            except websockets.ConnectionClosed:
+                return
+            except Exception as e:
+                await connection.send(json.dumps({"error": e}))
 
     async def close(self) -> None:
         dredd_logger.info("[BOT] Shutting down.")

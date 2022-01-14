@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -53,10 +53,11 @@ CHANGE_LOG = {
     'V3.2.2': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/870632443353374730',
     'V3.2.3': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/881518906894848031',
     'V3.3.0': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/904694808323424398',
-    'V3.3.1': ''
+    'V3.3.1': 'https://canary.discord.com/channels/671078170874740756/699741816685330462/921862200862343178',
+    'V3.3.2 [LAST]': ''
 }
 
-version = '3.3.1'
+version = '3.3.2 [LAST]'
 most_recent = CHANGE_LOG["V" + version]
 
 

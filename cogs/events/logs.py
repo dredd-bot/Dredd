@@ -1,6 +1,6 @@
 """
 Dredd, discord bot
-Copyright (C) 2021 Moksej
+Copyright (C) 2022 Moksej
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
 by the Free Software Foundation, either version 3 of the License, or
@@ -370,8 +370,8 @@ class Logging(commands.Cog):
         embed.title = f"{self.bot.settings['emojis']['logs']['guildedit']}"
         if before.icon.url != after.icon.url:
             embed.title += _(" Guild icon changed")
-            embed.description = _("**Before:** [Click here]({0})\n**After:** [Click here]({1})").format(before.icon_url, after.icon_url)
-            embed.set_thumbnail(url=after.icon_url)
+            embed.description = _("**Before:** [Click here]({0})\n**After:** [Click here]({1})").format(before.icon.url, after.icon.url)
+            embed.set_thumbnail(url=after.icon.url)
             try:
                 await channels.send(embed=embed)
                 await logging.new_log(self.bot, time(), 7, 1)
@@ -632,7 +632,7 @@ class Logging(commands.Cog):
         embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) banned").format(self.bot.settings['emojis']['logs']['ban'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list),
-                                                                                                          _("\n**Duration:** {0}").format(times) if times else '',
+                                                                                                          _("\n**Duration:** {0}").format(f"{times} {btime.discord_time_format(duration.dt, 'R')}") if times else '',
                                                                                                           mod, mod.id, reason)
         embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
@@ -763,7 +763,7 @@ class Logging(commands.Cog):
         embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
         embed.title = _("{0} {1} Member(s) muted").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
         embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list),
-                                                                                                          _("\n**Duration:** {0}").format(times) if times else '',
+                                                                                                          _("\n**Duration:** {0}").format(f"{times} {btime.discord_time_format(duration.dt, 'R')}") if times else '',
                                                                                                           mod, mod.id, reason)
         embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
 
@@ -773,6 +773,41 @@ class Logging(commands.Cog):
             await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`mute members (manual)`', e, guild, log_channel)
+
+    @commands.Cog.listener()
+    async def on_timeout(self, guild, mod, members, duration, reason, created_at):
+        moderation = CM.get(self.bot, 'moderation', guild.id)
+        case = CM.get(self.bot, 'case_num', guild.id)
+        if not moderation:
+            return
+        log_channel = self.bot.get_channel(moderation)
+        times = duration.dt if isinstance(duration, btime.FutureTime) else duration
+        times = btime.human_timedelta(times, source=created_at, suffix=None) if duration else None
+        reason = reason or "No reason"
+
+        ban_list = []
+        query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
+        await self.bot.db.execute(query, guild.id, case or 0)
+        if not case:
+            self.bot.case_num[guild.id] = 1
+        for num, member in enumerate(members, start=1):
+            ban_list.append(f"`[{num}]` {member} ({member.id})")
+            await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 4, reason)
+
+        embed = discord.Embed(color=self.bot.settings['colors']['kick_color'], timestamp=datetime.now(timezone.utc))
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
+        embed.title = _("{0} {1} Member(s) timed out").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
+        embed.description = _("**Member(s):**\n{0}{1}\n**Moderator:** {2} ({3})\n**Reason:** {4}").format("\n".join(ban_list),
+                                                                                                          _("\n**Duration:** {0}").format(f"{times} {btime.discord_time_format(duration.dt, 'R')}") if times else '',
+                                                                                                          mod, mod.id, reason)
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
+
+        try:
+            message = await log_channel.send(embed=embed)
+            await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
+        except Exception as e:
+            await default.background_error(self, '`timeout members`', e, guild, log_channel)
 
     @commands.Cog.listener()
     async def on_warn(self, guild, mod, members, reason):
@@ -871,6 +906,38 @@ class Logging(commands.Cog):
             await logging.new_log(self.bot, time(), 7, 1)
         except Exception as e:
             await default.background_error(self, '`unmute members (manual)`', e, guild, log_channel)
+
+    @commands.Cog.listener()
+    async def on_untimeout(self, guild, mod, members, reason):
+        moderation = CM.get(self.bot, 'moderation', guild.id)
+        case = CM.get(self.bot, 'case_num', guild.id)
+        if not moderation:
+            return
+        log_channel = self.bot.get_channel(moderation)
+        reason = reason or "No Reason"
+
+        unmute_list = []
+        query = 'INSERT INTO cases(guild_id, case_num) VALUES($1, $2) ON CONFLICT (guild_id) DO NOTHING'
+        await self.bot.db.execute(query, guild.id, case or 0)
+        if not case:
+            self.bot.case_num[guild.id] = 1
+        for num, member in enumerate(members, start=1):
+            unmute_list.append(f"`[{num}]` {member} ({member.id})")
+            await self.insert_new_case(mod.id, log_channel.id, case, member.id, guild.id, 7, reason)
+
+        embed = discord.Embed(color=self.bot.settings['colors']['approve_color'], timestamp=datetime.now(timezone.utc))
+        embed.set_author(name=mod, icon_url=mod.avatar.url if mod.avatar else mod.display_avatar.url, url=f'https://discord.com/users/{mod.id}')
+        embed.title = _("{0} {1} Member(s) untimedout").format(self.bot.settings['emojis']['logs']['memberedit'], len(members))
+        embed.description = _("**Member(s):**\n{0}\n**Moderator:** {1} ({2})\n**Reason:** {3}").format("\n".join(unmute_list),
+                                                                                                       mod, mod.id, reason)
+        embed.set_footer(text=_("Case ID: #{0}").format(case or 1))
+
+        try:
+            message = await log_channel.send(embed=embed)
+            await self.update_old_case(message.id, guild.id, case)
+            await logging.new_log(self.bot, time(), 7, 1)
+        except Exception as e:
+            await default.background_error(self, '`untimeout members`', e, guild, log_channel)
 
     @commands.Cog.listener()
     async def on_member_kick(self, guild, user):
