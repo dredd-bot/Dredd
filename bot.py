@@ -56,7 +56,7 @@ async def run():
         username, password, realm, port = config.WEBSOCKET
         async with websockets.serve(
             bot.handle_websocket,
-            "localhost",
+            "127.0.0.1",
             port,
             create_protocol=websockets.basic_auth_protocol_factory(
                 realm=realm, credentials=(username, password)
