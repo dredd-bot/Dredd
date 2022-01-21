@@ -416,7 +416,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         jpg = banner.with_format('jpg').url
         webp = banner.with_format('webp').url
         embed.description = _("[png]({0}) | [jpg]({1}) | [webp]({2})").format(png, jpg, webp)
-        embed.set_image(url=banner.with_format('png').url)
+        embed.set_image(url=banner.url if banner._animated else banner.with_format('png').url)
         await ctx.send(embed=embed)
 
     @commands.command(name='support', brief=_("Get a link to bot's support server"))
