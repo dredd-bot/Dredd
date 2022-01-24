@@ -485,7 +485,7 @@ Dredd is a bot that will help your server with moderation, provide fun to your m
         dutchy = await self.bot.fetch_user(171539705043615744)
         zenpa = await self.bot.fetch_user(373863656607318018)
         contribs.append(f"• {dutchy.name}#{dutchy.discriminator}")
-        designers.append(f"• **{zenpa}**\n╠ {ctx.bot.settings['emojis']['social']['discord']} [Discord Server](https://discord.gg/A6p9tep)\n"
+        designers.append(f"• **{zenpa}**\n╠ {ctx.bot.settings['emojis']['social']['discord']} [Discord Server](https://discord.gg/dsvuYVME9f)\n"
                          f"╚ {ctx.bot.settings['emojis']['social']['instagram']} [Instagram](https://www.instagram.com/donatas.an/)")
 
         e = discord.Embed(color=self.bot.settings['colors']['embed_color'])
