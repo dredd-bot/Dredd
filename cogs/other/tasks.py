@@ -100,7 +100,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                             await guild.unban(user, reason='Auto Unban')
                             self.bot.to_unban[guild.id]['users'].append(user)
         except Exception as e:
-            print(print_color.RED, "[AUTO UNBAN] - {e}")
+            print(print_color.RED, f"[AUTO UNBAN] - {e}")
 
     @tasks.loop(seconds=1)
     async def temp_mute(self):
@@ -126,7 +126,7 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
                         if member:
                             self.bot.to_unmute[guild.id]['users'].append(member)
         except Exception as e:
-            print(print_color.RED, "[AUTO UNMUTE] - {e}")
+            print(print_color.RED, f"[AUTO UNMUTE] - {e}")
 
     @tasks.loop(seconds=10)
     async def dispatch_unmute(self):
