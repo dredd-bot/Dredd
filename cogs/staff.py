@@ -78,7 +78,7 @@ class staff(commands.Cog, name="Staff", command_attrs={"slash_command": False}):
         blacklist: Blacklist = data.blacklist
         owner_id = guild_name = guild = msg = None
         if isinstance(thing, discord.Guild):
-            owner_id = thing.owner, thing.owner.id
+            owner_id = thing.owner.id
             guild, guild_name = thing, thing.name
         if blacklist and int(blacklist.type) in [type, 2, 3]:
             return await ctx.send(f"Seems like **{thing}** is already blacklisted. Type: {BlacklistEnum(int(blacklist.type))}")
