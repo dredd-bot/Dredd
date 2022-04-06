@@ -343,6 +343,9 @@ class AutomodEvents(commands.Cog, name='AutomodEvents'):
             result = await validation.json()
             if result.get("match") is False:
                 return
+            matches = result.get("matches")
+            if matches and matches[0].get("trust_rating") <= 0.5:  # Avoid false positives.
+                return
             
             await message.delete()  # delete the message
             await self.execute_punishment(4, message, reason)  # ban
