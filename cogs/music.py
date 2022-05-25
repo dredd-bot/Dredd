@@ -123,7 +123,7 @@ class Player(wavelink.Player):
                     with async_timeout.timeout(300):
                         track = await self.queue.get()
                         if track.id == "spotify":
-                            spotify_track = await self.context.bot.wavelink.get_tracks(query=f"ytsearch:{track.title} {track.author} audio")
+                            spotify_track = await self.context.bot.wavelink.get_tracks(query=f"ytmsearch:{track.title} {track.author} audio")
                             track = Track(spotify_track[0].id, spotify_track[0].info, requester=track.requester)
                 except asyncio.exceptions.TimeoutError:
                     # No music has been played for 5 minutes, cleanup and disconnect...
@@ -135,7 +135,7 @@ class Player(wavelink.Player):
                     self.queue._queue.appendleft(track)  # type: ignore
                 else:
                     if track.id == "spotify":
-                        spotify_track = await self.context.bot.wavelink.get_tracks(query=f"ytsearch:{track.title} {track.author} audio")
+                        spotify_track = await self.context.bot.wavelink.get_tracks(query=f"ytmsearch:{track.title} {track.author} audio")
                         track = Track(spotify_track[0].id, spotify_track[0].info, requester=track.requester)
                     await self.queue.put(track)
 
@@ -372,7 +372,7 @@ class Music(commands.Cog):
 
             query = query.strip('<>')
             if not RURL.match(query) and not SPOTIFY_RURL.match(query):
-                query = f'ytsearch:{query}'
+                query = f'ytmsearch:{query}'
             elif SPOTIFY_RURL.match(query):
                 url_check = SPOTIFY_RURL.match(query)
                 search_type = url_check.group('type')
@@ -434,7 +434,7 @@ class Music(commands.Cog):
         if RURL.match(query):
             return await ctx.send(_("{0} If you have the URL of the song might as well use the `play` command.").format(self.bot.settings['emojis']['misc']['warn']))
 
-        tracks = await self.bot.wavelink.get_tracks(query=f"ytsearch:{query}")
+        tracks = await self.bot.wavelink.get_tracks(query=f"ytmsearch:{query}")
         if not tracks:
             return await ctx.send(_('No songs were found with that query. Please try again.'), delete_after=15)
 
