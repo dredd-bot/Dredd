@@ -185,23 +185,28 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
 
     @tasks.loop(hours=6)
     async def backups(self):
-        name = datetime.now().__format__("%d%m%y-%H:%M")
-        SHELL = os.getenv("SHELL") or "/bin/bash"
-        sequence = [SHELL, '-c', """pg_dump -U dredd -h localhost "dredd v3" > "backups/{0}.sql" """.format(name)]
-        subprocess.Popen(sequence, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        content = 'Backup created on {0}'.format(name)
-        receiver = self.bot.config.BACKUP_RECEIVER
-        ch = self.bot.get_channel(679647378210291832)
-        await asyncio.sleep(5)
-        with open(f'backups/{name}.sql', 'r', encoding='utf8') as f:
-            backup = f.read()
+        try:
+            name = datetime.now().__format__("%d%m%y-%H:%M")
+            SHELL = os.getenv("SHELL") or "/bin/bash"
+            sequence = [SHELL, '-c', """pg_dump -U dredd -h localhost "dredd v3" > "backups/{0}.sql" """.format(name)]
+            subprocess.Popen(sequence, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            content = 'Backup created on {0}'.format(name)
+            receiver = self.bot.config.BACKUP_RECEIVER
+            ch = self.bot.get_channel(679647378210291832)
+            await asyncio.sleep(5)
+            with open(f'backups/{name}.sql', 'r', encoding='utf8') as f:
+                backup = f.read()
 
-        backup = BytesIO(backup.encode('utf8'))
-        if not backup:
-            return await ch.send(f"{self.bot.get_user(345457928972533773).mention} Backup `{name}.sql` is empty!", allowed_mentions=discord.AllowedMentions(users=True))
-        await self.client.send(receiver, content, subject="Database Backup", attachment_bytes=backup.read(), attachment_name=f"{name}.sql")
-        await logger.new_log(self.bot, time(), 10, 1)
-        return await ch.send(f"Created backup `{name}.sql`")
+            backup = BytesIO(backup.encode('utf8'))
+            if not backup:
+                return await ch.send(f"{self.bot.get_user(345457928972533773).mention} Backup `{name}.sql` is empty!", allowed_mentions=discord.AllowedMentions(users=True))
+            await self.client.send(receiver, content, subject="Database Backup", attachment_bytes=backup.read(), attachment_name=f"{name}.sql")
+            await logger.new_log(self.bot, time(), 10, 1)
+            return await ch.send(f"Created backup `{name}.sql`")
+        except Exception as error:
+            dredd_logger.critical(f"[BACKUP] Failed to create backup - {error}")
+            ch = self.bot.get_channel(679647378210291832)
+            await ch.send(f"{self.bot.get_user(345457928972533773).mention} Backup failed to create for - `{error}`", allowed_mentions=discord.AllowedMentions(users=True))
 
     @tasks.loop(hours=24)
     async def delete_nicknames(self):
