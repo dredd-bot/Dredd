@@ -83,22 +83,25 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
     async def temp_ban(self):
         try:
             for result in self.bot.temp_bans:
-                check = cm.get(self.bot, 'temp_bans', result)
-                if check:
-                    now = datetime.utcnow()
-                    the_time = check['time']
-                    seconds = (the_time - now).total_seconds()
-                    if the_time and seconds <= 0:
-                        user = await self.bot.try_user(int(result.split(', ')[0]))
-                        guild = self.bot.get_guild(int(result.split(', ')[1]))
-                        mod = await self.bot.try_user(int(check['moderator']))
-                        to_disp = cm.get(self.bot, 'to_unban', guild.id)
-                        if not to_disp:
-                            self.bot.to_unban[guild.id] = {'users': [], 'mod': mod}
-                        await default.execute_untemporary(self, 2, user, guild)
-                        with suppress(NotFound):
-                            await guild.unban(user, reason='Auto Unban')
-                            self.bot.to_unban[guild.id]['users'].append(user)
+                try:
+                    check = cm.get(self.bot, 'temp_bans', result)
+                    if check:
+                        now = datetime.utcnow()
+                        the_time = check['time']
+                        seconds = (the_time - now).total_seconds()
+                        if the_time and seconds <= 0:
+                            user = await self.bot.try_user(int(result.split(', ')[0]))
+                            guild = self.bot.get_guild(int(result.split(', ')[1]))
+                            mod = await self.bot.try_user(int(check['moderator']))
+                            to_disp = cm.get(self.bot, 'to_unban', guild.id)
+                            if not to_disp:
+                                self.bot.to_unban[guild.id] = {'users': [], 'mod': mod}
+                            await default.execute_untemporary(self, 2, user, guild)
+                            with suppress(NotFound):
+                                await guild.unban(user, reason='Auto Unban')
+                                self.bot.to_unban[guild.id]['users'].append(user)
+                except Exception:
+                    self.temp_bans.pop(result, None)
         except Exception as e:
             print(print_color.RED, f"[AUTO UNBAN] - {e}")
 
@@ -106,25 +109,28 @@ class Tasks(commands.Cog, name="Tasks", command_attrs=dict(hidden=True)):
     async def temp_mute(self):
         try:
             for result in self.bot.temp_mutes:
-                check = cm.get(self.bot, 'temp_mutes', result)
-                if check:
-                    now = datetime.utcnow()
-                    the_time = check['time']
-                    seconds = (the_time - now).total_seconds()
-                    if the_time and seconds <= 0:
-                        user = await self.bot.try_user(int(result.split(', ')[0]))
-                        guild = self.bot.get_guild(int(result.split(', ')[1]))
-                        mod = await self.bot.try_user(int(check['moderator']))
-                        to_disp = cm.get(self.bot, 'to_unmute', guild.id)
-                        if not to_disp:
-                            self.bot.to_unmute[guild.id] = {'users': [], 'mod': mod}
-                        await default.execute_untemporary(self, 1, user, guild)
-                        role = guild.get_role(int(check['role']))
-                        member = guild.get_member(user.id)
-                        if role:
-                            await member.remove_roles(role, reason='Auto Unmute')
-                        if member:
-                            self.bot.to_unmute[guild.id]['users'].append(member)
+                try:
+                    check = cm.get(self.bot, 'temp_mutes', result)
+                    if check:
+                        now = datetime.utcnow()
+                        the_time = check['time']
+                        seconds = (the_time - now).total_seconds()
+                        if the_time and seconds <= 0:
+                            user = await self.bot.try_user(int(result.split(', ')[0]))
+                            guild = self.bot.get_guild(int(result.split(', ')[1]))
+                            mod = await self.bot.try_user(int(check['moderator']))
+                            to_disp = cm.get(self.bot, 'to_unmute', guild.id)
+                            if not to_disp:
+                                self.bot.to_unmute[guild.id] = {'users': [], 'mod': mod}
+                            await default.execute_untemporary(self, 1, user, guild)
+                            role = guild.get_role(int(check['role']))
+                            member = guild.get_member(user.id)
+                            if role:
+                                await member.remove_roles(role, reason='Auto Unmute')
+                            if member:
+                                self.bot.to_unmute[guild.id]['users'].append(member)
+                except Exception:
+                    self.temp_mutes.pop(result, None)
         except Exception as e:
             print(print_color.RED, f"[AUTO UNMUTE] - {e}")
 
