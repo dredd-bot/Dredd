@@ -1,4 +1,4 @@
-## As of January 15th 2022 Dredd will **NOT** be receiving any updates. Join [the support server](https://dreddbot.xyz/support) if you want to know more.
+### Dredd was officially shut down on August 31st, 2022 at 1PM Europe/Berlin time.
 
 # Dredd
 ### I would prefer that you don't clone the bot as it's for educational purposes only and to help me push bug fixes, but if you do want to clone it, instructions are below:
@@ -25,6 +25,6 @@
 
 #### **If you don't understand something, google it. Our support server _DOES NOT_ provide support for cloning Dredd.**
 
-#### If you want to chill, you can join [Dredd's Support Server](https://dreddbot.xyz/support), or if you have any questions, mail us at [support@dreddbot.xyz](mailto:support@dreddbot.xyz)
+#### If you want to chill, you can join [Dredd's Support Server](), or if you have any questions, mail us at [support@dreddbot.xyz](mailto:support@dreddbot.xyz)
 
 ##### Time spent creating Dredd v3: [![time tracker](https://wakatime.com/badge/github/dredd-bot/Dredd.svg)](https://wakatime.com/badge/github/dredd-bot/Dredd.svg)
