@@ -1,4 +1,7 @@
 ### Dredd was officially shut down on August 31st, 2022 at 1PM Europe/Berlin time.
+### Thank you for your support over the years!
+
+##### Join the [discord](https://discord.gg/f3MaASW) server to get latest news of the projects we'll be making in the future.
 
 # Dredd
 ### I would prefer that you don't clone the bot as it's for educational purposes only and to help me push bug fixes, but if you do want to clone it, instructions are below:
@@ -25,6 +28,5 @@
 
 #### **If you don't understand something, google it. Our support server _DOES NOT_ provide support for cloning Dredd.**
 
-#### If you want to chill, you can join [Dredd's Support Server](), or if you have any questions, mail us at [support@dreddbot.xyz](mailto:support@dreddbot.xyz)
-
 ##### Time spent creating Dredd v3: [![time tracker](https://wakatime.com/badge/github/dredd-bot/Dredd.svg)](https://wakatime.com/badge/github/dredd-bot/Dredd.svg)
+##### Dredd reached a total of 585 servers and nearly 500k users during the time it has been online.
